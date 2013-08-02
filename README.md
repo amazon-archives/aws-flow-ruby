@@ -12,7 +12,6 @@ For general information about the AWS Flow Framework for Ruby, including informa
 * [Flow Developer Guide](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/)
 * [Code Samples](http://aws.amazon.com/code/Amazon-SWF/3015904745387737)
 * [API Reference](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowapi/)
-* [Getting Started Video](http://foo.com)
 
 ## Install the AWS Flow Framework for Ruby
 
