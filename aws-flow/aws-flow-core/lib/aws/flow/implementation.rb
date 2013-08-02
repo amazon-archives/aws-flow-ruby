@@ -1,4 +1,4 @@
-##
+#--
 # Copyright 2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
@@ -11,7 +11,7 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-##
+#++
 
 # This file contains the externally visible parts of flow that are expected to be used by customers of flow
 module AWS
@@ -19,15 +19,14 @@ module AWS
     module Core
       class NoContextException < Exception; end
 
-
+      # @param block
+      #   The block of code to be executed when the task is run.
       #
+      # @raise [NoContextException]
+      #   If the current fiber does not respond to {#__context__}.
       #
-      # * *Args*    :
-      #   - block -> the block of code to be executed when the task is run
-      # * *Returns* :
-      #   - the tasks result, which is a Future
-      # * *Raises* :
-      #   - +NoContextException+ -> If the current fiber does not respond to #__context__
+      # @return [Future]
+      #   The tasks result, which is a {Future}.
       #
       def task(future = nil, &block)
         fiber = ::Fiber.current
@@ -40,13 +39,14 @@ module AWS
       end
 
       #
+      # @param block
+      #   The block of code to be executed when the daemon task is run.
       #
-      # * *Args*    :
-      #   - block -> the block of code to be executed when the daemon task is run
-      # * *Returns* :
-      #   - the tasks result, which is a Future
-      # * *Raises* :
-      #   - +NoContextException+ -> If the current fiber does not respond to #__context__
+      # @return [Future]
+      #   The tasks result, which is a {Future}.
+      #
+      # @raise [NoContextException]
+      #   If the current fiber does not respond to {#__context__}.
       #
       def daemon_task(&block)
         fiber = ::Fiber.current
@@ -59,13 +59,13 @@ module AWS
       end
 
       #
+      # @param block
+      #   The block of code to be executed when the external task is run.
       #
-      # * *Args*    :
-      #   - block -> the block of code to be executed when the external task is run
-      # * *Returns* :
-      #   - Doesn't make sense to return anything from an external task, so we return nil
-      # * *Raises* :
-      #   - +NoContextException+ -> If the current fiber does not respond to #__context__
+      # @return [nil]
+      #
+      # @raise [NoContextException]
+      #   If the current fiber does not respond to {#__context__}.
       #
       def external_task(&block)
         fiber = ::Fiber.current
@@ -76,6 +76,7 @@ module AWS
         context << t
         nil
       end
+
 
       #
       #
@@ -97,22 +98,14 @@ module AWS
         begin_rescue_ensure
       end
 
+      # @param block
+      #   A code block, which is passed within a {BeginRescueEnsureWrapper}, and which must define the
+      #   {BeginRescueEnsure#begin}, {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
+      # @!visibility private
       def _error_handler(&block)
         error_handler(&block).result
       end
 
-
-      #
-      #
-      # * *Args*    :
-      #   - *futures -> A list of futures, any of which being set will cause the function to return
-      # * *Returns* :
-      #   - list of set futures in the order of being set
-      # * *Raises* :
-      #   - +N/A+ ->
-      #
-      # blocks until any of the arguments are set
-      # returns list of set futures in the order of being set
 
       def wait_for_function(function, *futures)
         conditional = FiberConditionVariable.new
@@ -130,11 +123,26 @@ module AWS
         result
       end
 
+      # Blocks until *any* of the arguments are set.
+      #
+      # @param [Array] futures
+      #   A list of futures to wait for. The function will return when at least one of these is set.
+      #
+      # @return [Array]
+      #   A list of the set futures, in the order of being set.
+      #
       def wait_for_any(*futures)
         wait_for_function(lambda {|result, future_list| result.length >= 1 }, futures)
       end
 
-      # Same as wait_for_any, but will return only when they are all set
+      # Blocks until *all* of the arguments are set.
+      #
+      # @param [Array<Future>] futures
+      #   A list of futures to wait for. The function will return only when all of them are set.
+      #
+      # @return [Array]
+      #   A list of the set futures, in the order of being set.
+      #
       def wait_for_all(*futures)
         wait_for_function(lambda {|result, future_list| result.size == future_list.size}, futures)
       end

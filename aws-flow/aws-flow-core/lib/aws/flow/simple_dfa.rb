@@ -13,12 +13,20 @@
 # permissions and limitations under the License.
 ##
 
-# Contains a DFA-like framework , where the transition functions can also perform arbitrary computation before moving to the next state
 module AWS
   module Flow
     module Core
+
+      # Contains a Data Flow Analysis (DFA)-like framework, where transition functions can perform arbitrary computation
+      # before moving to the next state
       module SimpleDFA
         attr_accessor :transitions, :symbols, :states, :start_state
+
+        # Creates a new SimpleDFA instance.
+        #
+        # @param start_state
+        #   The state with which to start the framework.
+        #
         def init(start_state)
           include InstanceMethods
           @start_state = start_state
@@ -28,10 +36,16 @@ module AWS
           @states << start_state
         end
 
+        # @return the start state
+        #   The start state that was provided when this instance was created.
+        #
         def get_start_state
           @start_state
         end
 
+        # @return [Array]
+        #   The list of all transitions that were added with {#add_transition}.
+        #
         def get_transitions
           @transitions
         end

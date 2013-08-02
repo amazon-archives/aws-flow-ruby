@@ -91,6 +91,7 @@ module AWS
         @domain = domain
         @workflow_class = workflow_class
         @options = options
+        @failure_map = {}
         super
       end
 
@@ -205,6 +206,10 @@ module AWS
         options = Utilities::merge_all_options(@options, options)
         new_options = StartWorkflowOptions.new(options)
         open_request = OpenRequestInfo.new
+        workflow_id = new_options.workflow_id
+        run_id = @decision_context.workflow_context.decision_task.workflow_execution.run_id
+        workflow_id ||= @decision_helper.get_next_id(run_id.to_s + ":")
+        workflow_id_future.set(workflow_id)
         error_handler do |t|
           t.begin do
             @data_converter = new_options.data_converter
@@ -215,14 +220,12 @@ module AWS
               new_options.execution_method = @workflow_class.entry_point
             end
             raise "Can't find an execution method for workflow #{@workflow_class}" if new_options.execution_method.nil?
-            workflow_id = new_options.workflow_id
-            run_id = @decision_context.workflow_context.decision_task.workflow_execution.run_id
-            workflow_id ||= @decision_helper.get_next_id(run_id.to_s + ":")
-            workflow_id_future.set(workflow_id)
+
             attributes[:options] = new_options
             attributes[:workflow_id] = workflow_id
             # TODO Use ChildWorkflowOptions
-           attributes[:tag_list] = []
+            attributes[:tag_list] = []
+
             external_task do |external|
               external.initiate_task do |handle|
                 open_request.completion_handle = handle
@@ -231,6 +234,7 @@ module AWS
                 @decision_helper.scheduled_external_workflows[workflow_id.to_s] = open_request
                 @decision_helper[workflow_id.to_s] = ChildWorkflowDecisionStateMachine.new(workflow_id, attributes)
               end
+
               external.cancellation_handler do |handle, cause|
                 state_machine = @decision_helper[workflow_id.to_s]
                 if state_machine.current_state == :created
@@ -240,21 +244,26 @@ module AWS
                 state_machine.consume(:cancel)
               end
             end
+
             t.rescue(Exception) do |error|
               if error.is_a? ChildWorkflowFailedException
                 details = @data_converter.load(error.details)
                 error.details = details
                 error.cause = details
               end
-              raise error
+              @failure_map[workflow_id.to_s] = error
             end
             t.ensure do
               result = @data_converter.load open_request.result
               output.set(result)
+              raise @failure_map[workflow_id.to_s] if @failure_map[workflow_id.to_s] && new_options.return_on_start
             end
           end
         end
         return output if new_options.return_on_start
+        output.get
+        this_failure = @failure_map[workflow_id.to_s]
+        raise this_failure if this_failure
         return output.get
       end
 

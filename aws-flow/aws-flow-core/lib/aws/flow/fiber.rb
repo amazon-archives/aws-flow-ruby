@@ -18,11 +18,6 @@ module AWS
   module Flow
     module Core
       require 'fiber'
-
-      # TODO Consider setting up some finalizers, this is pretty trivially a
-      # memory leak(see
-      # http://coderrr.wordpress.com/2008/04/10/lets-stop-polluting-the-threadcurrent-hash/
-      # for similar problem)
       class FlowFiber < Fiber
         def initialize(*args)
           ObjectSpace.define_finalizer(self, self.class.finalize(self.object_id))

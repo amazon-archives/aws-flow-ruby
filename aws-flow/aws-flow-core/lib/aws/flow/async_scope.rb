@@ -19,6 +19,13 @@ module AWS
   module Flow
     module Core
 
+      def gate_by_version(version, method, &block)
+        if RUBY_VERSION.send(method, version)
+          block.call
+        end
+      end
+
+      # @!visibility private
       class AsyncScope
         attr_accessor :stackTrace, :root, :failure, :root_context
 
@@ -59,13 +66,15 @@ module AWS
           @root_error_handler.get_heirs
         end
 
-        # Execute all queued tasks. If execution of those tasks result in addition
-        # of new tasks to the queue execute them as well.
-        # Unless there are external dependencies or bugs in the tasks to be
-        # executed, a single call to this method performs the complete
-        # asynchronous execution.  In presence of external dependencies it is
-        # expected that AsyncScope#eventLoop() is called every time after change
-        # in their state can unblock the asynchronous execution.
+        # Execute all queued tasks. If execution of those tasks results in addition of new tasks to the queue, execute
+        # them as well.
+        #
+        # Unless there are external dependencies or bugs in the tasks to be executed, a single call to this method
+        # performs the complete asynchronous execution.
+        #
+        # @note In the presence of external dependencies, it is expected that {AsyncScope#eventLoop} is called every
+        # time after a change in the state in a dependency can unblock asynchronous execution.
+        #
         def eventLoop
           #TODO Figure out when to raise Done raise "Done" if ! @root_task.alive?
           raise IllegalStateException, "Already complete" if is_complete?
@@ -93,6 +102,7 @@ module AWS
         end
       end
 
+      # @!visibility private
       class RootAsyncScope < FlowFiber
 
         attr_accessor :backtrace, :failure, :executor, :complete
@@ -148,6 +158,7 @@ module AWS
         end
       end
 
+      # @!visibility private
       class AsyncEventLoop
 
         def initialize
