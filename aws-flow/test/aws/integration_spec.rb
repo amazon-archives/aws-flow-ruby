@@ -1264,8 +1264,11 @@ describe "RubyFlowDecider" do
 
         def entry_point(arg)
           client = workflow_client($swf.client, $domain) { {:from_class => "FailingChildChildWorkflow"} }
-          task { client.start_execution(5) }
-          task { client.start_execution(5) }
+          begin
+            client.start_execution(5)
+          rescue Exception => e
+            #pass
+          end
         end
       end
       worker2 = WorkflowWorker.new(@swf.client, @domain, "failing_child_workflow", FailingChildChildWorkflow)
@@ -1280,6 +1283,7 @@ describe "RubyFlowDecider" do
       worker.run_once
       events = workflow_execution.events.map(&:event_type)
       events.should include "ChildWorkflowExecutionFailed"
+      events.should include "WorkflowExecutionCompleted"
     end
 
     it "ensures that a child workflow can use data_converter correctly" do
