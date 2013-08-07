@@ -55,6 +55,7 @@ require "aws/decider/exceptions"
 require "aws/decider/task_poller"
 require "aws/decider/flow_defaults"
 require "aws/decider/implementation"
+require "aws/decider/version"
 
 # @!visibility private
 def get_const(name)
