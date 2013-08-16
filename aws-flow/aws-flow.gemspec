@@ -10,6 +10,7 @@ Gem::Specification.new do |s|
   s.email       = ''
   s.files       = `git ls-files`.split("\n").reject {|file| file =~ /aws-flow-core/}
   s.require_paths << "lib/aws/"
+  s.require_paths << "aws-flow-core/lib"
   s.add_dependency "aws-sdk", "~> 1"
-  s.add_dependency "aws-flow-core", "~> 1"
+  #s.add_dependency "aws-flow-core", "~> 1"
 end
