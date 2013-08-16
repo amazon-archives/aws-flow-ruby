@@ -28,7 +28,7 @@ module AWS
       # @return [Future]
       #   The tasks result, which is a {Future}.
       #
-      def task(future = nil, &block)
+      def internal_task(future = nil, &block)
         fiber = ::Fiber.current
         raise NoContextException unless fiber.respond_to? :__context__
         context = fiber.__context__

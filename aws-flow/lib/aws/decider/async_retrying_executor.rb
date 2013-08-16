@@ -25,7 +25,7 @@ module AWS
       end
       def execute(command, options = nil)
         return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0) if @return_on_start
-        task do
+        internal_task do
           schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0)
         end
       end
@@ -38,7 +38,7 @@ module AWS
           raise failure if delay < 0
         end
         if delay > 0
-          task do
+          internal_task do
             @clock.create_timer(delay, lambda { invoke(command, attempt, first_attempt_time) })
           end
         else
@@ -59,7 +59,7 @@ module AWS
           end
           t.ensure { should_retry.set(failure_to_retry) }
         end
-        task do
+        internal_task do
           failure = should_retry.get
           if ! failure.nil?
             attempt[failure.class] += 1
