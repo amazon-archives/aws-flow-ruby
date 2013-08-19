@@ -450,7 +450,7 @@ module AWS
         #
         # @!visibility private
         def async_create_timer(delay_seconds, &block)
-          task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
+          internal_task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
         end
 
 
@@ -459,7 +459,7 @@ module AWS
         # @param (see #create_timer)
         #
         def create_timer_async(delay_seconds, &block)
-          task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
+          internal_task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
         end
 
 

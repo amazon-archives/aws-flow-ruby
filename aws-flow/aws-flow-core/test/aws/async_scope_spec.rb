@@ -18,7 +18,7 @@ describe AsyncScope do
   it "makes sure that basic AsyncScoping works" do
     trace = []
     this_scope = AsyncScope.new() do
-      task { trace << :inside_task}
+      internal_task { trace << :inside_task}
     end
     trace.should == []
     this_scope.eventLoop
@@ -59,13 +59,13 @@ describe AsyncScope do
     it "resumes tasks after a Future is ready" do
       f = Future.new
       scope = AsyncScope.new do
-        task do
+        internal_task do
           trace << :first
           f.get
           trace << :fourth
         end
 
-        task do
+        internal_task do
           trace << :second
           f.set(:foo)
           trace << :third
@@ -106,7 +106,7 @@ describe AsyncScope do
       condition = FiberConditionVariable.new
       @task = nil
       scope = AsyncScope.new do
-        task do
+        internal_task do
           condition.wait
         end
       end

@@ -69,7 +69,7 @@ describe BeginRescueEnsure do
 
     context "which adds a task," do
       let(:trying_BRE_with_one_task) do
-        make_trying_BRE([lambda { task { condition.wait  } }])
+        make_trying_BRE([lambda { internal_task { condition.wait  } }])
       end
       let(:first_task) { trying_BRE_with_one_task.heirs.first }
       subject { trying_BRE_with_one_task }
@@ -97,7 +97,7 @@ describe BeginRescueEnsure do
 
     context "which adds two tasks" do
       let(:trying_BRE_with_two_tasks) do
-        make_trying_BRE([lambda { task { condition.wait }}, lambda { task { condition.wait }}])
+        make_trying_BRE([lambda { internal_task { condition.wait }}, lambda { internal_task { condition.wait }}])
       end
       let(:first_task) { trying_BRE_with_two_tasks.heirs.first }
       subject { trying_BRE_with_two_tasks }
@@ -130,7 +130,7 @@ describe BeginRescueEnsure do
 
     context "which adds a task," do
       let(:catching_BRE_with_one_task) do
-        make_catching_BRE([lambda { task { condition.wait } }])
+        make_catching_BRE([lambda { internal_task { condition.wait } }])
       end
       let(:first_task) { catching_BRE_with_one_task.heirs.first }
       subject { catching_BRE_with_one_task }
@@ -157,7 +157,7 @@ describe BeginRescueEnsure do
 
     context "which adds two tasks" do
       let(:catching_BRE_with_two_tasks) do
-        make_catching_BRE([lambda { task { condition.wait } },lambda { task { condition.wait } } ])
+        make_catching_BRE([lambda { internal_task { condition.wait } },lambda { internal_task { condition.wait } } ])
       end
       let(:first_task) { catching_BRE_with_two_tasks.heirs.first }
       subject { catching_BRE_with_two_tasks }
@@ -199,7 +199,7 @@ describe BeginRescueEnsure do
     trace.should == []
   end
 
-  {:Task => lambda { |&x| task(&x) }, :DaemonTask => lambda { |&x| daemon_task(&x) }}.each_pair do |name, task_creation|
+  {:Task => lambda { |&x| internal_task(&x) }, :DaemonTask => lambda { |&x| daemon_task(&x) }}.each_pair do |name, task_creation|
 
     # TODO: Reinstate this test, if it is easy enough
     #
@@ -288,7 +288,7 @@ describe BeginRescueEnsure do
 
         t.rescue(RescueTestingError) do
           trace << :in_the_rescue
-          task { trace << :in_the_task }
+          internal_task { trace << :in_the_task }
         end
       end
       scope.eventLoop
@@ -301,7 +301,7 @@ describe BeginRescueEnsure do
       error_handler do |t|
         t.begin do
           trace << :in_the_beginning
-          task { trace << :in_the_task }
+          internal_task { trace << :in_the_task }
         end
         t.rescue(StandardError) {|x| }
       end
@@ -535,7 +535,7 @@ describe BeginRescueEnsure do
     flowfactory = FlowFactory.new
     condition = FiberConditionVariable.new
     scope = flowfactory.generate_scope
-    bre = flowfactory.generate_BRE(:begin => lambda { task { condition.wait; trace << :yay} })
+    bre = flowfactory.generate_BRE(:begin => lambda { internal_task { condition.wait; trace << :yay} })
     scope.eventLoop
     bre.get_heirs.length.should > 1
     trace.should == []
@@ -545,7 +545,7 @@ describe BeginRescueEnsure do
     condition = FiberConditionVariable.new
     scope = AsyncScope.new do
       error_handler do |t|
-        t.begin { task { condition.wait; trace << :yay }}
+        t.begin { internal_task { condition.wait; trace << :yay }}
         t.rescue(StandardError) {}
       end
     end
@@ -557,7 +557,7 @@ describe BeginRescueEnsure do
     future = Future.new
     scope = AsyncScope.new do
       error_handler do |t|
-        t.begin { task { future.get }}
+        t.begin { internal_task { future.get }}
       end
     end
     scope.eventLoop

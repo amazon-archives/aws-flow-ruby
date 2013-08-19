@@ -19,7 +19,7 @@ describe FiberConditionVariable do
 
   it "blocks a Fiber and wakes it up on signal" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         condition.wait
         # TODO technically this should only be checked in a TaskContext test;
@@ -27,7 +27,7 @@ describe FiberConditionVariable do
         trace << :fourth
       end
 
-      task do
+      internal_task do
         trace << :second
         condition.signal
         trace << :third
@@ -40,7 +40,7 @@ describe FiberConditionVariable do
 
   it "blocks multiple Fibers and wakes them up on signal" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         condition.wait
         # TODO technically this should only be checked in a TaskContext test;
@@ -48,13 +48,13 @@ describe FiberConditionVariable do
         trace << :sixth
       end
 
-      task do
+      internal_task do
         trace << :second
         condition.wait
         trace << :seventh
       end
 
-      task do
+      internal_task do
         trace << :third
         condition.signal
         trace << :fourth
@@ -69,7 +69,7 @@ describe FiberConditionVariable do
 
   it "blocks a Fiber and wakes it up on broadcast" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         condition.wait
         # TODO technically this should only be checked in a TaskContext test;
@@ -77,7 +77,7 @@ describe FiberConditionVariable do
         trace << :fourth
       end
 
-      task do
+      internal_task do
         trace << :second
         condition.broadcast
         trace << :third
@@ -89,7 +89,7 @@ describe FiberConditionVariable do
 
   it "blocks multiple Fibers and wakes them up on broadcast" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         condition.wait
         # TODO technically this should only be checked in a TaskContext test;
@@ -97,13 +97,13 @@ describe FiberConditionVariable do
         trace << :fifth
       end
 
-      task do
+      internal_task do
         trace << :second
         condition.wait
         trace << :sixth
       end
 
-      task do
+      internal_task do
         trace << :third
         condition.broadcast
         trace << :fourth
@@ -120,12 +120,12 @@ describe FiberConditionVariable do
     it "ensures that multiple broadcasts cannot cause multiple runs of fibers" do
       trace = []
       scope = AsyncScope.new do
-        task do
+        internal_task do
           trace << :first
           condition.wait
           trace << :fourth
         end
-        task do
+        internal_task do
           trace << :second
           condition.send method_to_test
           condition.send method_to_test

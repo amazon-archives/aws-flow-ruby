@@ -25,7 +25,7 @@ describe Fiber do
     scope = AsyncScope.new() do
       FlowFiber.current[:test] = 5
       FlowFiber.current[:test].should == 5
-      task do
+      internal_task do
         FlowFiber.current[:test].should == 5
       end
     end
@@ -41,8 +41,8 @@ describe Fiber do
       @current_thread = FlowFiber.current
       FlowFiber.current[:test] = 5
       FlowFiber.current[:test].should == 5
-      task do
-        task do
+      internal_task do
+        internal_task do
           FlowFiber.unset(FlowFiber.current, :test)
         end
       end

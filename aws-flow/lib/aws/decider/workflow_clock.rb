@@ -75,7 +75,7 @@ module AWS
         open_request = OpenRequestInfo.new
         open_request.blocking_promise = Future.new
         if block
-          open_request.result = task do
+          open_request.result = internal_task do
             open_request.blocking_promise.get
             block.call
           end

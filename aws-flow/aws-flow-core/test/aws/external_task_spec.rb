@@ -145,7 +145,7 @@ describe "external_task function" do
         t.cancellation_handler {|h, cause| trace << :cancellation_handler; h.complete }
         t.initiate_task { |h|  trace << :external_task}
       end
-      task { trace << :task; raise IllegalStateException }
+      internal_task { trace << :task; raise IllegalStateException }
       trace << :async_done
     end
     expect { this_scope.eventLoop }.to raise_error IllegalStateException
@@ -166,7 +166,7 @@ describe "external_task function" do
             t.initiate_task { |h|  handle_future.set(h) }
           end
 
-          task do
+          internal_task do
             trace << :in_the_cancel_task
             handle_future.get
             bre.cancel(nil)

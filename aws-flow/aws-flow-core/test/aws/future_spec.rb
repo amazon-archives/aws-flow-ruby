@@ -29,7 +29,7 @@ describe Future do
 
   it "blocks a task until a value is ready" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         future.get
         # TODO technically this should only be checked in a TaskContext test;
@@ -37,7 +37,7 @@ describe Future do
         trace << :fourth
       end
 
-      task do
+      internal_task do
         trace << :second
         future.set(:foo)
         trace << :third
@@ -50,19 +50,19 @@ describe Future do
 
   it "blocks multiple Fibers until a value is ready" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         trace << :first
         future.get
         trace << :fifth
       end
 
-      task do
+      internal_task do
         trace << :second
         future.get
         trace << :sixth
       end
 
-      task do
+      internal_task do
         trace << :third
         future.set(:foo)
         trace << :fourth
@@ -78,7 +78,7 @@ describe Future do
       f2 = Future.new
       f3 = Future.new
       trace << :before_task
-      task do
+      internal_task do
         trace << :before_set
         f2.set("bar")
         trace << :after_set
@@ -101,7 +101,7 @@ describe Future do
       f2 = Future.new
       f3 = Future.new
       trace << :before_task
-      task do
+      internal_task do
         trace << :before_set
         f2.set("bar")
         f1.set("baz")
@@ -129,13 +129,13 @@ describe Future do
       f2 = Future.new
       f3 = Future.new
       trace << :before_task
-      task do
+      internal_task do
         trace << :before_f2_set
         f2.set("bar")
-        task do
+        internal_task do
           trace << :before_f1_set
           f1.set("baz")
-          task do
+          internal_task do
             trace << :before_f3_set
             f3.set("foo")
             trace << :after_set
@@ -159,7 +159,7 @@ describe Future do
 
   it "supports wait_for_all with no futures" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         wait_for_all
       end
     end
@@ -169,7 +169,7 @@ describe Future do
 
   it "supports wait_for_any with no futures" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         wait_for_any
       end
     end

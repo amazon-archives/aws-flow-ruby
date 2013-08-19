@@ -24,7 +24,7 @@ require 'pp'
 # it raises
 
 {:DaemonTask => lambda { |&x| daemon_task(&x) },
-  :Task => lambda { |&x| task(&x) } }.each_pair do |name, task_creation|
+  :Task => lambda { |&x| internal_task(&x) } }.each_pair do |name, task_creation|
 
 
 
@@ -51,7 +51,7 @@ require 'pp'
         end
       end
       scope = AsyncScope.new do
-        task { condition.wait }
+        internal_task { condition.wait }
         recursive(100, task_creation)
       end
       @executed.length.should == 0
@@ -68,7 +68,7 @@ require 'pp'
         trace << :outside_task
         scope = AsyncScope.new do
           task_creation.call { trace << :inside_task; condition.signal }
-          task { condition.wait }
+          internal_task { condition.wait }
         end
         scope.eventLoop
         trace.should == [:outside_task, :inside_task]
@@ -78,7 +78,7 @@ require 'pp'
         result = nil
         scope = AsyncScope.new do
           result = task_creation.call { condition.signal; :task_executed }
-          task { condition.wait }
+          internal_task { condition.wait }
         end
         scope.eventLoop
         result.get.should == :task_executed
@@ -88,7 +88,7 @@ require 'pp'
         scope = AsyncScope.new do
           task_creation.call { trace << :first_task }
           task_creation.call { trace << :second_task; condition.signal }
-          task { condition.wait }
+          internal_task { condition.wait }
         end
         scope.eventLoop
         trace.should == [:first_task, :second_task]
@@ -101,7 +101,7 @@ require 'pp'
             task_creation.call { trace << :inside_task; condition.signal }
             trace << :outside_task
           end
-          task { condition.wait }
+          internal_task { condition.wait }
         end
         scope.eventLoop
         trace.should == [:outside_task, :inside_task]
@@ -113,7 +113,7 @@ require 'pp'
             trace << :outside_task
             task_creation.call { trace << :inside_task; condition.signal }
           end
-          task { condition.wait }
+          internal_task { condition.wait }
         end
         scope.eventLoop
         trace.should == [:outside_task, :inside_task]
@@ -221,7 +221,7 @@ describe Task do
 
   it "ensures that raising an error in a task is handled correctly" do
     scope = AsyncScope.new do
-      task do
+      internal_task do
         raise "Boo"
       end
     end
@@ -237,10 +237,10 @@ describe Task do
     scope = AsyncScope.new do
       error_handler do |t|
         t.begin do
-          task do
+          internal_task do
             condition.wait
           end
-          task do
+          internal_task do
             condition.signal
             # i.e.,
             raise "simulated error"
