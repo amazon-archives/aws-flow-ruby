@@ -304,22 +304,35 @@ describe AsyncDecider do
 end
 describe YAMLDataConverter do
   let(:converter) {YAMLDataConverter.new}
-  describe "ensures that x == load(dump(x)) is true" do
-    {
-      Fixnum => 5,
-      String => "Hello World",
-      Hash => {:test => "good"},
-      Array => ["Hello", "World", 5],
-      Symbol => :test,
-      NilClass => nil
-    }.each_pair do |klass, exemplar|
-      it "tests #{klass}" do
-        1.upto(10).each do |i|
-          converted_exemplar = exemplar
-          i.times {converted_exemplar = converter.dump converted_exemplar}
-          i.times {converted_exemplar = converter.load converted_exemplar}
-          converted_exemplar.should == exemplar
+  %w{syck psych}.each do |engine|
+    describe "ensures that x == load(dump(x)) is true using #{engine}" do
+      before :all do
+        YAML::ENGINE.yamler = engine
+      end
+
+      {
+        Fixnum => 5,
+        String => "Hello World",
+        Hash => {:test => "good"},
+        Array => ["Hello", "World", 5],
+        Symbol => :test,
+        NilClass => nil,
+      }.each_pair do |klass, exemplar|
+        it "tests #{klass}" do
+          1.upto(10).each do |i|
+            converted_exemplar = exemplar
+            i.times {converted_exemplar = converter.dump converted_exemplar}
+            i.times {converted_exemplar = converter.load converted_exemplar}
+            converted_exemplar.should == exemplar
+          end
         end
+      end
+
+      it 'loads exception backtraces correctly' do
+        exemplar = Exception.new('exception')
+        exemplar.set_backtrace(caller)
+        converted_exemplar = converter.load(converter.dump(exemplar))
+        converted_exemplar.should == exemplar
       end
     end
   end
