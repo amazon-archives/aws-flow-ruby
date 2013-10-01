@@ -29,7 +29,11 @@ module AWS
         return nil if source.nil?
         output = YAML.load source
         if output.is_a? Exception
-          backtrace = YAML.load_stream(source).find {|x| ! x.is_a? Exception}
+          documents = YAML.load_stream(source)
+          if YAML::ENGINE.yamler == 'syck'
+            documents = documents.documents
+          end
+          backtrace = documents.find {|x| ! x.is_a? Exception}
           output.set_backtrace(backtrace.to_a)
         end
         output
