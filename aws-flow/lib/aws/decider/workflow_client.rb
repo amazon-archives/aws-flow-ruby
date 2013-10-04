@@ -39,6 +39,10 @@ module AWS
         @return_value = Future.new
       end
 
+      def is_flow_future?
+        true
+      end
+
       def method_missing(method_name, *args, &block)
         @return_value.send(method_name, *args, &block)
       end

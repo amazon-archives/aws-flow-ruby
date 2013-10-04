@@ -295,7 +295,7 @@ module AWS
     end
 
     # Represents an activity client.
-    class ActivityClient < Module
+    class ActivityClient
       # Gets the data converter for the Activity Client.
       def data_converter
         @generic_client.data_converter

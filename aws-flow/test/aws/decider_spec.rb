@@ -277,7 +277,6 @@ describe ForkingExecutor do
       sleep 3
       File.exists?(test_file_name).should == true
     ensure
-
       File.unlink(test_file_name)
     end
   end
@@ -849,6 +848,7 @@ describe "FakeHistory" do
       "StartTimer"
     BadWorkflow.trace.should == [:start]
   end
+
   it "makes sure that multiple schedules followed by a timeout work" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_tasks
@@ -1170,6 +1170,36 @@ describe "Misc tests" do
     end
     TestDecider.methods.map(&:to_sym).should include :signal
   end
+
+  it "ensures you can eager_autoload" do
+    require 'aws'
+    require 'aws/decider'
+    AWS.eager_autoload!
+  end
+
+  it "ensures that one worker for forking executor will only allow one thing to be processed at a time" do
+    executor = ForkingExecutor.new(:max_workers => 1)
+
+    test_file_name = "ForkingExecutorRunOne"
+    File.new(test_file_name, "w")
+    start_time = Time.now
+    executor.execute do
+      File.open(test_file_name, "a+") { |f| f.write("First Execution\n")}
+      sleep 4
+    end
+    # Because execute will block if the worker queue is full, we will wait here
+    # if we have reached the max number of workers
+    executor.execute { 2 + 2 }
+    finish_time = Time.now
+    # If we waited for the first task to finish, then we will have waited at
+    # least 4 seconds; if we didn't, we should not have waited. Thus, if we have
+    # waited > 3 seconds, we have likely waited for the first task to finish
+    # before doing the second one
+    (finish_time - start_time).should > 3
+    File.unlink(test_file_name)
+  end
+
+
 end
 
 describe FlowConstants do
@@ -1195,6 +1225,7 @@ describe FlowConstants do
   end
 
 end
+
 
 
 
@@ -1227,7 +1258,7 @@ describe "testing changing default values in RetryOptions and RetryPolicy" do
 
   it "will test whether we get the same jitter for a particular execution id" do
 
-   (FlowConstants.jitter_function.call(1, 100)).should equal(FlowConstants.jitter_function.call(1, 100))
+    (FlowConstants.jitter_function.call(1, 100)).should equal(FlowConstants.jitter_function.call(1, 100))
 
   end
 

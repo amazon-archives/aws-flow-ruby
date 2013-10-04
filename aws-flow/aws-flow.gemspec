@@ -11,5 +11,5 @@ Gem::Specification.new do |s|
   s.files       = `git ls-files`.split("\n").reject {|file| file =~ /aws-flow-core/}
   s.require_paths << "lib/aws/"
   s.add_dependency "aws-sdk", "~> 1"
-  s.add_dependency "aws-flow-core", "~> 1"
+  s.add_dependency "aws-flow-core", ">= 1.0.1"
 end

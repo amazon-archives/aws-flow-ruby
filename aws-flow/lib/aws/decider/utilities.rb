@@ -33,10 +33,10 @@ module AWS
 
       # @!visibility private
       def self.drill_on_future(future)
-        while future.get.is_a? Future
+        while (future.respond_to? :is_flow_future?) && future.is_flow_future?
           future = future.get
         end
-        future.get
+        future
       end
 
 
@@ -86,6 +86,10 @@ module AWS
         def initialize(initial_metadata = nil)
           @_metadata = initial_metadata
           @return_value = Future.new
+        end
+
+        def is_flow_future?
+          true
         end
 
         def metadata

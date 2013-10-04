@@ -40,6 +40,10 @@ module AWS
           self
         end
 
+        def is_flow_future?
+          true
+        end
+
         # Blocks if Future is not set
         # raises CancellationError when task is cancelled
         def get

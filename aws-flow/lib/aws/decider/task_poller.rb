@@ -165,6 +165,9 @@ module AWS
         semaphore_needs_release = true
         @logger.debug "before the poll\n\n"
         begin
+          if use_forking
+            @executor.block_on_max_workers
+          end
           task = @domain.activity_tasks.poll_for_single_task(@task_list)
           @logger.error "got a task, #{task.activity_type.name}"
           @logger.error "The task token I got was: #{task.task_token}"

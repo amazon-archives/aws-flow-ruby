@@ -61,7 +61,7 @@ module AWS
       end
 
       def execute(&block)
-        @log.error "Here are the pids that are currently running #{@pids}"
+        @log.info "Here are the pids that are currently running #{@pids}"
         raise RejectedExecutionException if @is_shutdown
         block_on_max_workers
         @log.debug "PARENT BEFORE FORK #{Process.pid}"
@@ -106,6 +106,17 @@ module AWS
         end
       end
 
+      def block_on_max_workers
+        @log.debug "block_on_max_workers workers=#{@pids.size}, max_workers=#{@max_workers}"
+        if @pids.size >= @max_workers
+          @log.info "Reached maximum number of workers (#{@max_workers}), \
+                     waiting for some to finish"
+          begin
+            remove_completed_pids(true)
+          end while @pids.size >= @max_workers
+        end
+      end
+
       private
 
       # Remove all child processes from @pids list that have finished
@@ -132,17 +143,8 @@ module AWS
         end
       end
 
-      def block_on_max_workers
-        @log.debug "block_on_max_workers workers=#{@pids.size}, max_workers=#{@max_workers}"
-        start_time = Time.now
-        if @pids.size > @max_workers
-          @log.info "Reached maximum number of workers (#{@max_workers}), \
-                     waiting for some to finish before polling again"
-          begin
-            remove_completed_pids(true)
-          end while @pids.size > @max_workers
-        end
-      end
+
+
     end
 
   end
