@@ -111,7 +111,6 @@ module AWS
       #
       def initialize(service, domain, task_list, *args)
         @workflow_definition_map = {}
-        @executor = ForkingExecutor.new(:max_workers => 2, :log_level => 5)
         @workflow_type_options = []
         super(service, domain, task_list, *args)
       end
@@ -229,7 +228,6 @@ module AWS
       #
       def initialize(service, domain, task_list, *args, &block)
         @activity_definition_map = {}
-        @executor = ForkingExecutor.new(:max_workers => 1)
         @activity_type_options = []
         @options = Utilities::interpret_block_for_options(WorkerOptions, block)
         super(service, domain, task_list, *args)
