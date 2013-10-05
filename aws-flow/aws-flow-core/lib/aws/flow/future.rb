@@ -40,6 +40,8 @@ module AWS
           self
         end
 
+        # determines whether the object is a flow future. The contract is that
+        # flow futures must have a #get method.
         def is_flow_future?
           true
         end

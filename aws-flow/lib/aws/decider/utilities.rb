@@ -88,6 +88,8 @@ module AWS
           @return_value = Future.new
         end
 
+        # determines whether the object is a flow future. The contract is that
+        # flow futures must have a #get method.
         def is_flow_future?
           true
         end
