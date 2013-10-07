@@ -257,7 +257,7 @@ module AWS
         # That is, any transition from closed leads back to itself
         define_general(:closed) { |t| t.current_state = :closed }
 
-        # Binds the block to the a lambda to be called when we get to the begin part of the DFA
+        # Binds the block to a lambda to be called when we get to the begin part of the DFA
         #
         # @param block
         #   The code block to be called when asynchronous *begin* starts.
@@ -268,7 +268,7 @@ module AWS
           @begin_task = Task.new(self) { @result.set(block.call) }
         end
 
-        # Binds the block to the a lambda to be called when we get to the rescue part of the DFA
+        # Binds the block to a lambda to be called when we get to the rescue part of the DFA
         #
         # @param error_type
         #   The error type.
@@ -285,7 +285,7 @@ module AWS
           @rescue_tasks << this_task
         end
 
-        # Binds the block to the a lambda to be called when we get to the ensure part of the DFA
+        # Binds the block to a lambda to be called when we get to the ensure part of the DFA
         #
         # @param block
         #   The code block to be called when asynchronous *ensure* starts.
@@ -300,7 +300,7 @@ module AWS
         end
       end
 
-      # Class to ensure that all the inner guts of BRE aren't exposed. This function is passed in when error_handler is
+      # Ensures that {BeginRescureEnsure} isn't exposed directly. This function is passed in when {#error_handler} is
       # called, like this:
       #
       #     error_handler do |t|
@@ -309,8 +309,8 @@ module AWS
       #       t.ensure { trace << t.begin_task }
       #     end
       #
-      # The *t* that is passed in is actually a {BeginRescueEnsureWrapper}, which will only pass begin/rescue/ensure
-      # onto the {BeginRescueEnsure} class itself.
+      # In this example, *t* is a {BeginRescueEnsureWrapper} which passes the begin/rescue/ensure calls to the
+      # {BeginRescueEnsure} class itself.
       #
       class BeginRescueEnsureWrapper < FlowFiber
         # Also has a few methods to ensure Fiber-ness, such as get_heirs and cancel.

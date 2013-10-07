@@ -16,15 +16,15 @@
 module AWS
   module Flow
 
-
-    # A future provided by a [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html).
+    # A future provided by a [WorkflowExecution][].
     #
     # @!attribute _workflow_execution
-    #   The [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html)
-    #   instance that this future belongs to.
+    #   The [WorkflowExecution][] instance that this future belongs to.
     #
     # @!attribute return_value
     #   The return value of the future.
+    #
+    # [workflowexecution]: http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html
     #
     class WorkflowFuture
       attr_accessor :_workflow_execution, :return_value
@@ -60,7 +60,7 @@ module AWS
 
 
 
-    # @!visibility private
+    # @api private
     class NoInput
       def empty?; return true; end
     end
@@ -102,7 +102,7 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def self.default_option_class; WorkflowOptions; end
 
       # Gets the events for this workflow client
@@ -159,7 +159,7 @@ module AWS
 
 
         # Called by {#signal_workflow_execution}
-        # @!visibility private
+        # @api private
         def signal_external_workflow(signal_name, workflow_execution, &block)
         options = Utilities::interpret_block_for_options(SignalWorkflowOptions, block)
         options.signal_name ||= signal_name
@@ -171,7 +171,7 @@ module AWS
       end
 
         # Called by {#signal_workflow_execution}
-        # @!visibility private
+        # @api private
       def signal_internal_workflow(signal_name, workflow_execution, &block)
         get_decision_context
         options = Utilities::interpret_block_for_options(SignalWorkflowOptions, block)
@@ -203,7 +203,7 @@ module AWS
 
 
       # Called by {#start_execution}
-      # @!visibility private
+      # @api private
       def start_internal_workflow(input = NoInput.new, &block)
         get_decision_context
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
@@ -275,7 +275,7 @@ module AWS
 
 
       # Called by {#start_execution}
-      # @!visibility private
+      # @api private
       def start_external_workflow(input = NoInput.new, &block)
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
         options = Utilities::merge_all_options(@options, options)

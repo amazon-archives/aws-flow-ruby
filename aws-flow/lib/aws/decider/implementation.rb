@@ -59,7 +59,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     def self.workflow_client(service = nil, domain = nil, &block)
       options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
       if ! Utilities::is_external

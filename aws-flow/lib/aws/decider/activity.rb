@@ -17,7 +17,7 @@ module AWS
   module Flow
 
     # Represents information about an open request.
-    # @!visibility private
+    # @api private
     class OpenRequestInfo
       attr_accessor :completion_handle, :result, :blocking_promise, :description, :run_id
     end
@@ -68,7 +68,7 @@ module AWS
         super
       end
 
-      # Runs an activity given a name and block of options.
+      # Registers and schedules a new activity type given a name and block of options.
       #
       # @param method_name
       #   The name of the activity type to define
@@ -77,7 +77,7 @@ module AWS
       #   Arguments for the method
       #
       # @param block
-      #   A block of {ActivityOptions}
+      #   A block of {ActivityOptions} to use when registering the new ActivityType. 
       #
       def method_missing(method_name, *args, &block)
         options = Utilities::interpret_block_for_options(ActivityOptions, block)
@@ -101,12 +101,12 @@ module AWS
         result
       end
 
-      # @!visibility private
+      # @api private
       def retry_alias_to_method(retry_alias)
         retry_alias.to_s[/__(.*)_retry/, 1].to_sym
       end
 
-      # @!visibility private
+      # @api private
       def method_to_retry_alias(method_name)
         "#{__method_name.to_s + "_retry"}".to_sym
       end
@@ -343,10 +343,10 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       extend Utilities::UpwardLookups
 
-      # @!visibility private
+      # @api private
       def look_upwards(variable)
         precursors = self.ancestors.dup
         precursors.delete(self)
@@ -354,7 +354,7 @@ module AWS
       end
       property(:activities, [])
 
-      # @!visibility private
+      # @api private
       def _options; @activities.map(&:options); end
 
       # Defines one or more activities, with {ActivityOptions} provided in the supplied block.
@@ -395,7 +395,7 @@ module AWS
 
     #  This module is for internal use only and may be changed or removed
     #  without prior notice. Use {Activities} instead.
-    # @!visibility private
+    # @api private
     module Activity
       include Activities
       def self.extended(base)

@@ -48,8 +48,6 @@ module AWS
 
       # Executes the activity
       #
-      # === Parameters
-      #
       # @param [Object] input
       #   Optional input for the activity execution.
       #
@@ -84,15 +82,32 @@ module AWS
 
     class ActivityExecutionContext
       attr_accessor :service, :domain, :task
+
+
+      # Initializes a new {ActivityExecutionContext] object.
+      #
+      # @param service
+      #
+      # @param domain
+      #
+      # @param task
+      #
       def initialize(service, domain, task)
         @service = service
         @domain = domain
         @task = task
       end
+
+      # Gets the task token for this activity execution.
       def task_token
         @task.task_token
       end
 
+      # Gets the workflow execution that is the context for this activity execution.
+      #
+      # @return {AWS::SWF::WorkflowExecution}
+      #   The **WorkflowExecution** in this activity execution context.
+      #
       def workflow_execution
         @task.workflow_execution
       end

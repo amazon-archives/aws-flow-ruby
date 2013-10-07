@@ -47,7 +47,7 @@ module AWS
         method_names.each { |method_name| @option_map[method_name.to_sym] = options }
       end
 
-      # @!visibility private
+      # @api private
       def bail_if_external
         raise "You cannot use this function outside of a workflow definition" if Utilities::is_external
       end
@@ -103,7 +103,7 @@ module AWS
 
 
       # Used by {#retry}
-      # @!visibility private
+      # @api private
       def _retry_with_options(lambda_to_execute, retry_function, retry_options, args = NoInput.new)
         retry_policy = RetryPolicy.new(retry_function, retry_options)
         output = Utilities::AddressableFuture.new
@@ -136,7 +136,7 @@ module AWS
       #
       # @param (see #retry)
       #
-      # @!visibility private
+      # @api private
       def _retry(method_name, retry_function, block, args = NoInput.new)
         bail_if_external
         retry_options = Utilities::interpret_block_for_options(RetryOptions, block)

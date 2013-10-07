@@ -249,7 +249,7 @@ module AWS
       #  This method is for internal use only and may be changed or removed
       #   without prior notice.  Use {#workflows} instead. Set the entry point
       #   in the {#workflow} method when creating a new workflow.
-      # @!visibility private
+      # @api private
       def entry_point(input=nil)
         if input
           @entry_point = input
@@ -267,7 +267,7 @@ module AWS
       #  This method is for internal use only and may be changed or removed
       # without prior notice.  Use {#workflows} instead.
       # Set the version in the {WorkflowOptions} passed in to the {#workflow} method.
-      # @!visibility private
+      # @api private
       def version(arg = nil)
         if arg
           self.workflows.each { |workflow| workflow.version = arg }
@@ -318,7 +318,7 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def _options; self.workflows.map(&:options); end
 
       # Defines a new workflow
@@ -448,7 +448,7 @@ module AWS
         # @deprecated
         #   Use {#create_timer_async} instead.
         #
-        # @!visibility private
+        # @api private
         def async_create_timer(delay_seconds, &block)
           task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
         end
@@ -498,7 +498,7 @@ module AWS
     # without prior notice.
     #  Use {Workflows} instead.
     #
-    # @!visibility private
+    # @api private
     module Decider
       include Workflows
 

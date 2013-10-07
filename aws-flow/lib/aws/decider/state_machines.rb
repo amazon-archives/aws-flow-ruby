@@ -16,7 +16,7 @@
 module AWS
   module Flow
 
-    # @!visibility private
+    # @api private
     module DecisionStateMachineDFA
       attr_accessor :transitions, :symbols, :states, :start_state
 
@@ -77,7 +77,7 @@ module AWS
       end
     end
 
-    # @!visibility private
+    # @api private
     class CompleteWorkflowStateMachine
       extend DecisionStateMachineDFA
       attr_reader :id
@@ -110,7 +110,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class DecisionStateMachineBase
       extend DecisionStateMachineDFA
       attr_reader :id
@@ -152,7 +152,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class ActivityDecisionStateMachine < DecisionStateMachineBase
 
       attr_reader :attributes
@@ -207,7 +207,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class TimerDecisionStateMachine < DecisionStateMachineBase
       attr_accessor :cancelled
       def initialize(decision_id, attributes)
@@ -257,7 +257,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class SignalDecisionStateMachine < DecisionStateMachineBase
       def initialize(decision_id, attributes)
         @attributes = attributes
@@ -305,7 +305,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class ChildWorkflowDecisionStateMachine < DecisionStateMachineBase
       attr_accessor :run_id, :attributes
       def initialize(decision_id, attributes)
