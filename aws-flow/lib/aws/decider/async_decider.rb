@@ -58,7 +58,7 @@ module AWS
       end
     end
 
-    # @!visibility private
+    # @api private
     class DecisionWrapper
       #TODO Consider taking out the id, it's unclear if it is needed
       def initialize(id, decision, options = [])
@@ -66,11 +66,11 @@ module AWS
         @id = id
       end
 
-      # @!visibility private
+      # @api private
       def get_decision
         @decision
       end
-      # @!visibility private
+      # @api private
       def consume(symbol)
         # quack like a state machine
       end
@@ -99,7 +99,7 @@ module AWS
     #
     # @!attribute [Hash] signal_initiated_event_to_signal_id
     #
-    # @!visibility private
+    # @api private
     class DecisionHelper
       attr_accessor :decision_map, :activity_scheduling_event_id_to_activity_id, :scheduled_activities, :scheduled_timers, :activity_options, :scheduled_external_workflows, :scheduled_signals, :signal_initiated_event_to_signal_id, :child_initiated_event_id_to_workflow_id, :workflow_context_data
       class << self
@@ -123,13 +123,13 @@ module AWS
         @child_initiated_event_id_to_workflow_id = {}
       end
 
-      # @!visibility private
+      # @api private
       def get_next_id(decision_target)
         id = (@id[decision_target] += 1)
         "#{decision_target}#{id}"
       end
 
-      # @!visibility private
+      # @api private
       def get_next_state_machine_which_will_schedule(list)
         return if list.empty?
         ele = list.shift
@@ -141,7 +141,7 @@ module AWS
         DecisionHelper.completion_events.include? decision.get_decision[:decision_type].to_sym
       end
 
-      # @!visibility private
+      # @api private
       def handle_decision_task_started_event
         # In order to ensure that the events we have already scheduled do not
         # make a decision, we will process only maximum_decisions_per_completion
@@ -166,12 +166,11 @@ module AWS
         end
       end
 
-
-      def [](key)
-        return @decision_map[key]
-      end
-      def []=(key, val)
-        return @decision_map[key] = val
+      # @api private
+      def method_missing(method_name, *args)
+        if [:[]=, :[]].include? method_name
+          @decision_map.send(method_name, *args)
+        end
       end
 
       # Returns the activity ID for a scheduled activity
@@ -179,7 +178,7 @@ module AWS
       # @param [String] scheduled_id
       #   The scheduled activity ID.
       #
-      # @!visibility private
+      # @api private
       def get_activity_id(scheduled_id)
         activity_scheduling_event_id_to_activity_id[scheduled_id]
       end
@@ -207,7 +206,7 @@ module AWS
       # @note *Beware, this getter will modify things*, as it creates decisions for the objects in the {AsyncDecider}
       #   that need decisions sent out.
       #
-      # @!visibility private
+      # @api private
       def get_decisions
         result = @decision_helper.decision_map.values.map {|decision_object|
           decision_object.get_decision}.compact
@@ -221,7 +220,7 @@ module AWS
         return result
       end
 
-      # @!visibility private
+      # @api private
       def decide
         begin
           decide_impl
@@ -241,7 +240,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       def decide_impl
         single_decision_event = @history_helper.get_single_decision_events
         while single_decision_event.length > 0
@@ -656,7 +655,7 @@ module AWS
           # DecisionTaskStarted is taken care of at TODO
       end
 
-      # @!visibility private
+      # @api private
       def event_loop(event)
         return if @completed
         begin

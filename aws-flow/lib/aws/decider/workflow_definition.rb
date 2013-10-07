@@ -19,7 +19,7 @@ module AWS
     # Every workflow implementation needs to be a subclass of this class.
     #
     # Usually there should be no need to instantiate the class manually, as instead, the @execute method is called to
-    # start the workflow (you can think of ths as having factory class methods).
+    # start the workflow (you can think of this as having factory class methods).
     class WorkflowDefinition
 
       attr_reader :decision_helper

@@ -91,6 +91,11 @@ module AWS
 
     end
 
+    # Defaults for the {WorkerOptions} class
+    #
+    # The only default set by this class is 'use_forking', which is set to
+    # `true'.
+    #
     class WorkerDefaults < Defaults
       def use_forking; true; end
     end
@@ -100,11 +105,18 @@ module AWS
     # @!attribute logger
     #   The logger to use for the worker.
     #
-    # @!attribute poller_workers
-    #   The logger to use for the worker.
-    #
     # @!attribute execution_workers
-    #   The logger to use for the worker.
+    #   The maximum number of execution workers that can be running at once. You
+    #   can set this to zero or `nil`, in which case the default value of 20
+    #   will be used.
+    #
+    # @!attribute use_forking
+    #   Whether to use Ruby's `fork` for launching new workers. The default is
+    #   `true`. On Windows, this should be set to `false` unless you are running
+    #   Ruby under Cygwin.
+    #
+    #   For more information, see [Important Notes] in the *AWS Flow Framework
+    #   for Ruby Developer Guide*.
     #
     class WorkerOptions < Options
       property(:logger, [])

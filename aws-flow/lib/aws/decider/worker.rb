@@ -56,7 +56,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       def camel_case_to_snake_case(camel_case)
         camel_case.
           gsub(/(.)([A-Z])/,'\1_\2').
@@ -138,7 +138,7 @@ module AWS
       end
 
       # Called by {#add_implementation}
-      # @!visibility private
+      # @api private
       def add_workflow_implementation(workflow_class)
         workflow_class.workflows.delete_if do |workflow_type|
           workflow_type.version.nil? || workflow_type.name.nil?
