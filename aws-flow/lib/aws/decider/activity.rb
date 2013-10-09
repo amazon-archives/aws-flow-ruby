@@ -22,32 +22,43 @@ module AWS
       attr_accessor :completion_handle, :result, :blocking_promise, :description, :run_id
     end
 
+    # Contains metadata about an activity.
+    # @api private
     class ActivityMetadata
+      # The stored ID of the activity.
       attr_reader :activity_id
+
+      # Initializes a ndw ActivityMetadata object.
+      #
+      # @param activity_id
+      #   The ID of the activity.
+      #
       def initialize(activity_id); @activity_id = activity_id; end
     end
 
-
     # A generic activity client that can be used to perform standard activity actions.
     class GenericActivityClient < GenericClient
-      # The data converter used for serializing/deserializing data when sending requests to and receiving results from
-      # workflow executions of this workflow type. By default, this is {YAMLDataConverter}.
+
+      # The data converter used for serializing/deserializing data when sending
+      # requests to and receiving results from workflow executions of this
+      # workflow type. By default, this is {YAMLDataConverter}.
       attr_accessor :data_converter
 
       # The decision helper used by the activity client.
       attr_accessor :decision_helper
 
-      # A hash of ActivityRuntimeOptions for the activity client
+      # A hash of {ActivityRuntimeOptions} for the activity client
       attr_accessor :options
 
-       # Returns the default option class for the activity client, which is {ActivityRuntimeOptions}.
+      # Returns the default option class for the activity client, which is {ActivityRuntimeOptions}.
       def self.default_option_class; ActivityRuntimeOptions; end
 
-      # Separates the activity name from the activity type at the point of the last (.) symbol.
+      # Separates the activity name from the activity type at the point of the last period.
       #
       # @param [String] name
       #   The name of the activity type.
       #
+      # @api private
       def activity_name_from_activity_type(name)
         return name.to_s.split(".").last.to_sym
       end
@@ -57,7 +68,8 @@ module AWS
       # @param [DecisionHelper] decision_helper
       #   The decision helper to use for the activity client.
       #
-      # @param [ActivityOptions] options ActivityOptions to set for the activity client.
+      # @param [ActivityOptions] options
+      #   The activity options to set for the activity client.
       #
       def initialize(decision_helper, options)
         @decision_helper = decision_helper
@@ -68,16 +80,16 @@ module AWS
         super
       end
 
-      # Registers and schedules a new activity type given a name and block of options.
+      # Registers and schedules a new activity type, provided a name and block of options.
       #
       # @param method_name
-      #   The name of the activity type to define
+      #   *Required*. The name of the activity type to define.
       #
       # @param args
-      #   Arguments for the method
+      #   *Required*. Arguments for the method provided in *method_name*.
       #
       # @param block
-      #   A block of {ActivityOptions} to use when registering the new ActivityType. 
+      #   A block of {ActivityOptions} to use when registering the new {ActivityType}.
       #
       def method_missing(method_name, *args, &block)
         options = Utilities::interpret_block_for_options(ActivityOptions, block)
@@ -114,7 +126,7 @@ module AWS
       # Requests that the activity is canceled.
       #
       # @param [Future] to_cancel
-      #   The Future for the task to be canceled.
+      #   The {Future} for the task to be canceled.
       #
       def request_cancel_activity_task(to_cancel)
         metadata = to_cancel.metadata
@@ -124,7 +136,7 @@ module AWS
         @decision_helper[metadata.activity_id].consume(:cancel)
       end
 
-      # A handler for the ActivityClassCanceled event.
+      # A handler for the {ActivityClassCanceled} event.
       #
       # @param [ActivityClassCanceled] event
       #   The event data.
@@ -141,7 +153,7 @@ module AWS
         end
       end
 
-      # A handler for the ActivityClassTimedOut event.
+      # A handler for the {ActivityClassTimedOut} event.
       #
       # @param [ActivityClassTimedOut] event
       #   The event data.
@@ -215,19 +227,19 @@ module AWS
         end
       end
 
-      # Schedules the named activity.
+      # Schedules a named activity.
       #
       # @param [String] name
-      #   The name of the activity to schedule.
+      #   *Required*. The name of the activity to schedule.
       #
-      # @param [String]
-      #   activity_type The activity type for this scheduled activity.
+      # @param [String] activity_type
+      #   *Required*. The activity type for this scheduled activity.
       #
-      # @param [Object]
-      #   input Optional data passed to the activity.
+      # @param [Object] input
+      #   *Required*. Optional data passed to the activity.
       #
-      # @param [ActivityOptions]
-      #   options ActivityOptions to set for the scheduled activity.
+      # @param [ActivityOptions] options
+      #   *Required*. {ActivityOptions} to set for the scheduled activity.
       #
       def schedule_activity(name, activity_type, input, options)
         options = Utilities::merge_all_options(@option_map[activity_name_from_activity_type(name)], options)
@@ -299,21 +311,28 @@ module AWS
 
     # Represents an activity client.
     class ActivityClient
-      # Gets the data converter for the Activity Client.
+
+      # Gets the data converter for the activity client.
       def data_converter
         @generic_client.data_converter
       end
 
-      # Sets the data converter for the Activity Client.
+      # Sets the data converter for the activity client.
+      #
+      # @param other
+      #   The data converter to set.
+      #
       def data_converter=(other)
         @generic_client.data_converter = other
       end
 
       # Exponentially retries the supplied method with optional settings.
       #
-      # @param [String] method_name The method name to retry.
+      # @param [String] method_name
+      #   The method name to retry.
       #
-      # @param [ExponentialRetryOptions] block A hash of ExponentialRetryOptions to use.
+      # @param [ExponentialRetryOptions] block
+      #   A hash of {ExponentialRetryOptions} to use.
       #
       def exponential_retry(method_name, &block)
         @generic_client.retry(method_name, lambda {|first, time_of_failure, attempts| 1}, block)
@@ -323,10 +342,11 @@ module AWS
     # Methods and constants related to activities.
     #
     # @!attribute activity_client
-    #   Gets the [ActivityClient] for this Activity.
+    #   Gets the {ActivityClient} contained by the class.
     #
     # @!attribute activities
-    #   Gets an list of activities for this Activity.
+    #   Gets the list of {ActivityType} objects that were created by the
+    #   {#activity} method.
     #
     module Activities
       @precursors ||= []
@@ -360,18 +380,30 @@ module AWS
       # @api private
       def _options; @activities.map(&:options); end
 
-      # Defines one or more activities, with {ActivityOptions} provided in the supplied block.
+      # Defines one or more activities with {ActivityOptions} provided in the
+      # supplied block.
       #
       # @param [Array] activity_names
-      #   The names of the activities to define.
+      #   The names of the activities to define. These names will be used to
+      #   create {ActivityType} objects, one per name.
+      #
+      #   Each activity type is named as *prefix.activity_name*, where the
+      #   *prefix* is specified in the options block, and each *activity_name*
+      #   comes from the list passed to this parameter.
       #
       # @param [Hash] block
       #   {ActivityOptions} to use on the defined activities.
       #
+      #   The following options are *required* when registering an activity:
+      #
+      #   * `version` - The version of the activity type.
+      #   * `task_list` - The task list used to poll for activity tasks.
+      #
       # @example Defining an activity
       #   new_activity_class = Class.new(MyActivity) do
       #     extend Activities
-      #     activity :run_activity1 do
+      #
+      #     activity :activity1 do
       #     {
       #       :default_task_heartbeat_timeout => "3600",
       #       :default_task_list => task_list,
@@ -379,10 +411,12 @@ module AWS
       #       :default_task_schedule_to_start_timeout => "20",
       #       :default_task_start_to_close_timeout => "20",
       #       :version => "1",
-      #       :prefix_name => "#{class_name}Activity"
+      #       :prefix_name => "ExampleActivity"
       #     }
       #     end
-      #     def run_activity1
+      #
+      #     def activity1
+      #       puts "Hello!"
       #     end
       #   end
       def activity(*activity_names, &block)
@@ -396,8 +430,7 @@ module AWS
       end
     end
 
-    #  This module is for internal use only and may be changed or removed
-    #  without prior notice. Use {Activities} instead.
+    # @deprecated Use {Activities} instead.
     # @api private
     module Activity
       include Activities
@@ -405,7 +438,6 @@ module AWS
         base.send :include, InstanceMethods
       end
     end
-
 
   end
 end

@@ -93,10 +93,12 @@ module AWS
 
     # Defaults for the {WorkerOptions} class
     #
-    # The only default set by this class is 'use_forking', which is set to
-    # `true'.
-    #
     class WorkerDefaults < Defaults
+
+      # Whether to use Ruby's `fork` for launching new workers.
+      #
+      # @return [Boolean]
+      #   Always returns `true`.
       def use_forking; true; end
     end
 
@@ -112,11 +114,12 @@ module AWS
     #
     # @!attribute use_forking
     #   Whether to use Ruby's `fork` for launching new workers. The default is
-    #   `true`. On Windows, this should be set to `false` unless you are running
-    #   Ruby under Cygwin.
+    #   `true`.
     #
-    #   For more information, see [Important Notes] in the *AWS Flow Framework
-    #   for Ruby Developer Guide*.
+    #   On Windows, this should be set to `false` unless you are running Ruby under Cygwin. For more information, see
+    #   [Important
+    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/important-notes.html#forking-windows-note) in
+    #   the *AWS Flow Framework for Ruby Developer Guide*.
     #
     class WorkerOptions < Options
       property(:logger, [])
@@ -127,7 +130,7 @@ module AWS
       default_classes << WorkerDefaults.new
     end
 
-    # Options for WorkflowClient#signal_workflow_execution.
+    # Options for {WorkflowClient#signal_workflow_execution}.
     #
     # @!attribute control
     #   Optional data attached to the signal that can be used by the workflow execution.
