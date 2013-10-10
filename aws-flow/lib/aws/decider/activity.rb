@@ -89,7 +89,8 @@ module AWS
       #   *Required*. Arguments for the method provided in *method_name*.
       #
       # @param block
-      #   A block of {ActivityOptions} to use when registering the new {ActivityType}.
+      #   *Required*. A block of {ActivityOptions} to use when registering the new {ActivityType}. This can be set to an
+      #   empty block, in which case, the default activity options will be used.
       #
       def method_missing(method_name, *args, &block)
         options = Utilities::interpret_block_for_options(ActivityOptions, block)
@@ -125,8 +126,8 @@ module AWS
 
       # Requests that the activity is canceled.
       #
-      # @param [Future] to_cancel
-      #   The {Future} for the task to be canceled.
+      # @param [WorkflowFuture] to_cancel
+      #   The {WorkflowFuture} for the task to be canceled.
       #
       def request_cancel_activity_task(to_cancel)
         metadata = to_cancel.metadata
@@ -136,9 +137,9 @@ module AWS
         @decision_helper[metadata.activity_id].consume(:cancel)
       end
 
-      # A handler for the {ActivityClassCanceled} event.
+      # A handler for the `ActivityClassCanceled` event.
       #
-      # @param [ActivityClassCanceled] event
+      # @param [AWS::SimpleWorkflow::HistoryEvent] event
       #   The event data.
       #
       def handle_activity_task_canceled(event)
@@ -153,9 +154,9 @@ module AWS
         end
       end
 
-      # A handler for the {ActivityClassTimedOut} event.
+      # A handler for the `ActivityClassTimedOut` event.
       #
-      # @param [ActivityClassTimedOut] event
+      # @param [AWS::SimpleWorkflow::HistoryEvent] event
       #   The event data.
       #
       def handle_activity_task_timed_out(event)
@@ -172,7 +173,7 @@ module AWS
         end
       end
 
-      # A handler for the {ActivityTaskFailed} event.
+      # A handler for the `ActivityTaskFailed` event.
       #
       # @param [ActivityClassFailed] event
       #   The event data.
@@ -190,9 +191,9 @@ module AWS
         open_request_info.completion_handle.fail(failure)
       end
 
-      # A handler for the {ScheduleActivityTaskFailed} event.
+      # A handler for the `ScheduleActivityTaskFailed` event.
       #
-      # @param [ScheduleActivityTaskFailed] event
+      # @param [AWS::SimpleWorkflow::HistoryEvent] event
       #   The event data.
       #
       def handle_schedule_activity_task_failed(event)
@@ -208,9 +209,9 @@ module AWS
         end
       end
 
-      # A handler for the {ActivityClassCompleted} event.
+      # A handler for the `ActivityClassCompleted` event.
       #
-      # @param [ActivityClassCompleted] event
+      # @param [AWS::SimpleWorkflow::HistoryEvent] event
       #   The event data.
       #
       def handle_activity_task_completed(event)

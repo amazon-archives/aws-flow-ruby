@@ -61,17 +61,19 @@ module AWS
         @workflow_context = workflow_context
       end
 
-      # Handler for the ExternalWorkflowExecutionCancelRequested event.
+      # Handler for the `ExternalWorkflowExecutionCancelRequested` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_external_workflow_execution_cancel_requested(event)
         # NOOP
       end
 
-      # Handler for the ChildWorkflowExecutionCanceled event.
+      # Handler for the `ChildWorkflowExecutionCanceled` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_canceled(event)
         handle_event(event,
@@ -87,11 +89,11 @@ module AWS
       end
 
 
-      # Handler for the ChildWorkflowExecutionCompleted event.
+      # Handler for the `ChildWorkflowExecutionCompleted` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
-
       def handle_child_workflow_execution_completed(event)
         handle_event(event,
                      {:id_methods => [:workflow_execution, :workflow_id],
@@ -101,9 +103,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionFailed event.
+      # Handler for the `ChildWorkflowExecutionFailed` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_failed(event)
         handle_event(event,
@@ -123,9 +126,10 @@ module AWS
       end
 
 
-      # Handler for the ChildWorkflowExecutionStarted event.
+      # Handler for the `ChildWorkflowExecutionStarted` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_started(event)
         handle_event(event,
@@ -138,9 +142,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionTerminated event.
+      # Handler for the `ChildWorkflowExecutionTerminated` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_terminated(event)
         handle_event(event,
@@ -154,9 +159,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionTimedOut event.
+      # Handler for the `ChildWorkflowExecutionTimedOut` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_timed_out(event)
         handle_event(event,
@@ -170,9 +176,10 @@ module AWS
                      })
       end
 
-      # Handler for the ExternalWorkflowExecutionSignaled event.
+      # Handler for the `ExternalWorkflowExecutionSignaled` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_external_workflow_execution_signaled(event)
         signal_id = @decision_helper.signal_initiated_event_to_signal_id[event.attributes[:initiated_event_id]]
@@ -185,9 +192,10 @@ module AWS
         end
       end
 
-      # Handler for the SignalExternalWorkflowExecutionFailed event.
+      # Handler for the `SignalExternalWorkflowExecutionFailed` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_signal_external_workflow_execution_failed(event)
         handle_event(event, {
@@ -202,9 +210,10 @@ module AWS
                      })
       end
 
-      # Handler for the StartExternalWorkflowExecutionFailed event.
+      # Handler for the `StartExternalWorkflowExecutionFailed' event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_start_child_workflow_execution_failed(event)
         handle_event(event, {
@@ -222,11 +231,10 @@ module AWS
       end
     end
 
-
     # Types and methods related to workflow execution. Extend this to implement a workflow decider.
     #
     # @!attribute version
-    #   Sets or returns the Decider version.
+    #   Sets or returns the decider version.
     #
     # @!attribute options
     #   Sets or returns the {WorkflowOptions} for this decider.
@@ -246,9 +254,8 @@ module AWS
         base.send :include, InstanceMethods
       end
 
-      #  This method is for internal use only and may be changed or removed
-      #   without prior notice.  Use {#workflows} instead. Set the entry point
-      #   in the {#workflow} method when creating a new workflow.
+      # @deprecated Set the entry point with {Workflows#workflow} instead.
+      #
       # @api private
       def entry_point(input=nil)
         if input
@@ -264,9 +271,7 @@ module AWS
         raise "You must set an entry point on the workflow definition"
       end
 
-      #  This method is for internal use only and may be changed or removed
-      # without prior notice.  Use {#workflows} instead.
-      # Set the version in the {WorkflowOptions} passed in to the {#workflow} method.
+      # @deprecated Set the version in the {WorkflowOptions} passed in to the {#workflow} method.
       # @api private
       def version(arg = nil)
         if arg
