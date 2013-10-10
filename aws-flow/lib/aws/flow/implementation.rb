@@ -26,7 +26,7 @@ module AWS
       #   The block of code to be executed when the task is run.
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       # @return [Future]
       #   The tasks result, which is a {Future}.
@@ -49,7 +49,7 @@ module AWS
       #   The tasks result, which is a {Future}.
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def daemon_task(&block)
         fiber = ::Fiber.current
@@ -68,7 +68,7 @@ module AWS
       # @return [nil]
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def external_task(&block)
         fiber = ::Fiber.current
@@ -89,8 +89,8 @@ module AWS
       #   The result of the **begin** statement if there is no error; otherwise this returns the value of the **return**
       #   statement.
       #
-      # @raise
-      #   {NoContextException} If the current fiber does not respond to {#__context__}
+      # @raise [NoContextException]
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def error_handler(&block)
         fiber = ::Fiber.current

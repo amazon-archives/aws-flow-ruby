@@ -18,6 +18,8 @@ module AWS
 
     # The base class for option defaults in the AWS Flow Framework for Ruby.
     class Defaults
+
+      # @api private
       def method_missing(method_name, *args, &block)
         return nil
       end
@@ -27,11 +29,14 @@ module AWS
     class Options
       extend Utilities::UpwardLookups
       include Utilities::UpwardLookups::InstanceMethods
+
+      # @api private
       def method_missing(method_name, *args, &block)
         return nil
       end
 
-      # Sets the default classes on a child class (a class derived from {Options}).
+      # Sets the default classes on a child class (a class derived from
+      # {Options}).
       def self.inherited(child)
         child.precursors ||= []
         default_classes = child.ancestors.map do |precursor|
@@ -40,23 +45,27 @@ module AWS
         child.instance_variable_set("@default_classes", default_classes)
       end
 
+      # @api private
       class << self
-        # The set of default options. These are used when `use_defaults` is set to `true` on {#initialize}.
+        # The set of default options. These are used when `use_defaults` is set
+        # to `true` on {#initialize}.
         attr_accessor :default_classes
       end
 
-      # Merges specified options with the set of options already held by the class, and returns the result.
+      # Merges specified options with the set of options already held by the
+      # class, and returns the result.
       #
       # @return [Hash]
       #   The merged set of options, defined as a hash.
       #
       # @param [Options] options
-      #   An {Options}-derived class containing a set of options to use if this instance has no options, or options to
-      #   add to this one if this instance already has options.
+      #   An {Options}-derived class containing a set of options to use if this
+      #   instance has no options, or options to add to this one if this
+      #   instance already has options.
       #
       # @param [Hash] extra_to_add
-      #   A hash containing extra options to merge with the options held by the class and those provided in the
-      #   +options+ parameter.
+      #   A hash containing extra options to merge with the options held by the
+      #   class and those provided in the *options* parameter.
       #
       def get_options(options, extra_to_add = {})
         options = self.class.held_properties.compact if options.empty?
@@ -69,12 +78,14 @@ module AWS
       # Creates a new {Options} instance.
       #
       # @param [Hash] hash
-      #   A hash of values to use as the default options for this instance. The members of this hash are defined by
-      #   classes derived from {Options}.
+      #   *Optional*. A hash of values to use as the default options for this
+      #   instance. The members of this hash are defined by classes derived from
+      #   {Options}.
       #
       # @param [true, false] use_defaults
-      #   In derived classes, this parameter is used to tell the constructor to use the set of default options as the
-      #   runtime options. This has no effect in the base {Options} class.
+      #   *Optional*. In derived classes, this parameter is used to tell the
+      #   constructor to use the set of default options as the runtime options.
+      #   This has no effect in the base {Options} class.
       #
       def initialize(hash={}, use_defaults = false)
         @precursors ||= []
@@ -95,10 +106,13 @@ module AWS
     #
     class WorkerDefaults < Defaults
 
-      # Whether to use Ruby's `fork` for launching new workers.
+      # Whether to use Ruby's `fork` for launching new workers. The default is
+      # `true`. On Windows, you should override this default value and set
+      # *use_forking* to `false`.
       #
       # @return [Boolean]
-      #   Always returns `true`.
+      #   Returns `true`.
+      #
       def use_forking; true; end
     end
 
@@ -116,10 +130,10 @@ module AWS
     #   Whether to use Ruby's `fork` for launching new workers. The default is
     #   `true`.
     #
-    #   On Windows, this should be set to `false` unless you are running Ruby under Cygwin. For more information, see
-    #   [Important
-    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/important-notes.html#forking-windows-note) in
-    #   the *AWS Flow Framework for Ruby Developer Guide*.
+    #   On Windows, this should be set to `false` unless you are running Ruby
+    #   under Cygwin. For more information, see [Important
+    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/important-notes.html#forking-windows-note)
+    #   in the *AWS Flow Framework for Ruby Developer Guide*.
     #
     class WorkerOptions < Options
       property(:logger, [])
@@ -133,22 +147,26 @@ module AWS
     # Options for {WorkflowClient#signal_workflow_execution}.
     #
     # @!attribute control
-    #   Optional data attached to the signal that can be used by the workflow execution.
+    #   Optional data attached to the signal that can be used by the workflow
+    #   execution.
     #
     # @!attribute domain
-    #   *Required*. The name of the domain containing the workflow execution to signal.
+    #   *Required*. The name of the domain containing the workflow execution to
+    #   signal.
     #
     # @!attribute input
-    #   Data to attach to the WorkflowExecutionSignaled event in the target workflow execution's history.
+    #   Data to attach to the WorkflowExecutionSignaled event in the target
+    #   workflow execution's history.
     #
     # @!attribute run_id
     #   The runId of the workflow execution to signal.
     #
     # @!attribute signal_name
-    #   *Required*. The name of the signal. This name must be meaningful to the target workflow.
+    #   *Required*. The name of the signal. This name must be meaningful to the
+    #   target workflow.
     #
     # @!attribute workflow_id
-    #   *Required*. The workflowId of the workflow execution to signal.
+    #   *Required*. The workflow ID of the workflow execution to signal.
     #
     class SignalWorkflowOptions < Options
       properties(:input, :signal_name, :run_id, :workflow_id, :control, :domain)
@@ -165,13 +183,24 @@ module AWS
 
     # Defaults for {RetryOptions}
     class RetryDefaults < Defaults
-      #  The default maximum number of attempts to make before the task is marked as failed.
+
+      #  The default maximum number of attempts to make before the task is
+      #  marked as failed.
       def maximum_attempts; FlowConstants.exponential_retry_maximum_attempts; end
+
       #  The default retry function to use.
       def retry_function; FlowConstants.exponential_retry_function; end
+
+      #  The exceptions that will initiate a retry attempt. The default is to
+      #  use *all* exceptions.
       def exceptions_to_include; FlowConstants.exponential_retry_exceptions_to_include; end
+
+      #  The exceptions that will *not* initiate a retry attempt. The default is
+      #  an empty list; no exceptions are excluded.
       def exceptions_to_exclude; FlowConstants.exponential_retry_exceptions_to_exclude; end
+
       def backoff_coefficient; FlowConstants.exponential_retry_backoff_coefficient; end
+
       def should_jitter; FlowConstants.should_jitter; end
       def jitter_function; FlowConstants.jitter_function; end
       def initial_retry_interval; FlowConstants.exponential_retry_initial_retry_interval; end
@@ -253,16 +282,19 @@ module AWS
 
     # Exponential retry options for the {ActivityClient#exponential_retry} method.
     class ExponentialRetryOptions < RetryOptions
-      # The backoff coefficient to use. This is a floating point value that is multiplied with the current retry
-      # interval after every retry attempt. The default value is 2.0, which means that each retry will take twice as
-      # long as the previous.
       default_classes << RetryDefaults.new
+
+      # The backoff coefficient to use. This is a floating point value that is
+      # multiplied with the current retry interval after every retry attempt.
+      # The default value is `2.0`, which means that each retry will take twice
+      # as long as the previous one.
       property(:backoff_coefficient, [lambda(&:to_i)])
 
-      # The retry expiration interval, in seconds. This will be increased after every retry attempt by the factor
-      # provided in +backoff_coefficient+.
+      # The retry expiration interval, in seconds. This will be increased after
+      # every retry attempt by the factor provided in `backoff_coefficient`.
       property(:retry_expiration_interval_seconds, [lambda(&:to_i)])
 
+      # @api private
       def next_retry_delay_seconds(first_attempt, recorded_failure, attempts)
         raise IllegalArgumentException "Attempt number is #{attempts}, when it needs to be greater than 1"
         if @maximum_attempts
@@ -273,79 +305,111 @@ module AWS
     # Defaults for WorkflowOptions
     class WorkflowDefaults < Defaults
 
-      # The default task start-to-close timeout duration.
+      # The default task start-to-close timeout duration. The default value is
+      # `30`.
       def task_start_to_close_timeout; 30; end
 
-      # The default child workflow policy
+      # The default child workflow policy. The default value is `TERMINATE`.
       def child_policy; :TERMINATE; end
 
-      # Returns a list of tags (currently an empty array).
+      # Returns a list of tags for the workflow. The default value is an empty
+      # array (no tags).
       def tag_list; []; end
 
+      # The default data converter. By default, this is {YAMLDataConverter}.
       def data_converter; FlowConstants.default_data_converter; end
     end
 
     # Options for workflows
     #
     # @!attribute child_policy
-    #   The optional policy to use for the child workflow executions when a workflow execution of this type is
-    #   terminated, by calling the TerminateWorkflowExecution action explicitly or due to an expired timeout. This can
-    #   be overridden when starting a workflow execution using the StartWorkflowExecution action or the
-    #   StartChildWorkflowExecution Decision. The supported child policies are:
+    #   The optional policy to use for the child workflow executions when a
+    #   workflow execution of this type is terminated, by calling the
+    #   TerminateWorkflowExecution action explicitly or due to an expired
+    #   timeout.
     #
-    #   * *TERMINATE*: the child executions will be terminated.
-    #   * *REQUEST_CANCEL*: a request to cancel will be attempted for each child execution by recording a
-    #     WorkflowExecutionCancelRequested event in its history. It is up to the decider to take appropriate actions
-    #     when it receives an execution history with this event.
-    #   * *ABANDON*: no action will be taken. The child executions will continue to run.
+    #   This can be overridden when starting a workflow execution using
+    #   {WorkflowClient#start_execution} or the `StartChildWorkflowExecution`
+    #   decision.
     #
-    #   The default is TERMINATE.
+    #   The supported child policies are:
+    #
+    #   * `TERMINATE`: the child executions will be terminated.
+    #   * `REQUEST_CANCEL`: a request to cancel will be attempted for each child
+    #     execution by recording a WorkflowExecutionCancelRequested event in its
+    #     history. It is up to the decider to take appropriate actions when it
+    #     receives an execution history with this event.
+    #   * `ABANDON`: no action will be taken. The child executions will continue
+    #     to run.
+    #
+    #   The default is `TERMINATE`.
     #
     # @!attribute execution_method
-    #   TBD
     #
     # @!attribute execution_start_to_close_timeout
-    #   The optional maximum duration, specified when registering the workflow type, for executions of this workflow
-    #   type. This default can be overridden when starting a workflow execution using the StartWorkflowExecution action
-    #   or the StartChildWorkflowExecution decision.
+    #   The optional maximum duration, specified when registering the workflow
+    #   type, for executions of this workflow type.
     #
-    #   The valid values are integers greater than or equal to 0. An integer value can be used to specify the duration
-    #   in seconds while NONE can be used to specify unlimited duration.
+    #   This default can be overridden when starting a workflow execution using
+    #   {WorkflowClient#start_execution} or with the
+    #   `StartChildWorkflowExecution` decision.
+    #
+    #   The valid values are integers greater than or equal to zero. An integer
+    #   value can be used to specify the duration in seconds while `NONE` can be
+    #   used to specify unlimited duration.
     #
     # @!attribute input
-    #   A string of up to 32768 characters, to be provided to the workflow execution.
+    #   A string of up to 32768 characters to be provided to the workflow
+    #   execution. This will be received in the decider when polling for
+    #   decision tasks.
     #
     # @!attribute tag_list
-    #   The list of tags to associate with the child workflow execution. A maximum of five tags can be specified. You
-    #   can list workflow executions with a specific tag by calling ListOpenWorkflowExecutions or
-    #   ListClosedWorkflowExecutions and specifying a TagFilter.
+    #   The list of tags to associate with the child workflow execution.
+    #
+    #   A maximum of five tags can be specified. You can list workflow
+    #   executions with a specific tag by calling
+    #   [AWS::SimpleWorkflow::Client#list_open_workflow_executions](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html#list_open_workflow_executions-instance_method)
+    #   or
+    #   [AWS::SimpleWorkflow::Client#list_closed_workflow_executions](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html#list_closed_workflow_executions-instance_method)
+    #   and specifying a tag to filter on.
     #
     # @!attribute task_list
-    #   The optional task list, specified when registering the workflow type, for decisions tasks scheduled for workflow
-    #   executions of this type. This default can be overridden when starting a workflow execution using the
-    #   StartWorkflowExecution action or the StartChildWorkflowExecution Decision.
+    #   The optional task list, specified when registering the workflow type,
+    #   for decisions tasks scheduled for workflow executions of this type.
+    #
+    #   This default can be overridden when starting a workflow execution using
+    #   {WorkflowClient#start_execution} or the `StartChildWorkflowExecution`
+    #   decision.
     #
     # @!attribute task_start_to_close_timeout
-    #   The optional maximum duration, specified when registering the workflow type, that a decision task for executions
-    #   of this workflow type might take before returning completion or failure. If the task does not close in the
-    #   specified time then the task is automatically timed out and rescheduled. If the decider eventually reports a
-    #   completion or failure, it is ignored. This default can be overridden when starting a workflow execution using
-    #   the StartWorkflowExecution action or the StartChildWorkflowExecution Decision.
+    #   The optional maximum duration, specified when registering the workflow
+    #   type, that a decision task for executions of this workflow type might
+    #   take before returning completion or failure.
     #
-    #   The valid values are integers greater than or equal to 0. An integer value can be used to specify the duration
-    #   in seconds while NONE can be used to specify unlimited duration.
+    #   If the task does not close in the specified time then the task is
+    #   automatically timed out and rescheduled. If the decider eventually
+    #   reports a completion or failure, it is ignored. This default can be
+    #   overridden when starting a workflow execution using
+    #   {WorkflowClient#start_execution} or the `StartChildWorkflowExecution`
+    #   decision.
     #
-    #   The default is 30.
+    #   The valid values are integers greater than or equal to 0. An integer
+    #   value can be used to specify the duration in seconds while `NONE` can be
+    #   used to specify unlimited duration.  The default is `30`.
     #
     # @!attribute version
-    #   The version of the Workflow. If you update any of these options, you must update the version.
+    #   A string that represents the version of the workflow. This can be any
+    #   alphanumeric string. If you update any of the other options, you must
+    #   also update the version.
     #
     # @!attribute workflow_id
-    #   *Required*. The workflow id of the workflow execution.
+    #   *Required*. The workflow ID of the workflow execution. The workflow ID
+    #   must follow these rules:
     #
-    #   The specified string must not start or end with whitespace. It must not contain a `:` (colon), `/` (slash), `|`
-    #   (vertical bar), or any control characters (\u0000-\u001f | \u007f - \u009f). Also, it must not contain the
-    #   literal string "arn".
+    #   * The specified string must not start or end with whitespace.
+    #   * It must not contain a `:` (colon), `/` (slash), `|` (vertical bar), or
+    #     any control characters (`\u0000`-`\u001f` | `\u007f`-`\u009f`).
+    #   * It must not contain the literal string "arn".
     #
     class WorkflowOptions < Options
       properties(:version, :input, :workflow_id, :execution_start_to_close_timeout, :task_start_to_close_timeout, :task_list, :execution_method)
@@ -369,24 +433,40 @@ module AWS
       end
     end
 
+    # Provides the set of workflow options along with defaults.
+    #
+    # @!attribute default_task_start_to_close_timeout
+    #   (see WorkflowDefaults#task_start_to_close_timeout)
+    #
+    # @!attribute default_execution_start_to_close_timeout
+    #   (see WorkflowDefaults#execution_start_to_close_timeout)
+    #
+    # @!attribute default_task_list
+    #   (see WorkflowOptions#task_list)
+    #
+    # @!attribute default_child_policy
+    #   (see WorkflowDefaults#child_policy)
+    #
     class WorkflowOptionsWithDefaults < WorkflowOptions
       properties(:default_task_start_to_close_timeout, :default_execution_start_to_close_timeout, :default_task_list)
       property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
     end
 
-    # Options for #start_workflow
+    # Options for {WorkflowClient#start_execution}.
     #
     # @!attribute workflow_name
     #   The name of this workflow.
     #
     # @!attribute from_class
-    #   If present, options from the specified class will be used as the workflow execution options.
+    #   If present, options from the specified class will be used as the
+    #   workflow execution options.
     #
     class StartWorkflowOptions < WorkflowOptions
       properties(:workflow_name, :from_class)
     end
 
-    # Options for {AsyncDecider#continue_as_new_workflow} and {Workflows.InstanceMethods#continue_as_new}.
+    # Options for {AsyncDecider#continue_as_new_workflow} and
+    # {Workflows.InstanceMethods#continue_as_new}.
     #
     class ContinueAsNewOptions < WorkflowOptions
     end
@@ -394,38 +474,43 @@ module AWS
     # Defaults for the {ActivityOptions} class
     class ActivityDefaults < Defaults
 
-      # The default Schedule to Close timeout for activity tasks. This timeout represents the time, in seconds, between
-      # when the activity task is first scheduled to when it is closed (whether due to success, failure, or a timeout).
+      # The default Schedule to Close timeout for activity tasks. This timeout
+      # represents the time, in seconds, between when the activity task is first
+      # scheduled to when it is closed (whether due to success, failure, or a
+      # timeout).
       #
-      # This default can be overridden when scheduling an activity task. You can set this value to "NONE" to imply no
-      # timeout value.
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
       #
       def default_task_schedule_to_close_timeout;  Float::INFINITY; end
 
-      # The default maximum time in seconds before which a worker processing a task of this type must report progress.
-      # If the timeout is exceeded, the activity task is automatically timed out. If the worker subsequently attempts to
-      # record a heartbeat or returns a result, it will be ignored.
+      # The default maximum time in seconds before which a worker processing a
+      # task of this type must report progress.  If the timeout is exceeded, the
+      # activity task is automatically timed out. If the worker subsequently
+      # attempts to record a heartbeat or returns a result, it will be ignored.
       #
-      # This default can be overridden when scheduling an activity task. You can set this value to "NONE" to imply no
-      # timeout value.
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
       #
       def default_task_heartbeat_timeout; Float::INFINITY; end
 
-      # The default Schedule to Close timeout. This timeout represents the time between when the activity task is first
-      # scheduled to when it is closed (whether due to success, failure, or a timeout).
+      # The default Schedule to Close timeout. This timeout represents the time
+      # between when the activity task is first scheduled to when it is closed
+      # (whether due to success, failure, or a timeout).
       #
-      # This default can be overridden when scheduling an activity task. You can set this value to "NONE" to imply no
-      # timeout value.
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
       #
       def schedule_to_close_timeout; Float::INFINITY; end
 
-      # The default maximum time before which a worker processing a task of this type must report progress. If the
-      # timeout is exceeded, the activity task is automatically timed out. If the worker subsequently attempts to record
-      # a heartbeat or returns a result, it will be ignored. This default can be overridden when scheduling an activity
-      # task.
+      # The default maximum time before which a worker processing a task of this
+      # type must report progress. If the timeout is exceeded, the activity task
+      # is automatically timed out. If the worker subsequently attempts to
+      # record a heartbeat or returns a result, it will be ignored. This default
+      # can be overridden when scheduling an activity task.
       #
-      # This default can be overridden when scheduling an activity task. You can set this value to "NONE" to imply no
-      # timeout value.
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
       #
       def heartbeat_timeout; Float::INFINITY; end
 
@@ -436,47 +521,54 @@ module AWS
     # Options to use on an activity or decider. The following options are defined:
     #
     # @!attribute default_task_heartbeat_timeout
-    #
-    #   The optional default maximum time, specified when registering the activity type, before which a worker
-    #   processing a task must report progress by calling
+    #   The optional default maximum time, specified when registering the
+    #   activity type, before which a worker processing a task must report
+    #   progress by calling
     #   {http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/ActivityTask.html#record_heartbeat!-instance_method
     #   record_heartbeat} on the ActivityTask.
     #
-    #   You can override this default when scheduling a task through the ScheduleActivityTask Decision. If the
-    #   activity worker subsequently attempts to record a heartbeat or returns a result, the activity worker receives
-    #   an UnknownResource fault. In this case, Amazon SWF no longer considers the activity task to be valid; the
-    #   activity worker should clean up the activity task.
+    #   You can override this default when scheduling a task through the
+    #   ScheduleActivityTask decision. If the activity worker subsequently
+    #   attempts to record a heartbeat or returns a result, the activity worker
+    #   receives an UnknownResource fault. In this case, Amazon SWF no longer
+    #   considers the activity task to be valid; the activity worker should
+    #   clean up the activity task.
     #
-    #   The valid values are integers greater than or equal to zero. An integer value can be used to specify the
-    #   duration in seconds while "NONE" can be used to specify unlimited duration.
+    #   The valid values are integers greater than or equal to zero. An integer
+    #   value can be used to specify the duration in seconds while "NONE" can be
+    #   used to specify unlimited duration.
     #
     # @!attribute default_task_list
-    #
-    #   The optional default task list specified for this activity type at registration. This default task list is
-    #   used if a task list is not provided when a task is scheduled through the ScheduleActivityTask decision. You
-    #   can override this default when scheduling a task through the ScheduleActivityTask decision.
+    #   The optional default task list specified for this activity type at
+    #   registration. This default task list is used if a task list is not
+    #   provided when a task is scheduled through the ScheduleActivityTask
+    #   decision. You can override this default when scheduling a task through
+    #   the ScheduleActivityTask decision.
     #
     # @!attribute default_task_schedule_to_close_timeout
+    #   The optional default maximum duration, specified when registering the
+    #   activity type, for tasks of this activity type. You can override this
+    #   default when scheduling a task through the ScheduleActivityTask
+    #   decision.
     #
-    #   The optional default maximum duration, specified when registering the activity type, for tasks of this
-    #   activity type. You can override this default when scheduling a task through the ScheduleActivityTask Decision.
-    #
-    #   The valid values are integers greater than or equal to zero, or the string "NONE". An integer value can be
-    #   used to specify the duration in seconds while "NONE" is be used to specify *unlimited* duration.
+    #   The valid values are integers greater than or equal to zero, or the
+    #   string "NONE". An integer value can be used to specify the duration in
+    #   seconds while "NONE" is be used to specify *unlimited* duration.
     #
     # @!attribute default_task_schedule_to_start_timeout
-    #
-    #   The optional default maximum duration, specified when registering the activity type, that a task of an
-    #   activity type can wait before being assigned to a worker. You can override this default when scheduling a task
-    #   through the ScheduleActivityTask decision.
+    #   The optional default maximum duration, specified when registering the
+    #   activity type, that a task of an activity type can wait before being
+    #   assigned to a worker. You can override this default when scheduling a
+    #   task through the ScheduleActivityTask decision.
     #
     # @!attribute default_task_start_to_close_timeout
+    #   The optional default maximum duration for tasks of an activity type
+    #   specified when registering the activity type. You can override this
+    #   default when scheduling a task through the ScheduleActivityTask
+    #   decision.
     #
-    #   The optional default maximum duration for tasks of an activity type specified when registering the activity
-    #   type. You can override this default when scheduling a task through the ScheduleActivityTask decision.
     class ActivityOptions < Options
-      # The default options for the activity. These can be specified when creating a new ActivityOptions instance.
-      #
+
       class << self
         attr_reader :default_options,  :runtime_options
       end
@@ -487,13 +579,19 @@ module AWS
       default_classes << ActivityDefaults.new
 
       # Gets the activity prefix name
-      # @return [String] the activity name
+      #
+      # @return [String]
+      #   The activity name
+      #
       def activity_name
         @prefix_name
       end
 
       # Sets the activity prefix name
-      # @param [String] value the activity name to set
+      #
+      # @param [String] value
+      #   The activity name to set
+      #
       def activity_name=(value)
         @prefix_name = value
       end
@@ -504,37 +602,54 @@ module AWS
       #   A set of ActivityOptions to use as the default values.
       #
       # @option default_options [Integer] :heartbeat_timeout
-      #   The optional default maximum time, specified when registering the activity type, before which a worker
-      #   processing a task must report progress by calling RecordActivityTaskHeartbeat. You can override this default
-      #   when scheduling a task through the ScheduleActivityTask Decision. If the activity worker subsequently attempts
-      #   to record a heartbeat or returns a result, the activity worker receives an UnknownResource fault. In this
-      #   case, Amazon SWF no longer considers the activity task to be valid; the activity worker should clean up the
-      #   activity task.
+      #   The optional default maximum time, specified when registering the
+      #   activity type, before which a worker processing a task must report
+      #   progress by calling RecordActivityTaskHeartbeat.
+      #
+      #   You can override this default when scheduling a task through the
+      #   ScheduleActivityTask decision. If the activity worker subsequently
+      #   attempts to record a heartbeat or returns a result, the activity
+      #   worker receives an UnknownResource fault. In this case, Amazon SWF no
+      #   longer considers the activity task to be valid; the activity worker
+      #   should clean up the activity task.
       #
       # @option default_options [Integer] :schedule_to_close_timeout
-      #   The optional default maximum duration, specified when registering the activity type, for tasks of this
-      #   activity type. You can override this default when scheduling a task through the ScheduleActivityTask Decision.
+      #   The optional default maximum duration, specified when registering the
+      #   activity type, for tasks of this activity type.
+      #
+      #   You can override this default when scheduling a task through the
+      #   ScheduleActivityTask decision.
       #
       # @option default_options [Integer] :schedule_to_start_timeout
-      #   The optional default maximum duration, specified when registering the activity type, that a task of an
-      #   activity type can wait before being assigned to a worker. You can override this default when scheduling a task
-      #   through the ScheduleActivityTask Decision.
+      #   The optional default maximum duration, specified when registering the
+      #   activity type, that a task of an activity type can wait before being
+      #   assigned to a worker.
+      #
+      #   You can override this default when scheduling a task through the
+      #   ScheduleActivityTask decision.
       #
       # @option default_options [Integer] :start_to_close_timeout
-      #   The optional default maximum duration for tasks of an activity type specified when registering the activity
-      #   type. You can override this default when scheduling a task through the ScheduleActivityTask Decision.
+      #   The optional default maximum duration for tasks of an activity type
+      #   specified when registering the activity type.
+      #
+      #   You can override this default when scheduling a task through the
+      #   ScheduleActivityTask decision.
       #
       # @option default_options [Array] :task_list
-      #   The optional default task list specified for this activity type at registration. This default task list is
-      #   used if a task list is not provided when a task is scheduled through the ScheduleActivityTask Decision. You
-      #   can override this default when scheduling a task through the ScheduleActivityTask Decision.
+      #   The optional default task list specified for this activity type at
+      #   registration. This default task list is used if a task list is not
+      #   provided when a task is scheduled through the ScheduleActivityTask
+      #   decision.
+      #
+      #   You can override this default when scheduling a task through the
+      #   ScheduleActivityTask decision.
       #
       # @option default_options [String] :version
-      #  The version of this Activity. If you change any other options on the activity, you must also change the
-      #  version.
+      #  The version of this Activity. If you change any other options on the
+      #  activity, you must also change the version.
       #
       # @param [true, false] use_defaults
-      #   Set to `true` to use the pre-defined default ActivityOptions.
+      #   Set to `true` to use the pre-defined {ActivityDefaults}.
       #
       def initialize(default_options={}, use_defaults=false)
         if default_options.keys.include? :exponential_retry
@@ -613,10 +728,11 @@ module AWS
       # Creates a new set of runtime options based on a set of default options.
       #
       # @param [ActivityOptions] default_options
-      #   The default {ActivityOptions} to use to set the values of the runtime options in this class.
+      #   The default {ActivityOptions} to use to set the values of the runtime
+      #   options in this class.
       #
       # @param [true, false] use_defaults
-      #   Set to `true` to use the default runtime options for the Activity.
+      #   Set to `true` to use the default runtime options for the activity.
       #
       def initialize(default_options = {}, use_defaults=false)
         super(default_options, use_defaults)

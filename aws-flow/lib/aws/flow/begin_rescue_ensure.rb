@@ -300,7 +300,7 @@ module AWS
         end
       end
 
-      # Ensures that {BeginRescureEnsure} isn't exposed directly. This function is passed in when {#error_handler} is
+      # Ensures that {BeginRescueEnsure} isn't exposed directly. This function is passed in when {#error_handler} is
       # called, like this:
       #
       #     error_handler do |t|
