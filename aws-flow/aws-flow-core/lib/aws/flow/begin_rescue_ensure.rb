@@ -322,7 +322,7 @@ module AWS
         #   *Required*. A code block to be called.
         #
         # @param begin_rescue_ensure
-        #   *Required*. The {BeginRescueEnsure} instance to wrap.
+        #   The {BeginRescueEnsure} instance to wrap.
         #
         def initialize(block, begin_rescue_ensure)
           @beginRescueEnsure = begin_rescue_ensure
