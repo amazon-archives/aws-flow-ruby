@@ -319,10 +319,10 @@ module AWS
         # Creates a new BeginRescueEnsureWrapper instance.
         #
         # @param block
-        #   A code block to be called.
+        #   *Required*. A code block to be called.
         #
         # @param begin_rescue_ensure
-        #   The {BeginRescueEnsure} instance to wrap.
+        #   *Required*. The {BeginRescueEnsure} instance to wrap.
         #
         def initialize(block, begin_rescue_ensure)
           @beginRescueEnsure = begin_rescue_ensure
