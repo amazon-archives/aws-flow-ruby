@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-# This file contains AsyncBacktrace, which takes care of decorating and properly filtering backtraces
+# This file contains AsyncBacktrace, which takes care of decorating and properly filtering backtraces.
 
 module AWS
   module Flow
@@ -55,12 +55,12 @@ module AWS
             end
           end
 
-          # Remove all framework related frames after application frames. Keep framework frames before application
+          # Removes all framework-related frames after application frames. Keep framework frames before application
           # frames.
           #
           # @todo
           #   The correct implementation should not have framework frames before application frames as it is expected to
-          #   call Kernel.caller with the correct number.  But in cases when due to changes this number is not correct
+          #   call Kernel.caller with the correct number. In cases when this number is not correct,
           #   the frames are kept to not create confusion.
           #
           def filter(backtrace)
@@ -116,8 +116,8 @@ module AWS
           # @!visibility private
           def do_filter(backtrace)
             return nil unless backtrace
-            # keep asynchrony frames at the top of the backtrace only
-            # then cut all frames starting from asynchrony frame
+            # Keep asynchrony frames at the top of the backtrace only
+            # then cut all frames starting from asynchrony frame.
             skip_asynchrony_frames = false
             @backtrace = backtrace.take_while do |frame|
               if ! $RUBY_FLOW_FILES.select {|file| Regexp.new(file) =~ frame}.empty?
