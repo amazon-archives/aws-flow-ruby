@@ -66,7 +66,7 @@ module AWS
           @root_error_handler.get_heirs
         end
 
-        # Execute all queued tasks. If execution of those tasks results in addition of new tasks to the queue, execute
+        # Execute all queued tasks. If execution of those tasks results in the addition of new tasks to the queue, execute
         # them as well.
         #
         # Unless there are external dependencies or bugs in the tasks to be executed, a single call to this method
