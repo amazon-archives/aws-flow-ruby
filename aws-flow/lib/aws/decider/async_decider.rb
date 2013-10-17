@@ -587,7 +587,7 @@ module AWS
                      })
       end
 
-      # Handler for the `:WorkflowExecutionSignaled` event.
+      # Handler for the `WorkflowExecutionSignaled` event.
       #
       # @param [Object] event
       #   The event to process.

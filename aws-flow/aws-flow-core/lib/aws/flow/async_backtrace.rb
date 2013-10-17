@@ -18,16 +18,16 @@
 module AWS
   module Flow
     module Core
-      # @!visibility private
+      # @api private
       class AsyncBacktrace
 
-        # @!visibility private
+        # @api private
         def initialize(parent, backtrace)
           @backtrace = AsyncBacktrace.filter(backtrace)
           @parent = parent
         end
 
-        # @!visibility private
+        # @api private
         def backtrace
           if @parent
             AsyncBacktrace.merge(@backtrace, @parent.backtrace)
@@ -36,10 +36,10 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         class << self
 
-          # @!visibility private
+          # @api private
           def create(parent, frames_to_skip)
 
             unless @disable_async_backtrace
@@ -48,7 +48,7 @@ module AWS
             end
           end
 
-          # @!visibility private
+          # @api private
           def create_from_exception(parent, exception)
             unless @disable_async_backtrace
               AsyncBacktrace.new(parent, exception.backtrace);
@@ -71,7 +71,7 @@ module AWS
             end
           end
 
-          # @!visibility private
+          # @api private
           def merge(*backtraces)
             result = []
             backtraces.each do | b |
@@ -83,27 +83,27 @@ module AWS
             result
           end
 
-          # @!visibility private
+          # @api private
           def disable_filtering
             @disable_filtering = true
           end
 
-          # @!visibility private
+          # @api private
           def enable_filtering
             @disable_filtering = false
           end
 
-          # @!visibility private
+          # @api private
           def disable
             @disable_async_backtrace = true
           end
 
-          # @!visibility private
+          # @api private
           def enable
             @disable_async_backtrace = false
           end
 
-          # @!visibility private
+          # @api private
           def caller(skip)
             random_var = Kernel.caller 0
             this_stuff =  1.upto(6).map { |x| Kernel.caller(x) }
@@ -113,7 +113,7 @@ module AWS
 
           private
 
-          # @!visibility private
+          # @api private
           def do_filter(backtrace)
             return nil unless backtrace
             # Keep asynchrony frames at the top of the backtrace only

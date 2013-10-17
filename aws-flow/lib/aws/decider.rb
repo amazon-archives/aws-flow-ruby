@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 #++
 
-# @!visibility private
+# @api private
 def require_all(path)
   glob = File.join(path, "*.rb")
   Dir[glob].each { |f| require f}
@@ -28,7 +28,6 @@ require 'aws-sdk'
 AWS.config(:user_agent_prefix => "ruby-flow")
 
 #LOAD_PATH << File.dirname(File.expand_path(__FILE__))
-
 
 require "aws/decider/utilities"
 require "aws/decider/worker"
@@ -57,7 +56,7 @@ require "aws/decider/flow_defaults"
 require "aws/decider/implementation"
 require "aws/decider/version"
 
-# @!visibility private
+# @api private
 def get_const(name)
   name = name.split('::').reverse
   current = Object

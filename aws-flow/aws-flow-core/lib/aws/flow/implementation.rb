@@ -103,7 +103,7 @@ module AWS
         begin_rescue_ensure
       end
 
-      # @!visibility private
+      # @api private
       #
       def _error_handler(&block)
         error_handler(&block).result
