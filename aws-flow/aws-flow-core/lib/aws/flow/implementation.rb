@@ -86,7 +86,7 @@ module AWS
       #   {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
       #
       # @return
-      #   The result of the 'begin' statement if there is no error; otherwise this returns the value of the 'return'
+      #   The result of the `begin` statement if there is no error; otherwise this returns the value of the `return`
       #   statement.
       #
       # @raise [NoContextException]

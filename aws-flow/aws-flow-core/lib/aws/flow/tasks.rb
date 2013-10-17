@@ -68,14 +68,14 @@ module AWS
         end
 
         #
-        # Passes the 'get_heirs' calls to the context, to ensure uniform handling of 'get_heirs'.
+        # Passes the `get_heirs` calls to the context, to ensure uniform handling of `get_heirs`.
         #
         def get_heirs
           @__context__.get_heirs
         end
 
         #
-        # Returns 'true' if we are in a daemon task.
+        # Returns `true` if we are in a daemon task.
         #
         def is_daemon?
           return false
@@ -135,7 +135,7 @@ module AWS
 
 
       # Represents  a task that might not execute. Similar to a regular task in all functions except that it is not assured a chance to execute. Whereas a
-      # begin/run/execute block cannot be closed while there are still 'nonDaemonHeirs', a DaemonTask can enter the
+      # begin/run/execute block cannot be closed while there are still `nonDaemonHeirs`, a DaemonTask can enter the
       # closed state with daemon heirs, making them essentially unrunnable.
       class DaemonTask < Task
 

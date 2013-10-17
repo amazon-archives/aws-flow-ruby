@@ -22,7 +22,7 @@ module AWS
       module SimpleDFA
         attr_accessor :transitions, :symbols, :states, :start_state
 
-        # Creates a new 'SimpleDFA' instance.
+        # Creates a new `SimpleDFA` instance.
         #
         # @param start_state
         #   The state with which to start the framework.
