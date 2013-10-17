@@ -61,7 +61,7 @@ module AWS
     #   retry attempt when *should_jitter* is set to `true`.
     #
     # @!attribute should_jitter
-    #   Whether or not there should be any randomness built in to the timing of
+    #   Indicates whether there should be any randomness built in to the timing of
     #   the retry attempt. The default value is `true`.
     #
     class FlowConstants

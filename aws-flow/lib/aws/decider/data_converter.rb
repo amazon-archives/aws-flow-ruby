@@ -15,8 +15,8 @@
 
 module AWS
   module Flow
-    # We special case exception for now, as YAML doesn't propagate backtraces
-    # properly, and they are very handy for debugging
+    # Converts an object to YAML. Exceptions are handled differently because YAML doesn't propagate backtraces
+    # properly, and they are very handy for debugging.
     class YAMLDataConverter
 
       def dump(object)

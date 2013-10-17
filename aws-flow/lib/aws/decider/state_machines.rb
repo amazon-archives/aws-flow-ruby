@@ -40,7 +40,7 @@ module AWS
       end
 
       def get_transitions
-        # Turns out, you are your own ancestor
+        # Turns out, you are your own ancestor.
         ancestors.slice(1..-1).map {|x| x.transitions if x.respond_to? :transitions}.compact.
           inject({}) {|x, y| x.merge(y)}.merge(@transitions)
       end
@@ -86,10 +86,10 @@ module AWS
         return if symbol == :handle_decision_task_started_event
         raise "UnsupportedOperation"
       end
-      # Creates a new CompleteWorkflowStateMachine
+      # Creates a new `CompleteWorkflowStateMachine`.
       #
       # @param id
-      #   The decider id.
+      #   The decider ID.
       #
       # @param attributes
       #

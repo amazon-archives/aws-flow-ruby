@@ -16,10 +16,10 @@
 module AWS
   module Flow
 
-    # Every workflow implementation needs to be a subclass of this class.
+    # Represents a workflow definition. Every workflow implementation needs to be a subclass of this class.
     #
-    # Usually there should be no need to instantiate the class manually, as instead, the @execute method is called to
-    # start the workflow (you can think of this as having factory class methods).
+    # Usually there should be no need to instantiate the class manually. Instead, the @execute method is called to
+    # start the workflow. You can think of this class as having factory class methods.
     class WorkflowDefinition
 
       attr_reader :decision_helper
@@ -44,9 +44,9 @@ module AWS
               method_output.set(@instance.send(@workflow_method))
             else
               ruby_input = @converter.load input
-              # Have to have *ruby_input in order to be able to handle sending
+              # Have to have `ruby_input` in order to be able to handle sending
               # arbitrary arguments correctly, as otherwise it will seem as if
-              # @workflow_method will always have an arity of 1
+              # @workflow_method will always have an arity of 1.
               method_output.set(@instance.send(@workflow_method, *ruby_input))
             end
           end

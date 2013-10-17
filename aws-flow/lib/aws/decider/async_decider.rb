@@ -16,26 +16,26 @@
 module AWS
   module Flow
 
-    # Represents a decision ID
+    # Represents a decision ID.
     class DecisionID
 
-      # Creates a new DecisionID
+      # Creates a new decision ID.
       #
       # @param decision_target
-      #   The decision target
+      #   The decision target.
       #
       # @param string_id
-      #   The string that identifies this decisison
+      #   The string that identifies this decision.
       #
       def initialize(decision_target, string_id)
         @decision_target = decision_target
         @string_id = string_id
       end
 
-      # Hash function to return an unique value for the DecisionID
+      # Hash function to return an unique value for the decision ID.
       #
       # @return
-      #   The calculated hash value for the DecisionID.
+      #   The calculated hash value for the decision ID.
       #
       def hash
         prime = 31
@@ -45,13 +45,13 @@ module AWS
         result
       end
 
-      # Is this Decision ID the same as another?
+      # Is this decision ID the same as another?
       #
       # @param [Object] other
       #   The object to compare with.
       #
       # @return [true, false]
-      #   Returns `true` if the object is the same as this DecisionID; `false` otherwise.
+      #   Returns `true` if the object is the same as this decision ID; `false` otherwise.
       #
       def eql?(other)
 
@@ -81,7 +81,7 @@ module AWS
     end
 
 
-    # A decision helper for a workflow
+    # A decision helper for a workflow.
     #
     # @!attribute [Hash] activity_options
     #
@@ -145,7 +145,7 @@ module AWS
       def handle_decision_task_started_event
         # In order to ensure that the events we have already scheduled do not
         # make a decision, we will process only maximum_decisions_per_completion
-        # here
+        # here.
         count = 0
         decision_list = @decision_map.values
         decision_state_machine = get_next_state_machine_which_will_schedule(decision_list)
@@ -173,7 +173,7 @@ module AWS
         end
       end
 
-      # Returns the activity ID for a scheduled activity
+      # Returns the activity ID for a scheduled activity.
       #
       # @param [String] scheduled_id
       #   The scheduled activity ID.
@@ -184,12 +184,12 @@ module AWS
       end
     end
 
-    # The asynchronous decider class
+    # Represents an asynchronous decider class.
     class AsyncDecider
       include Utilities::SelfMethods
       attr_accessor :task_token, :decision_helper
 
-      # Creates a new asynchronous decider
+      # Creates a new asynchronous decider.
       def initialize(workflow_definition_factory, history_helper, decision_helper)
         @workflow_definition_factory = workflow_definition_factory
         @history_helper = history_helper
@@ -288,7 +288,7 @@ module AWS
 
         # If you don't have details, you must be some other type of
         # exception. We can't do anything exceedingly clever, so lets just get
-        # the stack trace and pop that out
+        # the stack trace and pop that out.
         details = failure.details if (failure.respond_to? :details)
         details ||= failure.backtrace.join("")
         new_details = details[0..(max_response_size - truncation_overhead)]
@@ -313,7 +313,7 @@ module AWS
       # Continues this as a new workflow, using the provided decision and options.
       #
       # @param [DecisionID] decision_id
-      #   The decision id to use.
+      #   The decision ID to use.
       #
       # @param [WorkflowOptions] continue_as_new_options
       #   The options to use for the new workflow.
@@ -358,7 +358,7 @@ module AWS
         end
       end
 
-      # Is the task completed?
+      # Indicates whether the task completed.
       #
       # @return [true, false]
       #   Returns `true` if the task is completed; `false` otherwise.
@@ -370,7 +370,7 @@ module AWS
       # Handler for the `:ActivityTaskScheduled` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_activity_task_scheduled(event)
         activity_id = event.attributes[:activity_id]
@@ -382,7 +382,7 @@ module AWS
       # Handler for the `:WorkflowExecutionStarted` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_workflow_execution_started(event)
         @workflow_async_scope = AsyncScope.new do
@@ -396,7 +396,7 @@ module AWS
       # Handler for the `:TimerFired` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_timer_fired(event)
         timer_id = event.attributes[:timer_id]
@@ -412,7 +412,7 @@ module AWS
       # Handler for the `:StartTimerFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_start_timer_failed(event)
         timer_id = event.attributes.timer_id
@@ -433,7 +433,7 @@ module AWS
 
       # Handler for the `:WorkflowExecutionCancelRequested` event.
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       def handle_workflow_execution_cancel_requested(event)
         @workflow_async_scope.cancel(CancellationException.new("Cancelled from a WorkflowExecutionCancelRequested"))
         @cancel_requested = true
@@ -441,7 +441,7 @@ module AWS
 
       # Handler for the `:ActivityTaskCancelRequested` event.
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       def handle_activity_task_cancel_requested(event)
         activity_id = event.attributes[:activity_id]
         @decision_helper[activity_id].consume(:handle_cancellation_initiated_event)
@@ -449,7 +449,7 @@ module AWS
 
       # Handler for the `:RequestCancelActivityTaskFailed` event.
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       def handle_request_cancel_activity_task_failed(event)
         handle_event(event, {
                        :id_methods => [:activity_id],
@@ -464,7 +464,7 @@ module AWS
 
       # Handler for the `:CompleteWorkflowExecutionFailed` event.
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       def handle_complete_workflow_execution_failed(event)
         handle_closing_failure
       end
@@ -472,7 +472,7 @@ module AWS
       # Handler for the `:FailWorkflowExecutionFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_fail_workflow_execution_failed(event)
         handle_closing_failure
@@ -481,16 +481,16 @@ module AWS
       # Handler for the `:CancelWorkflowExecutionFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_cancel_workflow_execution_failed(event)
         handle_closing_failure
       end
 
-      # Handler for the `:ContinueAsNewWorkflowExecutionFailed' event.
+      # Handler for the `:ContinueAsNewWorkflowExecutionFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_continue_as_new_workflow_execution_failed(event)
         handle_closing_failure
@@ -499,7 +499,7 @@ module AWS
       # Handler for the `:TimerStarted` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_timer_started(event)
         timer_id = event.attributes[:timer_id]
@@ -511,7 +511,7 @@ module AWS
       # Handler for the `:TimerCanceled` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_timer_canceled(event)
         handle_event(event, {
@@ -530,7 +530,7 @@ module AWS
       # Handler for the `:SignalExternalWorkflowExecutionInitiated` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_signal_external_workflow_execution_initiated(event)
         signal_id = event.attributes[:control]
@@ -542,7 +542,7 @@ module AWS
       # Handler for the `:RequestCancelExternalWorkflowExecutionInitiated` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_request_cancel_external_workflow_execution_initiated(event)
         handle_event(event, {
@@ -554,7 +554,7 @@ module AWS
       # Handler for the `:RequestCancelExternalWorkflowExecutionFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_request_cancel_external_workflow_execution_failed(event)
         handle_event(event, {
@@ -566,7 +566,7 @@ module AWS
       # Handler for the `:StartChildWorkflowExecutionInitiated` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_start_child_workflow_execution_initiated(event)
         workflow_id = event.attributes[:workflow_id]
@@ -578,7 +578,7 @@ module AWS
       # Handler for the `:CancelTimerFailed` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_cancel_timer_failed(event)
         handle_event(event, {
@@ -590,7 +590,7 @@ module AWS
       # Handler for the `:WorkflowExecutionSignaled` event.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def handle_workflow_execution_signaled(event)
         signal_name = event.attributes[:signal_name]
@@ -604,10 +604,10 @@ module AWS
         @workflow_async_scope.get_closest_containing_scope << t
       end
 
-      # Processes decider events
+      # Processes decider events.
       #
       # @param [Object] event
-      #   The event to process
+      #   The event to process.
       #
       def process_event(event)
         event_type_symbol = event.event_type.to_sym

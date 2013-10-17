@@ -16,7 +16,7 @@
 module AWS
   module Flow
 
-    # A MethodPair groups a method name with an associated data converter.
+    # Groups a method name with an associated data converter.
     class MethodPair
       # The method name for the method pair.
       attr_accessor :method_name
@@ -213,7 +213,7 @@ module AWS
                      })
       end
 
-      # Handler for the StartChildWorkflowExecutionFailed event.
+      # Handler for the `StartExternalWorkflowExecutionFailed` event.
       #
       # @param [Object] event
       #   The event instance.
@@ -329,7 +329,7 @@ module AWS
       # @api private
       def _options; self.workflows.map(&:options); end
 
-      # Defines a new workflow
+      # Defines a new workflow.
       #
       # @param entry_point
       #   The entry point (method) that starts the workflow.
@@ -346,7 +346,7 @@ module AWS
       end
 
       # @return [MethodPair]
-      #   A {MethodPair} object
+      #   A {MethodPair} object.
       #
       def get_state_method(get_state_method = nil, options = {})
         data_converter = options[:data_converter]
@@ -380,7 +380,7 @@ module AWS
       end
 
 
-      # Instance methods for {DecisionContext}
+      # Instance methods for {DecisionContext}.
       module InstanceMethods
 
         # Returns the {DecisionContext} instance.
@@ -394,7 +394,7 @@ module AWS
         # Returns the workflow ID.
         #
         # @return
-        #   The workflow ID
+        #   The workflow ID.
         #
         def workflow_id
           self.decision_context.workflow_context.decision_task.workflow_execution.workflow_id
@@ -487,12 +487,12 @@ module AWS
             continue_as_new_options.input = input
           end
           known_workflows = self.class.workflows
-          # If there is only one workflow, we can unambiguously say that we should use that one
+          # If there is only one workflow, we can unambiguously say that we should use that one.
 
           if known_workflows.length == 1
             continue_as_new_options.precursors << known_workflows.first.options
           end
-          # If we can find a name that matches, use that one
+          # If we can find a name that matches, use that one.
           if continue_as_new_options.execution_method
             matching_option = self.class.workflows.map(&:options).find {|x| x.execution_method == continue_as_new_options.execution_method }
             continue_as_new_options.precursors << matching_option unless matching_option.nil?

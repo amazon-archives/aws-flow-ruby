@@ -28,7 +28,7 @@ module AWS
       # The stored ID of the activity.
       attr_reader :activity_id
 
-      # Initializes a ndw ActivityMetadata object.
+      # Initializes a new ActivityMetadata object.
       #
       # @param activity_id
       #   The ID of the activity.
@@ -47,7 +47,7 @@ module AWS
       # The decision helper used by the activity client.
       attr_accessor :decision_helper
 
-      # A hash of {ActivityRuntimeOptions} for the activity client
+      # A hash of {ActivityRuntimeOptions} for the activity client.
       attr_accessor :options
 
       # Returns the default option class for the activity client, which is {ActivityRuntimeOptions}.
@@ -237,7 +237,7 @@ module AWS
       #   *Required*. The activity type for this scheduled activity.
       #
       # @param [Object] input
-      #   *Required*. Optional data passed to the activity.
+      #   *Required*. Additional data passed to the activity.
       #
       # @param [ActivityOptions] options
       #   *Required*. {ActivityOptions} to set for the scheduled activity.
@@ -285,7 +285,7 @@ module AWS
             # we should serialize the error, and stuff that into details, so
             # that things above us can pull it out correctly. We don't have to
             # do this for ActivityTaskFailedException, as the details is
-            # *already* serialized
+            # *already* serialized.
             if error.is_a? ActivityTaskFailedException
               details = @data_converter.load(error.details)
               error.cause = details

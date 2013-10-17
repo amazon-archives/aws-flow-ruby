@@ -73,10 +73,10 @@ module AWS
       #
       def send_async(task, *args, &block)
         bail_if_external
-        # If there is no block, just make a block for immediate return
+        # If there is no block, just make a block for immediate return.
         if block.nil?
           modified_options = Proc.new{ {:return_on_start => true } }
-          # If there is a block, and it doesn't take any arguments, it will evaluate to a hash. Add an option to the hash
+          # If there is a block, and it doesn't take any arguments, it will evaluate to a hash. Add an option to the hash.
         elsif block.arity == 0
           modified_options = Proc.new do
             result = block.call
@@ -157,7 +157,7 @@ module AWS
       #   The activity to retry.
       #
       # @param retry_function
-      #   The retry function to use
+      #   The retry function to use.
       #
       # @param args
       #   Arguments to send to the method named in the `method_name` parameter.

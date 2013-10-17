@@ -41,7 +41,7 @@ module AWS
 
       def delete_workflow_definition(definition)
         FlowFiber.unset(FlowFiber.current, :decision_context)
-        # Indicating to GC that these values are no longer needed
+        # Indicates to GC that these values are no longer needed.
         FlowFiber.local_variables.each_pair do |key, value|
           value = nil
           FlowFiber.local_variables.delete(key)

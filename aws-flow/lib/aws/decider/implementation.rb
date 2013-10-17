@@ -16,16 +16,16 @@
 module AWS
   module Flow
 
-    # Creates a new {WorkflowClient} instance
+    # Creates a new {WorkflowClient} instance.
     #
     # @param service
-    #   A {http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow.html SWF service} reference. This is usually
+    #   An {http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow.html Amazon SWF service} reference. This is usually
     #   created with:
     #
     #       swf = AWS::SimpleWorkflow.new
     #
     # @param domain
-    #   The SWF {http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html Domain} to use for this
+    #   The Amazon SWF {http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html Domain} to use for this
     #   workflow client. This is usually created on the service object, such as:
     #
     #       domain = swf.domains.create('my-domain', 10)
@@ -74,7 +74,7 @@ module AWS
       if ! Utilities::is_external
         service = AWS::SimpleWorkflow.new
         # So, we probably shouldn't be doing this, but we need to slightly
-        # redesign where this is available from
+        # redesign where this is available from.
         domain = FlowFiber.current[:decision_context].workflow_context.decision_task.workflow_execution.domain
       else
         if service.nil? || domain.nil?

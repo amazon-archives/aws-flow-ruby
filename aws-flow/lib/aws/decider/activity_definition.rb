@@ -24,7 +24,7 @@ module AWS
     class ActivityDefinition
       attr_accessor :execution_options
 
-      # Creates a new ActivityDefinition instance
+      # Creates a new ActivityDefinition instance.
       #
       # @param [Object] instance
       #
@@ -46,10 +46,10 @@ module AWS
         @converter = converter
       end
 
-      # Executes the activity
+      # Executes the activity.
       #
       # @param [Object] input
-      #   Optional input for the activity execution.
+      #   Additional input for the activity execution.
       #
       # @param [ActivityExecutionContext] context
       #   The context for the activity execution.
@@ -58,10 +58,10 @@ module AWS
         begin
           @instance._activity_execution_context = context
           # Since we encode all the inputs in some converter, and these inputs
-          # are not "true" ruby objects yet, there is no way for that input to
+          # are not "true" Ruby objects yet, there is no way for that input to
           # be an instance of the NilClass(the only thing that responds true to
           # .nil?) and thus we can be assured that if input.nil?, then the
-          # method had no input
+          # method had no input.
           if input.nil?
             result = @instance.send(@activity_method)
           else
@@ -89,7 +89,7 @@ module AWS
       attr_accessor :service, :domain, :task
 
 
-      # Initializes a new {ActivityExecutionContext] object.
+      # Initializes a new `ActivityExecutionContext` object.
       #
       # @param service
       #
@@ -111,7 +111,7 @@ module AWS
       # Gets the workflow execution that is the context for this activity execution.
       #
       # @return {AWS::SWF::WorkflowExecution}
-      #   The **WorkflowExecution** in this activity execution context.
+      #   The `WorkflowExecution` in this activity execution context.
       #
       def workflow_execution
         @task.workflow_execution

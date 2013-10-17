@@ -21,7 +21,7 @@ module AWS
     class WorkflowTaskPoller
 
 
-      # Creates a new WorkflowTaskPoller
+      # Creates a new `WorkflowTaskPoller`.
       #
       # @param service
       #   The Amazon SWF service object on which this task poller will operate.
@@ -84,7 +84,7 @@ module AWS
     #
     class ActivityTaskPoller
 
-      # Initializes a new {ActivityTaskPoller}.
+      # Initializes a new `ActivityTaskPoller`.
       #
       # @param service
       #   *Required*. The AWS::SimpleWorkflow instance to use.
@@ -323,7 +323,7 @@ module AWS
     end
 
     # @api private
-    # @note This class is currently unimplemented.
+    # @note This class is currently not implemented.
     class SuspendableSemaphore
 
       # @note This method is not implemented.
