@@ -29,7 +29,7 @@ module AWS
         :rescue_exceptions, :failure, :cancelled, :heirs, :nonDaemonHeirsCount, :executor, :result
         attr_reader :backtrace, :__context__
 
-        # Create a new 'BeginRescueEnsure' object, with the provided options.
+        # Create a new `BeginRescueEnsure` object, with the provided options.
         #
         # @param options
         #   Options to set for the class.
@@ -316,7 +316,7 @@ module AWS
         # Also has a few methods to ensure fiber-ness, such as get_heirs and cancel.
         attr_reader :__context__
 
-        # Creates a new 'BeginRescueEnsureWrapper' instance.
+        # Creates a new `BeginRescueEnsureWrapper` instance.
         #
         # @param block
         #   *Required*. A code block to be called.
