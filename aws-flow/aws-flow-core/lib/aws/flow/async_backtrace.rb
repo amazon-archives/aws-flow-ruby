@@ -63,6 +63,7 @@ module AWS
           #   call Kernel.caller with the correct number. In cases when this number is not correct,
           #   the frames are kept to not create confusion.
           #
+          # @api private
           def filter(backtrace)
             if @disable_filtering
               backtrace

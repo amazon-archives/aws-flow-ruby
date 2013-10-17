@@ -18,21 +18,27 @@ module AWS
   module Flow
     module Core
       require 'fiber'
+      # @api private
       class FlowFiber < Fiber
+        # @api private
         def initialize(*args)
           ObjectSpace.define_finalizer(self, self.class.finalize(self.object_id))
           super(args)
         end
+        # @api private
         class << self
           attr_accessor :local_variables
         end
         @local_variables = Hash.new {|hash, key| hash[key] = {}}
+        # @api private
         def self.finalize(obj_id)
           proc { FlowFiber.local_variables.delete(obj_id) }
         end
+        # @api private
         def self.[](index)
           self.local_variables[index]
         end
+        # @api private
         def self.[]=(key, value)
           self.local_variables[key] = value
         end
@@ -40,6 +46,7 @@ module AWS
         # Unsets all the values for ancestors of this fiber, assuming that
         # they have the same value for key. That is, they will unset upwards until
         # the first time the value stored at key is changed.
+        # @api private
         def self.unset(current_fiber, key)
           current_value = FlowFiber[current_fiber.object_id][key]
           parent = FlowFiber[current_fiber.object_id][:parent]
@@ -54,6 +61,7 @@ module AWS
           FlowFiber[current_fiber.object_id].delete(key)
         end
 
+        # @api private
         def initialize
           # Child fibers should inherit their parents FiberLocals.
           FlowFiber[Fiber.current.object_id].each_pair do |key, val|
@@ -63,15 +71,15 @@ module AWS
           super
         end
 
+        # @api private
         def [](key)
           FlowFiber[self.object_id][key]
         end
+        # @api private
         def []=(key, value)
           FlowFiber[self.object_id][key] = value
         end
-
       end
-
     end
   end
 end

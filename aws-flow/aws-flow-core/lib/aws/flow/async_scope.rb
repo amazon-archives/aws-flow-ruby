@@ -19,6 +19,7 @@ module AWS
   module Flow
     module Core
 
+      # @api private
       def gate_by_version(version, method, &block)
         if RUBY_VERSION.send(method, version)
           block.call
@@ -29,20 +30,22 @@ module AWS
       class AsyncScope
         attr_accessor :stackTrace, :root, :failure, :root_context
 
+        # @api private
         def is_complete?
           @root_context.complete
         end
 
+        # @api private
         def get_closest_containing_scope
           @root_error_handler
         end
 
+        # @api private
         def cancel(error); @root_error_handler.cancel(error); end
 
+        # @api private
         def initialize(&block)
           @root_context = RootAsyncScope.new
-
-
 
           # 1 for the function that skips frames
           # 1 for the create function
@@ -62,6 +65,7 @@ module AWS
         end
 
         # Collects all the heirs of a task for use in async_stack_dump
+        # @api private
         def get_heirs
           @root_error_handler.get_heirs
         end
@@ -75,6 +79,7 @@ module AWS
         # @note In the presence of external dependencies, it is expected that {AsyncScope#eventLoop} is called every
         # time after a change in the state in a dependency can unblock asynchronous execution.
         #
+        # @api private
         def eventLoop
           #TODO Figure out when to raise Done raise "Done" if ! @root_task.alive?
           raise IllegalStateException, "Already complete" if is_complete?
@@ -96,6 +101,7 @@ module AWS
           return is_complete?
         end
 
+        # @api private
         def <<(task)
           @root_context << task
           task.parent = @root_context
@@ -107,6 +113,7 @@ module AWS
 
         attr_accessor :backtrace, :failure, :executor, :complete
 
+        # @api private
         def initialize(options = {}, &block)
           @parent = options[:parent_context]
           @daemon = options[:daemon]
@@ -119,6 +126,7 @@ module AWS
 
         # The only thing that should be removed from the RootAsyncScope is the
         # root BeginRescueEnsure, so upon removal we are complete.
+        # @api private
         def remove(task)
           @complete = true
         end
@@ -126,21 +134,25 @@ module AWS
         # As with remove, the only thing that is under RootAsyncScope should be
         # the root BeginRescueEnsure, so upon failure we will be complete. Also
         # sets failure variable for later raising.
+        # @api private
         def fail(task, error)
           @failure = error
           @complete = true
         end
 
+        # @api private
         def <<(this_task)
           @executor << this_task
         end
 
         # Return self, a RootAsyncScope is the closest containing scope.
+        # @api private
         def get_closest_containing_scope
           self
         end
 
         # Call out to the AsyncEventLoop.
+        # @api private
         def eventLoop
           @executor.executeQueuedTasks
         end
@@ -149,6 +161,7 @@ module AWS
         private
         DELEGATED_METHODS = [:push, :<<, :enq, :empty?, :length, :size, :delete, :shift]
 
+        # @api private
         def method_missing(method_name, *args)
           if DELEGATED_METHODS.include? method_name
             @executor.send(method_name, *args)
@@ -161,10 +174,12 @@ module AWS
       # @api private
       class AsyncEventLoop
 
+        # @api private
         def initialize
           @tasks = []
         end
 
+        # @api private
         def remove(task)
           @tasks.delete(task)
         end
@@ -173,15 +188,17 @@ module AWS
         def fail(task, error)
           raise error
         end
+
+        # @api private
         def <<(task)
           @tasks << task
 
         end
 
-
         # TODO should this be synchronized somehow?
 
         # Actually executes the eventLoop.
+        # @api private
         def executeQueuedTasks
           until @tasks.empty?
             task = @tasks.shift
@@ -189,7 +206,6 @@ module AWS
           end
         end
       end
-
     end
   end
 end

@@ -19,6 +19,7 @@ module AWS
 
       # Contains a data flow analysis (DFA)-like framework, where transition functions can perform arbitrary computation
       # before moving to the next state.
+      # @api private
       module SimpleDFA
         attr_accessor :transitions, :symbols, :states, :start_state
 
@@ -27,6 +28,7 @@ module AWS
         # @param start_state
         #   The state with which to start the framework.
         #
+        # @api private
         def init(start_state)
           include InstanceMethods
           @start_state = start_state
@@ -39,6 +41,7 @@ module AWS
         # @return the start state
         #   The start state that was provided when this instance was created.
         #
+        # @api private
         def get_start_state
           @start_state
         end
@@ -46,10 +49,12 @@ module AWS
         # @return [Array]
         #   The list of all transitions that were added with {#add_transition}.
         #
+        # @api private
         def get_transitions
           @transitions
         end
 
+        # @api private
         def define_general(state, &block)
           @symbols.each do |symbol|
             if @transitions[[state, symbol]].nil?
@@ -58,19 +63,23 @@ module AWS
           end
         end
 
+        # @api private
         def add_transition(state, symbol, &block)
           @symbols << symbol unless @symbols.include? symbol
           @states << state unless @states.include? state
           @transitions[[state, symbol]] = block
         end
 
+        # @api private
         def uncovered_transitions
           @states.product(@symbols) - @transitions.keys
         end
 
+        # @api private
         module InstanceMethods
           attr_accessor :current_state
 
+          # @api private
           def consume(symbol)
             @current_state ||= self.class.get_start_state
             func_to_call = self.class.get_transitions[[@current_state, symbol]]
@@ -79,7 +88,6 @@ module AWS
           end
         end
       end
-
     end
   end
 end

@@ -18,6 +18,7 @@
 module AWS
   module Flow
     module Core
+      # @api private
       class Task < FlowFiber
         attr_reader :result, :block
         attr_accessor :backtrace, :__context__, :parent
@@ -31,6 +32,7 @@ module AWS
         # @param block
         #   A block of code that will be run by the task.
         #
+        # @api private
         def initialize(__context__, &block)
           @__context__ = __context__
           @result = Future.new
@@ -41,6 +43,7 @@ module AWS
           # @return Boolean
           #   true if the task is alive and has not been canceled.
           #
+          # @api private
           def alive?
             super && !@cancelled
             #!!@alive# && !@cancelled
@@ -51,6 +54,7 @@ module AWS
           # @return
           #   The executor for this task.
           #
+          # @api private
           def executor
             @__context__.executor
           end
@@ -95,6 +99,7 @@ module AWS
         #
         # This will simply add the task back to the list of things to be run in the parent's event loop.
         #
+        # @api private
         def schedule
           @__context__ << self
         end
@@ -104,6 +109,7 @@ module AWS
         # @param error
         #   The error that is the cause of the cancellation.
         #
+        # @api private
         def cancel(error)
           @cancelled = true
           @__context__.remove(self)
@@ -127,6 +133,7 @@ module AWS
         # @param this_task
         #   The task to add.
         #
+        # @api private
         def <<(this_task)
           @__context__.parent << this_task
         end
@@ -136,6 +143,7 @@ module AWS
         # @param this_task
         #   The task to remove.
         #
+        # @api private
         def remove(this_task)
           @__context__.remove(this_task)
         end
@@ -149,11 +157,10 @@ module AWS
       #
       # @api private
       class DaemonTask < Task
-
+        # @api private
         def is_daemon?
           return true
         end
-
       end
 
       # Used to bridge asynchronous execution to external asynchronous APIs or
@@ -375,6 +382,7 @@ module AWS
 
         attr_accessor :daemon, :parent, :backtrace, :cancelled
 
+        # @api private
         def initialize(options = {})
           @parent = options[:parent]
           @task = options[:task]
