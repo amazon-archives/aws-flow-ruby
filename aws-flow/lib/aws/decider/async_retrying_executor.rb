@@ -78,7 +78,7 @@ module AWS
     # Represents a policy for retrying failed tasks.
     class RetryPolicy
 
-      # Creates a new RetryPolicy instance
+      # Creates a new `RetryPolicy` instance.
       #
       # @param retry_function
       #   The method to be called for each retry attempt.
@@ -119,7 +119,7 @@ module AWS
          #return (!@exceptions_to_exclude.include?(failure) && @exceptions_to_include.include?(failure))
       end
 
-      # Schedules a new retry attempt
+      # Schedules a new retry attempt.
       #
       # @param first_attempt
       #
@@ -141,7 +141,7 @@ module AWS
         end
         return -1 if failure == nil
 
-        # Check to see if we should jitter or not and pass in the jitter function to retry function accordingly.
+        # Check to see if we should jitter and pass in the jitter function to the retry function accordingly.
         retry_seconds = @retry_function.call(first_attempt, time_of_recorded_failure, attempt)
         if @should_jitter
            retry_seconds += @jitter_function.call(execution_id, retry_seconds/2)

@@ -20,12 +20,12 @@ module AWS
 
     # A generic Activity/Workflow worker class.
     class GenericWorker
-      # Creates a new GenericWorker
+      # Creates a new `GenericWorker`.
       # @param service
       #   The AWS service class to use.
       #
       # @param domain
-      #   The SWF domain to use.
+      #   The Amazon SWF domain to use.
       #
       # @param task_list_to_poll
       #   The list of tasks to poll for this worker.
@@ -101,7 +101,7 @@ module AWS
       #   The service used with this workflow worker.
       #
       # @param [String] domain
-      #   The SWF domain to operate on.
+      #   The Amazon SWF domain to operate on.
       #
       # @param [Array] task_list
       #   The default task list to put all of the decision requests.
@@ -123,7 +123,7 @@ module AWS
         add_workflow_implementation(workflow_class)
       end
 
-      # Called by {#add_implementation}
+      # Called by {#add_implementation}.
       # @api private
       def add_workflow_implementation(workflow_class)
         workflow_class.workflows.delete_if do |workflow_type|
@@ -169,7 +169,7 @@ module AWS
       # Starts the workflow with a {WorkflowTaskPoller}.
       #
       # @param [true,false] should_register
-      #   Indicates whether or not the workflow needs to be registered with SWF first. If {#register} was already called
+      #   Indicates whether the workflow needs to be registered with Amazon SWF first. If {#register} was already called
       #   for this workflow worker, specify `false`.
       #
       def start(should_register = true)
@@ -201,24 +201,24 @@ module AWS
     end
 
 
-    # For implementing activity workers, you can use the ActivityWorker class to conveniently poll a task list for
+    # Used to implement an activity worker. You can use the `ActivityWorker` class to conveniently poll a task list for
     # activity tasks.
     #
     # You configure the activity worker with activity implementation objects. This worker class then polls for activity
     # tasks in the specified task list. When an activity task is received, it looks up the appropriate implementation
     # that you provided, and calls the activity method to process the task. Unlike the {WorkflowWorker}, which creates a
-    # new instance for every decision task, the ActivityWorker simply uses the object you provided.
+    # new instance for every decision task, the `ActivityWorker` simply uses the object you provided.
     #
     class ActivityWorker < GenericWorker
 
-      # Creates a new ActivityWorker instance.
+      # Creates a new `ActivityWorker` instance.
       #
       # @param service
-      #   The SWF [Client](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html) used to register
+      #   The Amazon SWF [Client](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html) used to register
       #   this activity worker.
       #
       # @param [String] domain
-      #   The SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) to operate on.
+      #   The Amazon SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) to operate on.
       #
       # @param [Array] task_list
       #   The default task list to put all of the activity requests.
@@ -233,7 +233,7 @@ module AWS
         super(service, domain, task_list, *args)
       end
 
-      # Adds an Activity implementation to this ActivityWorker.
+      # Adds an activity implementation to this `ActivityWorker`.
       #
       # @param [Activity] class_or_instance
       #   The {Activity} class or instance to add.
@@ -243,7 +243,7 @@ module AWS
       end
 
 
-      # Registers the activity type
+      # Registers the activity type.
       def register
         @activity_type_options.each do |activity_type_options|
           begin
@@ -265,7 +265,7 @@ module AWS
         end
       end
 
-      # Adds an Activity implementation to this ActivityWorker.
+      # Adds an activity implementation to this `ActivityWorker`.
       #
       # @param [Activity] class_or_instance
       #   The {Activity} class or instance to add.
@@ -290,10 +290,10 @@ module AWS
       end
 
 
-      # Starts the Activity that was added to the ActivityWorker
+      # Starts the activity that was added to the `ActivityWorker`.
       #
       # @param [true, false] should_register
-      #   Set to false if the Activity should not register itself (it is already registered).
+      #   Set to `false` if the activity should not register itself (it is already registered).
       #
       def start(should_register = true)
         register if should_register
@@ -303,13 +303,13 @@ module AWS
         end
       end
 
-      # Starts the Activity that was added to the ActivityWorker and, optionally, sets the ActivityTaskPoller.
+      # Starts the activity that was added to the `ActivityWorker` and, optionally, sets the {ActivityTaskPoller}.
       #
       # @param [true, false] should_register
-      #   Set to `false` if the Activity should not register itself (it is already registered).
+      #   Set to `false` if the activity should not register itself (it is already registered).
       #
       # @param [ActivityTaskPoller] poller
-      #   The {ActivityTaskPoller} to use. If this is not set, a default ActivityTaskPoller will be created.
+      #   The {ActivityTaskPoller} to use. If this is not set, a default {ActivityTaskPoller} will be created.
       #
       def run_once(should_register = true, poller = nil)
         register if should_register
