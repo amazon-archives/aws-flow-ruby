@@ -57,13 +57,13 @@ module AWS
         end
 
 
-        # @!visibility private
+        # @api private
         def is_daemon?
           false
         end
 
 
-        # @!visibility private
+        # @api private
         def <<(async_task)
           # Not going to include the promise to wait for, as it would appear that
           # fibers can wait on futures from their point of origin as part of their
@@ -79,7 +79,7 @@ module AWS
           self
         end
 
-        # @!visibility private
+        # @api private
         def get_closest_containing_scope
           # BeginRescueEnsure's are special in that they act as a containing scope, so that things
           # created in BeginRescueEnsure's treat it as the parent, so that it can track the heirs
@@ -87,7 +87,7 @@ module AWS
           self
         end
 
-        # @!visibility private
+        # @api private
         def check_closed
           raise IllegalStateException, @failure if @current_state == :closed
         end
@@ -128,19 +128,19 @@ module AWS
           update_state
         end
 
-        # @!visibility private
+        # @api private
         def cancelHeirs
           toCancel = @heirs.dup
           toCancel.each { |heir|  heir.cancel(@failure) }
         end
 
-        # @!visibility private
+        # @api private
         def merge_stacktraces(failure, this_backtrace, error)
           backtrace = AsyncBacktrace.create_from_exception(this_backtrace, error)
           failure.set_backtrace(backtrace.backtrace) if backtrace
         end
 
-        # @!visibility private
+        # @api private
         def cancel(error)
           if @current_state == :created
             @current_state = :closed
@@ -160,7 +160,7 @@ module AWS
         end
 
         # Actually runs the BeginRescueEnsure, by going through the data flow analysis with the symbol :run.
-        # @!visibility private
+        # @api private
         def run
           this_failure = @failure
           begin
@@ -178,13 +178,13 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def alive?
           @current_state != :closed
         end
 
         # Updates the state based on the most recent transitions in the data flow analysis.
-        # @!visibility private
+        # @api private
         def update_state
           #TODO ? Add the ! @executed part
           #return if @current_state == :closed || ! @executed
@@ -199,7 +199,7 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def get_heirs
           # TODO fix this so it returns string instead of printing to stdout
           str =  "I am a BeginRescueEnsure with #{heirs.length} heirs
@@ -209,7 +209,7 @@ module AWS
           # (@heirs.each(&:get_heirs) + [self]).flatten
         end
 
-        # @!visibility private
+        # @api private
         init(:created)
         {
           [:created, :run] => lambda { |bre| bre.current_state = :begin; bre.run },
@@ -337,7 +337,7 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def get_heirs
           p "I am a BREWrapper"
           return
@@ -347,7 +347,7 @@ module AWS
           @beginRescueEnsure.parent.cancel(self)
         end
 
-        # @!visibility private
+        # @api private
         #
         # @return [false]
         #   Always returns `false`.

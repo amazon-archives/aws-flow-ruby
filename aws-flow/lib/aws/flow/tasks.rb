@@ -37,13 +37,20 @@ module AWS
           @block = block
 
           # Is the task alive?
+          #
+          # @return Boolean
+          #   true if the task is alive and has not been canceled.
+          #
           def alive?
             super && !@cancelled
             #!!@alive# && !@cancelled
           end
 
+          # Retrieves the executor for this task.
+          #
           # @return
           #   The executor for this task.
+          #
           def executor
             @__context__.executor
           end
@@ -68,15 +75,18 @@ module AWS
         end
 
         #
-        # Passes the `get_heirs` calls to the context, to ensure uniform handling of `get_heirs`.
+        # Passes all `get_heirs` calls to the class that is holding the context,
+        # to ensure uniform handling of `get_heirs`.
         #
+        # @api private
         def get_heirs
           @__context__.get_heirs
         end
 
+        # Will always be false. Provides a common API for BeginRescueEnsure to
+        # ensure they are maintaining their nonDaemonHeirsCount correctly.
         #
-        # Returns `true` if we are in a daemon task.
-        #
+        # @api private
         def is_daemon?
           return false
         end
@@ -104,7 +114,7 @@ module AWS
         # @param error
         #   The error that is the cause of the failure.
         #
-        # @!visibility private
+        # @api private
         def fail(this_task, error)
           @__context__.fail(this_task, error)
         end
@@ -129,14 +139,15 @@ module AWS
         def remove(this_task)
           @__context__.remove(this_task)
         end
-
-
       end
 
-
-      # Represents  a task that might not execute. Similar to a regular task in all functions except that it is not assured a chance to execute. Whereas a
-      # begin/run/execute block cannot be closed while there are still `nonDaemonHeirs`, a DaemonTask can enter the
-      # closed state with daemon heirs, making them essentially unrunnable.
+      # Represents a task that might not execute. Similar to a regular task in
+      # all functions except that it is not assured a chance to execute. Whereas
+      # a begin/run/execute block cannot be closed while there are still
+      # `nonDaemonHeirs`, a DaemonTask can enter the closed state with daemon
+      # heirs, making them essentially unrunnable.
+      #
+      # @api private
       class DaemonTask < Task
 
         def is_daemon?
@@ -145,40 +156,45 @@ module AWS
 
       end
 
-      # Used to bridge asynchronous execution to external asynchronous APIs or events. It is passed a block, like so:
+      # Used to bridge asynchronous execution to external asynchronous APIs or
+      # events. It is passed a block, like so:
       #
       #     external_task do |t|
       #       t.cancellation_handler { |h, cause| h.fail(cause) }
       #       t.initiate_task { |h| trace << :task_started; h.complete; }
       #     end
       #
-      # The {ExternalTask#initiate_task} method is expected to call an external API and return without blocking.
-      # Completion or failure of the external task is reported through ExternalTaskCompletionHandle, which is passed into
-      # the initiate_task and cancellation_handler blocks. The cancellation handler, defined in the same block as the
-      # initiate_task, is used to report the cancellation of the external task.
+      # The {ExternalTask#initiate_task} method is expected to call an external
+      # API and return without blocking.  Completion or failure of the external
+      # task is reported through ExternalTaskCompletionHandle, which is passed
+      # into the initiate_task and cancellation_handler blocks. The cancellation
+      # handler, defined in the same block as the initiate_task, is used to
+      # report the cancellation of the external task.
       #
+      # @api private
       class ExternalTask < FlowFiber
         attr_reader :block
         attr_accessor :cancelled, :inCancellationHandler, :parent, :backtrace, :__context__
 
 
-        # Will always be false, provides a common API for BeginRescueEnsure's to ensure they are maintaining their nonDaemonHeirsCount.
-        # correctly
-        # @!visibility private
+        # Will always be false, provides a common API for BeginRescueEnsure's to
+        # ensure they are maintaining their nonDaemonHeirsCount correctly.
+        #
+        # @api private
         def is_daemon?
           false
         end
 
         #
-        #  Passes the get_heirs calls to the context, to ensure uniform handling of
-        #  get_heirs
+        # Passes the get_heirs calls to the context, to ensure uniform handling
+        # of get_heirs
         #
-        # @!visibility private
+        # @api private
         def get_heirs
           @__context__.get_heirs
         end
 
-        # @!visibility private
+        # @api private
         def initialize(options = {}, &block)
           @inCancellationHandler = false
           @block = block
@@ -188,43 +204,47 @@ module AWS
           block.call(self)
         end
 
-        # This method is here because the way we create external tasks is a little
-        # tricky. If the parent isn't passed in on construction(as is the case with
-        # the external_task function), then the parent will only be set after
-        # ExternalTask#initialize is called. We'd prefer to set it in initialize,
-        # however, the backtrace relies on the parent's backtrace, and so we cannot do
-        # that. Instead, we use this method to lazily create it when it is
-        # called. The method itself simply sets the backtrace to the
-        # make_backtrace of the parent's backtrace, if the backtrace is not already
-        # set, and will otherwise simply return the backtrace
-        # @!visibility private
+        # This method is here because the way we create external tasks is a
+        # little tricky. If the parent isn't passed in on construction(as is the
+        # case with the external_task function), then the parent will only be
+        # set after ExternalTask#initialize is called. We'd prefer to set it in
+        # initialize, however, the backtrace relies on the parent's backtrace,
+        # and so we cannot do that. Instead, we use this method to lazily create
+        # it when it is called. The method itself simply sets the backtrace to
+        # the make_backtrace of the parent's backtrace, if the backtrace is not
+        # already set, and will otherwise simply return the backtrace
+        #
+        # @api private
         def backtrace
           @backtrace ||= make_backtrace(@parent.backtrace)
         end
 
         # Add a task that removes yourself, and pass it through the parents executor.
-        # @!visibility private
+        #
+        # @api private
         def remove_from_parent
           @__context__.executor << FlowFiber.new { @parent.remove(self) }
         end
 
-        # Add a task that fails yourself with the suppiled error, and pass it through
-        # the parents executor.
-        # @!visibility private
+        # Add a task that fails yourself with the suppiled error, and pass it
+        # through the parents executor.
+        #
+        # @api private
         def fail_to_parent(error)
           @__context__.executor << FlowFiber.new { @parent.fail(self, error) }
         end
 
 
         # Part of the interface provided by fiber, has to overridden to properly
-        # reflect that an external tasks alive-ness relies on it's
+        # reflect that an external tasks alive-ness relies on its
         # ExternalTaskCompletionHandle.
-        # @!visibility private
+        #
+        # @api private
         def alive?
           ! @handle.completed
         end
 
-        # @!visibility private
+        # @api private
         def cancel(cause)
           return if @cancelled
           return if @handle.failure != nil || @handle.completed
@@ -252,20 +272,23 @@ module AWS
           end
         end
 
-        # Store the passed in cancellation handler block for later reference.
-        # @!visibility private
+        # Store the passed-in cancellation handler block for later reference.
+        #
+        # @api private
         def cancellation_handler(&block)
           @cancellation_task = lambda { |cause| block.call(@handle, cause) }
         end
 
-        # Store the passed in block for later.
-        # @!visibility private
+        # Store the passed-in block for later.
+        #
+        # @api private
         def initiate_task(&block)
           @initiation_task = lambda { block.call(@handle) }
         end
 
         # From the interface provided by fiber, will execute the external task.
-        # @!visibility private
+        #
+        # @api private
         def resume
           return if @cancelled
           begin
@@ -279,19 +302,20 @@ module AWS
       end
 
       # Used to complete or fail an external task initiated through
-      # ExternalTask#initiate_task, and thus handles the logic of what to do when the
-      # external task is failed.
-      # @!visibility private
+      # ExternalTask#initiate_task, and thus handles the logic of what to do
+      # when the external task is failed.
+      #
+      # @api private
       class ExternalTaskCompletionHandle
         attr_accessor :completed, :failure, :external_task
 
-        # @!visibility private
+        # @api private
         def initialize(external_task)
           @external_task = external_task
         end
 
-        # Merges the backtrace, sets the @failure, and then fails the task from the parent.
-        # @!visibility private
+        # Merges the backtrace, sets the @failure, and then fails the task from
+        # the parent.
         #
         # @param error
         #   The exception to fail on.
@@ -299,7 +323,7 @@ module AWS
         # @raise IllegalStateException
         #   Raises if failure hasn't been set, or if the task is already completed.
         #
-        # @!visibility private
+        # @api private
         def fail(error)
           if ! @failure.nil?
             raise IllegalStateException, "Invalid ExternalTaskCompletionHandle"
@@ -325,7 +349,7 @@ module AWS
         # @raise IllegalStateException
         #   If the failure hasn't been set, or if the task is already completed.
         #
-        # @!visibility private
+        # @api private
         def complete
           if ! failure.nil?
             raise IllegalStateException, ""
@@ -339,11 +363,14 @@ module AWS
         end
       end
 
-      # Holds some metadata for tasks and stores the parent link for tasks.
-      # It separates some of the concerns between tasks and what they have to know to follow back up the chain.
+      # Holds some metadata for tasks and stores the parent link for tasks.  It
+      # separates some of the concerns between tasks and what they have to know
+      # to follow back up the chain.
       #
-      #  All the methods here will simply delegate calls, either up to the parent, or down to the task.
-      # @!visibility private
+      # All the methods here will simply delegate calls, either up to the
+      # parent, or down to the task.
+      #
+      # @api private
       class TaskContext
 
         attr_accessor :daemon, :parent, :backtrace, :cancelled
@@ -356,49 +383,48 @@ module AWS
           @daemon = options[:daemon]
         end
 
-        # @!visibility private
+        # @api private
         def get_closest_containing_scope
           @task
           # @ parent
         end
 
-        # @!visibility private
+        # @api private
         def alive?
           @task.alive?
         end
 
-        # @!visibility private
+        # @api private
         def executor
           @parent.executor
         end
 
-        # @!visibility private
+        # @api private
         def get_heirs
           str = "I am a #{@task.class}
         and my block looks like #{@task.block}"
         end
 
-        # @!visibility private
+        # @api private
         def fail(this_task, error)
           @parent.fail(this_task, error)
         end
 
-        # @!visibility private
+        # @api private
         def remove(thread)
           @parent.remove(thread)
         end
 
-        # @!visibility private
+        # @api private
         def cancel(error_type)
           @task.cancelled = true
           @parent.cancel(self)
         end
 
-        # @!visibility private
+        # @api private
         def <<(task)
           @parent << task
         end
-
       end
     end
   end

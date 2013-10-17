@@ -25,7 +25,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       class AsyncScope
         attr_accessor :stackTrace, :root, :failure, :root_context
 
@@ -102,7 +102,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       class RootAsyncScope < FlowFiber
 
         attr_accessor :backtrace, :failure, :executor, :complete
@@ -158,7 +158,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       class AsyncEventLoop
 
         def initialize
