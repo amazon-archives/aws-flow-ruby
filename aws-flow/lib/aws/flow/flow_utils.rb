@@ -17,7 +17,9 @@
 module AWS
   module Flow
     module Core
+      # @api private
       class IllegalStateException < Exception; end
+      # @api private
       class CancellationException < Exception
         attr_accessor :reason, :details
         def initialize(reason = nil, details = nil)
@@ -26,6 +28,7 @@ module AWS
         end
       end
 
+      # @api private
       def make_backtrace(parent_backtrace)
         # 1 frame for the function that actually removes the stack traces.
         # 1 frame for the function that calls into the function that removes

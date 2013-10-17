@@ -20,8 +20,10 @@ module AWS
   module Flow
     module Core
 
-      # Enables asynchronous error handling within the AWS Flow Framework for Ruby.  Calling
-      # {#begin}/{#rescue}/{#ensure} is similar to Ruby's native `begin`/`rescue`/`end` semantics.
+      # Enables asynchronous error handling within the AWS Flow Framework for
+      # Ruby. Calling {#begin}/{#rescue}/{#ensure} is similar to Ruby's native
+      # `begin`/`rescue`/`end` semantics.
+      # @api private
       class BeginRescueEnsure < FlowFiber
 
         extend SimpleDFA
@@ -37,6 +39,7 @@ module AWS
         # @option options [Object] :parent
         #   The parent object.
         #
+        # @api private
         def initialize(options = {})
           # We have two different arrays, rather than a hash,
           # because we want to ensure that we process the rescues in the order
@@ -100,6 +103,7 @@ module AWS
         # @param error
         #   The error associated with the failure.
         #
+        # @api private
         def fail(this_task, error)
           check_closed
           if ( ! (error.class <= CancellationException) || @failure == nil && !@daemondCausedCancellation)
@@ -119,6 +123,7 @@ module AWS
         # @param this_task
         #   The task to remove.
         #
+        # @api private
         def remove(this_task)
           check_closed
 
@@ -312,6 +317,7 @@ module AWS
       # In this example, *t* is a {BeginRescueEnsureWrapper} which passes the begin/rescue/ensure calls to the
       # {BeginRescueEnsure} class itself.
       #
+      # @api private
       class BeginRescueEnsureWrapper < FlowFiber
         # Also has a few methods to ensure fiber-ness, such as get_heirs and cancel.
         attr_reader :__context__
@@ -324,6 +330,7 @@ module AWS
         # @param begin_rescue_ensure
         #   The {BeginRescueEnsure} instance to wrap.
         #
+        # @api private
         def initialize(block, begin_rescue_ensure)
           @beginRescueEnsure = begin_rescue_ensure
           @__context__ = @beginRescueEnsure
@@ -343,20 +350,18 @@ module AWS
           return
         end
 
+        # @api private
         def cancel(error_type)
           @beginRescueEnsure.parent.cancel(self)
         end
 
         # @api private
-        #
-        # @return [false]
-        #   Always returns `false`.
-        #
         def is_daemon?
           false
         end
 
         # Gets the parent of the {BeginRescueEnsure} instance held by this class.
+        # @api private
         def get_closest_containing_scope
           @beginRescueEnsure.parent
         end
@@ -376,7 +381,9 @@ module AWS
         attr_accessor :beginRescueEnsure
       end
 
+      # @api private
       class DaemonBeginRescueEnsure < BeginRescueEnsure
+        # @api private
         def is_daemon?
           true
         end

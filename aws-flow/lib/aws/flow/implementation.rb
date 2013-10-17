@@ -80,7 +80,6 @@ module AWS
         nil
       end
 
-
       # @param block
       #   A block that is passed to the {BeginRescueEnsureWrapper} and defines the {BeginRescueEnsure#begin},
       #   {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
