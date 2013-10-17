@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-# This file contains our implementation of fibers for 1.8
+# This file contains our implementation of fibers for 1.8.
 module AWS
   module Flow
     module Core
@@ -37,9 +37,9 @@ module AWS
           self.local_variables[key] = value
         end
 
-        # Will unset all the values for ancestors of this fiber, assuming that
+        # Unsets all the values for ancestors of this fiber, assuming that
         # they have the same value for key. That is, they will unset upwards until
-        # the first time the value stored at key is changed
+        # the first time the value stored at key is changed.
         def self.unset(current_fiber, key)
           current_value = FlowFiber[current_fiber.object_id][key]
           parent = FlowFiber[current_fiber.object_id][:parent]
@@ -55,7 +55,7 @@ module AWS
         end
 
         def initialize
-          # Child fibers should inherit their parents FiberLocals
+          # Child fibers should inherit their parents FiberLocals.
           FlowFiber[Fiber.current.object_id].each_pair do |key, val|
             FlowFiber[self.object_id][key] = val
           end

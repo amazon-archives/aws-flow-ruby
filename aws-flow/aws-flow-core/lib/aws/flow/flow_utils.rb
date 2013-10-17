@@ -27,13 +27,13 @@ module AWS
       end
 
       def make_backtrace(parent_backtrace)
-        # 1 frame for the function that actually removes the stack traces
+        # 1 frame for the function that actually removes the stack traces.
         # 1 frame for the function that calls into the function that removes
-        # frames in AsyncBacktrace
-        # 1 frame for the call into this function
-        # 1 frame for the initialize call of the BRE or External Task
-        # 1 frame for the new call into the BRE or ET
-        # 1 frame for the AsyncScope initialize that the BRE/ET has to be in
+        # frames in AsyncBacktrace.
+        # 1 frame for the call into this function.
+        # 1 frame for the initialize call of the BeginRescueEnsure or ExternalTask.
+        # 1 frame for the new call into the BeginRescueEnsure or ExternalTask.
+        # 1 frame for the AsyncScope initialize that the BeginRescueEnsure/ExternalTask has to be in.
 
         # "./lib/aws/rubyflow/asyncBacktrace.rb:75:in `caller'"
         # "./lib/aws/rubyflow/asyncBacktrace.rb:21:in `create'"

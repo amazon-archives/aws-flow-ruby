@@ -20,16 +20,16 @@ module AWS
     module Core
       class AlreadySetException < Exception; end
 
-      # A Future represents the result of an asynchronous computation. Methods are
+      # Represents the result of an asynchronous computation. Methods are
       # provided to check if the computation is complete(Future#set), to wait for
       # its completion(Future#wait), and to retrieve the result of the
-      # computation(Future#get). The result can only be retrieved using method get
+      # computation(Future#get). The result can only be retrieved using the get method
       # when the computation has completed, blocking if necessary until it is
-      # ready. This is okay, however, because it will block that Fiber, and
-      # another Fiber will start executing
+      # ready. This is okay, however, because it will block that fiber, and
+      # another fiber will start executing.
       class Future
 
-        # Sets the value of the future, and notifies all of the Fibers that tried
+        # Sets the value of the future, and notifies all of the fibers that tried
         # to get when this future wasn't ready.
         def set(result=nil)
           raise AlreadySetException if @set
@@ -40,14 +40,14 @@ module AWS
           self
         end
 
-        # determines whether the object is a flow future. The contract is that
+        # Determines whether the object is a flow future. The contract is that
         # flow futures must have a #get method.
         def is_flow_future?
           true
         end
 
-        # Blocks if Future is not set
-        # raises CancellationError when task is cancelled
+        # Blocks if future is not set.
+        # Raises CancellationError when task is cancelled.
         def get
           until @set
             @conditional ||= FiberConditionVariable.new
@@ -65,7 +65,7 @@ module AWS
           @result = nil
         end
 
-        # Add a callback, block, which will fire when the future is set
+        # Add a callback (block) which will fire when the future is set.
         def on_set(&block)
           @listeners ||= []
           # TODO probably want to use lambda here
@@ -73,7 +73,7 @@ module AWS
         end
       end
 
-      # Based on the ruby core source:
+      #  Represents a fiber condition variable. Based on the Ruby core source:
       # https://github.com/ruby/ruby/blob/trunk/lib/thread.rb
       class FiberConditionVariable
         #
@@ -85,7 +85,7 @@ module AWS
 
 
         # Have the current fiber wait on this condition variable, and wake up when
-        # the FiberConditionVariable is signalled/broadcaster
+        # the FiberConditionVariable is signaled/broadcasted.
         def wait
           fiber = ::Fiber.current
           @waiters << fiber

@@ -17,12 +17,12 @@ module AWS
   module Flow
     module Core
 
-      # Contains a Data Flow Analysis (DFA)-like framework, where transition functions can perform arbitrary computation
-      # before moving to the next state
+      # Contains a data flow analysis (DFA)-like framework, where transition functions can perform arbitrary computation
+      # before moving to the next state.
       module SimpleDFA
         attr_accessor :transitions, :symbols, :states, :start_state
 
-        # Creates a new SimpleDFA instance.
+        # Creates a new 'SimpleDFA' instance.
         #
         # @param start_state
         #   The state with which to start the framework.

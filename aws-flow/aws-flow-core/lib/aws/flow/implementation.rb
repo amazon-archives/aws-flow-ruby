@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 #++
 
-# This file contains the externally visible parts of flow that are expected to be used by customers of flow
+# This file contains the externally visible parts of flow that are expected to be used by customers of flow.
 module AWS
   module Flow
     module Core
@@ -82,11 +82,11 @@ module AWS
 
 
       # @param block
-      #   A block, which is passed to the {BeginRescueEnsureWrapper}, and which defines the {BeginRescueEnsure#begin},
+      #   A block that is passed to the {BeginRescueEnsureWrapper} and defines the {BeginRescueEnsure#begin},
       #   {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
       #
       # @return
-      #   The result of the **begin** statement if there is no error; otherwise this returns the value of the **return**
+      #   The result of the 'begin' statement if there is no error; otherwise this returns the value of the 'return'
       #   statement.
       #
       # @raise [NoContextException]

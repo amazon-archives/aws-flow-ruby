@@ -20,7 +20,7 @@ module AWS
   module Flow
     module Core
 
-      # This class allows asynchronous error handling within the AWS Flow Framework for Ruby.  Calling
+      # Enables asynchronous error handling within the AWS Flow Framework for Ruby.  Calling
       # {#begin}/{#rescue}/{#ensure} is similar to Ruby's native `begin`/`rescue`/`end` semantics.
       class BeginRescueEnsure < FlowFiber
 
@@ -29,7 +29,7 @@ module AWS
         :rescue_exceptions, :failure, :cancelled, :heirs, :nonDaemonHeirsCount, :executor, :result
         attr_reader :backtrace, :__context__
 
-        # Create a new BeginRescueEnsure object, with the provided options.
+        # Create a new 'BeginRescueEnsure' object, with the provided options.
         #
         # @param options
         #   Options to set for the class.
@@ -66,7 +66,7 @@ module AWS
         # @!visibility private
         def <<(async_task)
           # Not going to include the promise to wait for, as it would appear that
-          # Fibers can wait on futures from their point of origin as part of their
+          # fibers can wait on futures from their point of origin as part of their
           # implementation, as opposed to adding the callback here.
           check_closed
           if ! @heirs.member? async_task
@@ -81,9 +81,9 @@ module AWS
 
         # @!visibility private
         def get_closest_containing_scope
-          # BRE's are special in that they act as a containing scope, so that things
-          # created in BRE's treat it as the parent, so that it can track the heirs
-          # correctly and close only when nonDaemonHeirsCount is 0
+          # BeginRescueEnsure's are special in that they act as a containing scope, so that things
+          # created in BeginRescueEnsure's treat it as the parent, so that it can track the heirs
+          # correctly and close only when nonDaemonHeirsCount is 0.
           self
         end
 
@@ -114,7 +114,7 @@ module AWS
           update_state
         end
 
-        # Removes the task and updates the state
+        # Removes the task and updates the state.
         #
         # @param this_task
         #   The task to remove.
@@ -159,7 +159,7 @@ module AWS
           end
         end
 
-        # Actually runs the BRE, by going through the DFA with the symbol :run.
+        # Actually runs the BeginRescueEnsure, by going through the data flow analysis with the symbol :run.
         # @!visibility private
         def run
           this_failure = @failure
@@ -183,7 +183,7 @@ module AWS
           @current_state != :closed
         end
 
-        # Updates the state based on the most recent transitions in the DFA
+        # Updates the state based on the most recent transitions in the data flow analysis.
         # @!visibility private
         def update_state
           #TODO ? Add the ! @executed part
@@ -257,7 +257,7 @@ module AWS
         # That is, any transition from closed leads back to itself
         define_general(:closed) { |t| t.current_state = :closed }
 
-        # Binds the block to a lambda to be called when we get to the begin part of the DFA
+        # Binds the block to a lambda to be called when we get to the begin part of the data flow analysis.
         #
         # @param block
         #   The code block to be called when asynchronous *begin* starts.
@@ -268,7 +268,7 @@ module AWS
           @begin_task = Task.new(self) { @result.set(block.call) }
         end
 
-        # Binds the block to a lambda to be called when we get to the rescue part of the DFA
+        # Binds the block to a lambda to be called when we get to the rescue part of the data flow analysis.
         #
         # @param error_type
         #   The error type.
@@ -285,7 +285,7 @@ module AWS
           @rescue_tasks << this_task
         end
 
-        # Binds the block to a lambda to be called when we get to the ensure part of the DFA
+        # Binds the block to a lambda to be called when we get to the ensure part of the data flow analysis.
         #
         # @param block
         #   The code block to be called when asynchronous *ensure* starts.
@@ -313,10 +313,10 @@ module AWS
       # {BeginRescueEnsure} class itself.
       #
       class BeginRescueEnsureWrapper < FlowFiber
-        # Also has a few methods to ensure Fiber-ness, such as get_heirs and cancel.
+        # Also has a few methods to ensure fiber-ness, such as get_heirs and cancel.
         attr_reader :__context__
 
-        # Creates a new BeginRescueEnsureWrapper instance.
+        # Creates a new 'BeginRescueEnsureWrapper' instance.
         #
         # @param block
         #   *Required*. A code block to be called.
