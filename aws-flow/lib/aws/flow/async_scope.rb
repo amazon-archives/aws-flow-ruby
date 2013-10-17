@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-# This module contains the Root of the heirarchy for calls into flow, the AsyncScope
+# This module contains the root of the hierarchy for calls into flow.
 
 module AWS
   module Flow
@@ -46,7 +46,7 @@ module AWS
 
           # 1 for the function that skips frames
           # 1 for the create function
-          # 1 for the the initialize of the backtrace
+          # 1 for the initialize of the backtrace
 
           # "./lib/aws/rubyflow/asyncBacktrace.rb:75:in `caller'"
           # "./lib/aws/rubyflow/asyncBacktrace.rb:21:in `create'"
@@ -82,7 +82,7 @@ module AWS
           # TODO Does this need to be taken care of? It's supposed to protect
           # against people having errors that are classes, so like, passing
           # Exception into cancel. We might want to just catch that at the
-          # entry point
+          # entry point.
           if @root_context.failure
             if @root_context.failure.respond_to? :message
               failure_message = @root_context.failure.message + "\n" +
@@ -118,7 +118,7 @@ module AWS
         end
 
         # The only thing that should be removed from the RootAsyncScope is the
-        # root BeginRescueEnsure, so upon removal we are complete
+        # root BeginRescueEnsure, so upon removal we are complete.
         def remove(task)
           @complete = true
         end
@@ -135,12 +135,12 @@ module AWS
           @executor << this_task
         end
 
-        # Reture self, a RootAsyncScope is the closest containing scope
+        # Return self, a RootAsyncScope is the closest containing scope.
         def get_closest_containing_scope
           self
         end
 
-        # Call out to the AsyncEventLoop
+        # Call out to the AsyncEventLoop.
         def eventLoop
           @executor.executeQueuedTasks
         end
@@ -169,7 +169,7 @@ module AWS
           @tasks.delete(task)
         end
         # TODO Make sure that it's okay to fail from the AsyncEventLoop, and that
-        # this is the correct behavior
+        # this is the correct behavior.
         def fail(task, error)
           raise error
         end
@@ -181,7 +181,7 @@ module AWS
 
         # TODO should this be synchronized somehow?
 
-        # Actually executes the eventLoop
+        # Actually executes the eventLoop.
         def executeQueuedTasks
           until @tasks.empty?
             task = @tasks.shift

@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-# Contains all the task methods, which allow arbitrary blocks of code to be run asynchronously
+# Contains all the task methods, which allow arbitrary blocks of code to be run asynchronously.
 
 module AWS
   module Flow
@@ -22,11 +22,11 @@ module AWS
         attr_reader :result, :block
         attr_accessor :backtrace, :__context__, :parent
 
-        # Creates a new Task.
+        # Creates a new task.
         #
         # @param __context__
-        #   A Task needs a reference to the __context__ that created it so that when the "task" macro is called it can
-        #   find the __context__ which the new Task should be added to.
+        #   A task needs a reference to the __context__ that created it so that when the "task" macro is called it can
+        #   find the __context__, which the new task should be added to.
         #
         # @param block
         #   A block of code that will be run by the task.
@@ -51,7 +51,7 @@ module AWS
           super() do
             begin
               # Not return because 1.9 will freak about local jump problems if you
-              # try to return, as this is inside a block
+              # try to return, as this is inside a block.
               next if @cancelled
               @result.set(lambda(&block).call)
               next if @cancelled
@@ -68,20 +68,20 @@ module AWS
         end
 
         #
-        # Passes the get_heirs calls to the context, to ensure uniform handling of get_heirs
+        # Passes the 'get_heirs' calls to the context, to ensure uniform handling of 'get_heirs'.
         #
         def get_heirs
           @__context__.get_heirs
         end
 
         #
-        # Returns true/false, depending on if we are in a daemon task or not
+        # Returns 'true' if we are in a daemon task.
         #
         def is_daemon?
           return false
         end
 
-        # Used by Future#signal to schedule the task for re-evaluation.
+        # Used by {Future#signal} to schedule the task for re-evaluation.
         #
         # This will simply add the task back to the list of things to be run in the parent's event loop.
         #
@@ -89,10 +89,10 @@ module AWS
           @__context__ << self
         end
 
-        # Cancel will prevent the execution of this particular task, if possible
+        # Prevents the execution of this particular task, if possible.
         #
         # @param error
-        #   The error that is the cause of the cancellation
+        #   The error that is the cause of the cancellation.
         #
         def cancel(error)
           @cancelled = true
@@ -102,7 +102,7 @@ module AWS
         # Fails the given task with the specified error.
         #
         # @param error
-        #   The error that is the cause of the cancellation
+        #   The error that is the cause of the failure.
         #
         # @!visibility private
         def fail(this_task, error)
@@ -112,7 +112,7 @@ module AWS
         #   raise error
         # end
 
-        # Adds a task to this task's context
+        # Adds a task to this task's context.
         #
         # @param this_task
         #   The task to add.
@@ -121,7 +121,7 @@ module AWS
           @__context__.parent << this_task
         end
 
-        # Removes a task from this task's context
+        # Removes a task from this task's context.
         #
         # @param this_task
         #   The task to remove.
@@ -134,8 +134,8 @@ module AWS
       end
 
 
-      # Similar to a regular Task in all functioning except that it is not assured a chance to execute. Whereas a
-      # begin/run/execute block cannot be closed out while there are still nonDaemonHeirs, it can happily entered the
+      # Represents  a task that might not execute. Similar to a regular task in all functions except that it is not assured a chance to execute. Whereas a
+      # begin/run/execute block cannot be closed while there are still 'nonDaemonHeirs', a DaemonTask can enter the
       # closed state with daemon heirs, making them essentially unrunnable.
       class DaemonTask < Task
 
@@ -145,7 +145,7 @@ module AWS
 
       end
 
-      # External Tasks are used to bridge asynchronous execution to external asynchronous APIs or events. It is passed a block, like so
+      # Used to bridge asynchronous execution to external asynchronous APIs or events. It is passed a block, like so:
       #
       #     external_task do |t|
       #       t.cancellation_handler { |h, cause| h.fail(cause) }
@@ -162,7 +162,7 @@ module AWS
         attr_accessor :cancelled, :inCancellationHandler, :parent, :backtrace, :__context__
 
 
-        # Will always be false, provides a common api for BRE's to ensure they are maintaining their nonDaemonHeirsCount
+        # Will always be false, provides a common API for BeginRescueEnsure's to ensure they are maintaining their nonDaemonHeirsCount.
         # correctly
         # @!visibility private
         def is_daemon?
@@ -188,13 +188,13 @@ module AWS
           block.call(self)
         end
 
-        # This method is here because the way we create ExternalTasks is a little
-        # tricky - if the parent isn't passed in on construction(as is the case with
+        # This method is here because the way we create external tasks is a little
+        # tricky. If the parent isn't passed in on construction(as is the case with
         # the external_task function), then the parent will only be set after
-        # ExternalTask#initialize is called. We'd prefer to set it in the initiailze,
+        # ExternalTask#initialize is called. We'd prefer to set it in initialize,
         # however, the backtrace relies on the parent's backtrace, and so we cannot do
-        # that. Instead, we use this method to lazily create it, when it is
-        # called. The method itself simply sets the backtrace to the the
+        # that. Instead, we use this method to lazily create it when it is
+        # called. The method itself simply sets the backtrace to the
         # make_backtrace of the parent's backtrace, if the backtrace is not already
         # set, and will otherwise simply return the backtrace
         # @!visibility private
@@ -202,23 +202,23 @@ module AWS
           @backtrace ||= make_backtrace(@parent.backtrace)
         end
 
-        # Add a task which removes yourself, and pass it through the parents executor
+        # Add a task that removes yourself, and pass it through the parents executor.
         # @!visibility private
         def remove_from_parent
           @__context__.executor << FlowFiber.new { @parent.remove(self) }
         end
 
-        # Add a task which fails yourself with the suppiled error, and pass it through
-        # the parents executor
+        # Add a task that fails yourself with the suppiled error, and pass it through
+        # the parents executor.
         # @!visibility private
         def fail_to_parent(error)
           @__context__.executor << FlowFiber.new { @parent.fail(self, error) }
         end
 
 
-        # Part of the interface provided by Fiber, has to overridden to properly
-        # reflect that an ExternalTasks alive-ness relies on it's
-        # ExternalTaskCompletionHandle
+        # Part of the interface provided by fiber, has to overridden to properly
+        # reflect that an external tasks alive-ness relies on it's
+        # ExternalTaskCompletionHandle.
         # @!visibility private
         def alive?
           ! @handle.completed
@@ -252,19 +252,19 @@ module AWS
           end
         end
 
-        # Store the cancellation handler block passed in for later reference
+        # Store the passed in cancellation handler block for later reference.
         # @!visibility private
         def cancellation_handler(&block)
           @cancellation_task = lambda { |cause| block.call(@handle, cause) }
         end
 
-        # Store the block passed in for later
+        # Store the passed in block for later.
         # @!visibility private
         def initiate_task(&block)
           @initiation_task = lambda { block.call(@handle) }
         end
 
-        # From the interface provided by Fiber, will execute the External Task
+        # From the interface provided by fiber, will execute the external task.
         # @!visibility private
         def resume
           return if @cancelled
@@ -290,14 +290,14 @@ module AWS
           @external_task = external_task
         end
 
-        # Will merge the backtrace, set the @failure, and then fail the task from the parent
+        # Merges the backtrace, sets the @failure, and then fails the task from the parent.
         # @!visibility private
         #
         # @param error
-        #   The exception to fail on
+        #   The exception to fail on.
         #
         # @raise IllegalStateException
-        #   Raises if failure hasn't been set, or if the task is already completed
+        #   Raises if failure hasn't been set, or if the task is already completed.
         #
         # @!visibility private
         def fail(error)
@@ -320,10 +320,10 @@ module AWS
           end
         end
 
-        # Set's the task to complete, and removes it from it's parent
+        # Sets the task to complete, and removes it from its parent.
         #
         # @raise IllegalStateException
-        #   If the failure hasn't been set, or if the task is already completed
+        #   If the failure hasn't been set, or if the task is already completed.
         #
         # @!visibility private
         def complete
@@ -339,10 +339,10 @@ module AWS
         end
       end
 
-      # TaskContext is the class that holds some meta-information for tasks, and which stores the parent link for tasks.
-      # It seperates some of the concerns between tasks and what they have to know to follow back up the chain.
+      # Holds some metadata for tasks and stores the parent link for tasks.
+      # It separates some of the concerns between tasks and what they have to know to follow back up the chain.
       #
-      #  All the methods here will simply delegate calls, either up to the parent, or down to the task
+      #  All the methods here will simply delegate calls, either up to the parent, or down to the task.
       # @!visibility private
       class TaskContext
 
