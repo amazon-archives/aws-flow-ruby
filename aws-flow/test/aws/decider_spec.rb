@@ -1216,25 +1216,32 @@ describe "Misc tests" do
 end
 
 describe FlowConstants do
+  options = {
+    :initial_retry_interval => 1,
+    :backoff_coefficient => 2,
+    :should_jitter => false,
+    :maximum_retry_interval_seconds => 100
+  }
+  options = ExponentialRetryOptions.new(options)
 
   it "will test the default retry function with regular cases" do
     test_first = [Time.now, Time.now, Time.now]
     test_time_of_failure = [0, 10, 100]
-    test_attempts = [{}, {Exception=>1}, {ActivityTaskTimedOutException=>5, Exception=>2}]
-    test_output = [0, 1, 64]
+    test_attempts = [{Exception=>2}, {Exception=>4}, {ActivityTaskTimedOutException=>5, Exception=>2}]
+    test_output = [1, 4, 32]
     arr = test_first.zip(test_time_of_failure, test_attempts, test_output)
     arr.each do |first, time_of_failure, attempts, output|
-      result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts)
+      result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
       (result == output).should == true
     end
   end
 
   it "will test for exceptions" do
-    expect { FlowConstants.exponential_retry_function.call(-1, 1, {}) }.to raise_error(ArgumentError, "first is not an instance of Time")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, -1, {}) }.to raise_error(ArgumentError, "time_of_failure can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1}) }.to raise_error(ArgumentError, "number of attempts can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1, ActivityTaskTimedOutException=>-10}) }.to raise_error(ArgumentError, "number of attempts can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>2, ActivityTaskTimedOutException=>-10}) }.to raise_error(ArgumentError, "number of attempts can't be negative")
+    expect { FlowConstants.exponential_retry_function.call(-1, 1, {}, options) }.to raise_error(ArgumentError, "first is not an instance of Time")
+    expect { FlowConstants.exponential_retry_function.call(Time.now, -1, {}, options) }.to raise_error(ArgumentError, "time_of_failure can't be negative")
+    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
+    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1, ActivityTaskTimedOutException=>-10}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
+    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>2, ActivityTaskTimedOutException=>-10}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
   end
 
 end
@@ -1339,5 +1346,21 @@ describe "testing changing default values in RetryOptions and RetryPolicy" do
 
     result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>4}, Exception.new, 1)
     result.should == 10
+  end
+
+  it "makes sure that the default retry function will use the user provided options" do
+
+    first = Time.now
+    time_of_failure = 0
+    attempts = {Exception=>2}
+    options = {
+      :initial_retry_interval => 10,
+      :backoff_coefficient => 2,
+      :should_jitter => false,
+      :maximum_retry_interval_seconds => 5
+    }
+    options = ExponentialRetryOptions.new(options)
+    result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
+    result.should == 5
   end
 end

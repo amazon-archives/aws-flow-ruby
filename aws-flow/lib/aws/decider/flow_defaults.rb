@@ -17,7 +17,7 @@ module AWS
   module Flow
     class FlowConstants
       class << self
-        attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter
+        attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval
         # # The maximum exponential retry interval, in seconds. Use the value -1 (the default) to set <i>no maximum</i>.
         # attr_reader :exponential_retry_maximum_retry_interval_seconds
 
@@ -48,14 +48,24 @@ module AWS
       @should_jitter = true
       @exponential_retry_exceptions_to_exclude = []
       @exponential_retry_exceptions_to_include = [Exception]
-      @exponential_retry_function = lambda do |first, time_of_failure, attempts|
+      @exponential_retry_function = lambda do |first, time_of_failure, attempts, options|
+
         raise ArgumentError.new("first is not an instance of Time") unless first.instance_of?(Time)
         raise ArgumentError.new("time_of_failure can't be negative") if time_of_failure < 0
         raise ArgumentError.new("number of attempts can't be negative") if (attempts.values.find {|x| x < 0})
-        result = @exponential_retry_initial_retry_interval * (@exponential_retry_backoff_coefficient ** (attempts.values.reduce(0, :+) - 2))
-        result = @exponential_retry_maximum_retry_interval_seconds if @exponential_retry_maximum_retry_interval_seconds != INFINITY && result > @exponential_retry_maximum_retry_interval_seconds
+        raise ArgumentError.new("number of attempts should be more than 2") if (attempts.values.reduce(0,:+) < 2)
+        raise ArgumentError.new("user options must be of type ExponentialRetryOptions") unless options.is_a? ExponentialRetryOptions
+
+        initial_retry_interval = options.initial_retry_interval
+        backoff_coefficient = options.backoff_coefficient
+        maximum_retry_interval_seconds = options.maximum_retry_interval_seconds
+        retry_expiration_interval_seconds = options.retry_expiration_interval_seconds
+        result = initial_retry_interval * (backoff_coefficient ** (attempts.values.reduce(0, :+) - 2))
+        result = maximum_retry_interval_seconds if (! maximum_retry_interval_seconds.nil? && maximum_retry_interval_seconds != INFINITY && result > maximum_retry_interval_seconds)
         seconds_since_first_attempt = time_of_failure.zero? ? 0 : -(first - time_of_failure).to_i
-        result = -1 if @exponential_retry_retry_expiration_seconds != INFINITY && (result + seconds_since_first_attempt) >= @exponential_retry_retry_expiration_seconds
+        result = -1 if (! retry_expiration_interval_seconds.nil? &&
+                        retry_expiration_interval_seconds != INFINITY &&
+                        (result + seconds_since_first_attempt) >= retry_expiration_interval_seconds)
         return result.to_i
       end
 

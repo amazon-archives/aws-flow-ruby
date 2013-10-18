@@ -156,13 +156,16 @@ module AWS
       def retry_function; FlowConstants.exponential_retry_function; end
       def exceptions_to_include; FlowConstants.exponential_retry_exceptions_to_include; end
       def exceptions_to_exclude; FlowConstants.exponential_retry_exceptions_to_exclude; end
+      def backoff_coefficient; FlowConstants.exponential_retry_backoff_coefficient; end
       def should_jitter; FlowConstants.should_jitter; end
       def jitter_function; FlowConstants.jitter_function; end
+      def initial_retry_interval; FlowConstants.exponential_retry_initial_retry_interval; end
     end
 
     # Retry options used with {GenericClient#retry} and {ActivityClient#exponential_retry}
     class RetryOptions < Options
       property(:is_retryable_function, [])
+      property(:initial_retry_interval, [])
       property(:exceptions_to_allow, [])
       property(:maximum_attempts, [lambda {|x| x == "NONE" ? "NONE" : x.to_i}])
       property(:maximum_retry_interval_seconds, [lambda {|x| x == "NONE" ? "NONE" : x.to_i}])
@@ -238,13 +241,14 @@ module AWS
       # The backoff coefficient to use. This is a floating point value that is multiplied with the current retry
       # interval after every retry attempt. The default value is 2.0, which means that each retry will take twice as
       # long as the previous.
-      attr_accessor :backoff_coefficient
+      default_classes << RetryDefaults.new
+      property(:backoff_coefficient, [lambda(&:to_i)])
 
       # The retry expiration interval, in seconds. This will be increased after every retry attempt by the factor
       # provided in +backoff_coefficient+.
-      attr_accessor :retry_expiration_interval_seconds
+      property(:retry_expiration_interval_seconds, [lambda(&:to_i)])
 
-      def next_retry_delay_seconds(first_attmept, recorded_failure, attempts)
+      def next_retry_delay_seconds(first_attempt, recorded_failure, attempts)
         raise IllegalArgumentException "Attempt number is #{attempts}, when it needs to be greater than 1"
         if @maximum_attempts
         end

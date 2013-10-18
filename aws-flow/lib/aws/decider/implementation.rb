@@ -41,6 +41,7 @@ module AWS
       AWS::Flow.send(:workflow_client, service, domain, &block)
     end
 
+
     # Execute a block with retries within a workflow context.
     #
     # @param options
@@ -50,14 +51,22 @@ module AWS
     #   The block to execute.
     #
     def with_retry(options = {}, &block)
+      # TODO raise a specific error instead of a runtime error
       raise "with_retry can only be used inside a workflow context!" if Utilities::is_external
-      retry_options = RetryOptions.new(options)
+      retry_options = ExponentialRetryOptions.new(options)
       retry_policy = RetryPolicy.new(retry_options.retry_function, retry_options)
       async_retrying_executor = AsyncRetryingExecutor.new(retry_policy, self.decision_context.workflow_clock, retry_options.return_on_start)
       future = async_retrying_executor.execute(lambda { block.call })
       Utilities::drill_on_future(future) unless retry_options.return_on_start
     end
 
+    def decision_context
+      FlowFiber.current[:decision_context]
+    end
+
+    module_function :decision_context
+
+    module_function :with_retry
 
     # @!visibility private
     def self.workflow_client(service = nil, domain = nil, &block)

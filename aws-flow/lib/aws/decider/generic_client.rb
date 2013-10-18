@@ -139,7 +139,7 @@ module AWS
       # @!visibility private
       def _retry(method_name, retry_function, block, args = NoInput.new)
         bail_if_external
-        retry_options = Utilities::interpret_block_for_options(RetryOptions, block)
+        retry_options = Utilities::interpret_block_for_options(ExponentialRetryOptions, block)
         _retry_with_options(lambda { self.send(method_name, *args) }, retry_function, retry_options)
       end
 

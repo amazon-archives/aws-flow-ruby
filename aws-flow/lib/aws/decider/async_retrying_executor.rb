@@ -25,28 +25,40 @@ module AWS
       end
       def execute(command, options = nil)
         return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0) if @return_on_start
-        task do
-          schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0)
+        output = Utilities::AddressableFuture.new
+        error_handler do |t|
+          t.begin do
+            output.set(schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0))
+          end
+          t.rescue(StandardError) do |error|
+            @error_seen = error
+          end
+          t.ensure do
+            output.set unless output.set?
+          end
         end
+        output.get
+        raise @error_seen if @error_seen
+        output
       end
 
-      def schedule_with_retry(command, failure, attempt, first_attempt_time, time_of_recorded_failure)
+      def schedule_with_retry(command, failure, attempts, first_attempt_time, time_of_recorded_failure)
         delay = -1
-        if attempt.values.reduce(0, :+) > 1
+        if attempts.values.reduce(0, :+) > 1
           raise failure unless @retrying_policy.isRetryable(failure)
-          delay = @retrying_policy.next_retry_delay_seconds(first_attempt_time, time_of_recorded_failure, attempt, failure, @execution_id)
+          delay = @retrying_policy.next_retry_delay_seconds(first_attempt_time, time_of_recorded_failure, attempts, failure, @execution_id)
           raise failure if delay < 0
         end
         if delay > 0
           task do
-            @clock.create_timer(delay, lambda { invoke(command, attempt, first_attempt_time) })
+            @clock.create_timer(delay, lambda { invoke(command, attempts, first_attempt_time) })
           end
         else
-          invoke(command, attempt, first_attempt_time)
+          invoke(command, attempts, first_attempt_time)
         end
       end
 
-      def invoke(command, attempt, first_attempt_time)
+      def invoke(command, attempts, first_attempt_time)
         failure_to_retry = nil
         should_retry = Future.new
         return_value = Future.new
@@ -62,8 +74,8 @@ module AWS
         task do
           failure = should_retry.get
           if ! failure.nil?
-            attempt[failure.class] += 1
-            output.set(schedule_with_retry(command, failure, attempt, first_attempt_time, @clock.current_time - first_attempt_time))
+            attempts[failure.class] += 1
+            output.set(schedule_with_retry(command, failure, attempts, first_attempt_time, @clock.current_time - first_attempt_time))
           else
             output.set(return_value.get)
           end
@@ -94,6 +106,7 @@ module AWS
         @retries_per_exception = options.retries_per_exception
         @should_jitter = options.should_jitter
         @jitter_function = options.jitter_function
+        @options = options
       end
 
       # @param failure
@@ -125,29 +138,40 @@ module AWS
       #
       # @param time_of_recorded_failure
       #
-      # @param attempt
+      # @param attempts
       #
       # @param failure
       #
-      def next_retry_delay_seconds(first_attempt, time_of_recorded_failure, attempt, failure = nil, execution_id)
-        if attempt.values.reduce(0, :+) < 2
-          raise "This is bad, you have less than 2 attempts. More precisely, #{attempt} attempts"
+      def next_retry_delay_seconds(first_attempt, time_of_recorded_failure, attempts, failure = nil, execution_id)
+        if attempts.values.reduce(0, :+) < 2
+          raise "This is bad, you have less than 2 attempts. More precisely, #{attempts} attempts"
         end
         if @max_attempts && @max_attempts != "NONE"
-          return -1 if attempt.values.reduce(0, :+) > @max_attempts + 1
+          return -1 if attempts.values.reduce(0, :+) > @max_attempts + 1
         end
         if failure && @retries_per_exception && @retries_per_exception.keys.include?(failure.class)
-          return -1 if attempt[failure.class] > @retries_per_exception[failure.class]
+          return -1 if attempts[failure.class] > @retries_per_exception[failure.class]
         end
         return -1 if failure == nil
 
-        # Check to see if we should jitter or not and pass in the jitter function to retry function accordingly.
-        retry_seconds = @retry_function.call(first_attempt, time_of_recorded_failure, attempt)
+
+        # For reverse compatbility purposes, we must ensure that this function
+        # can take 3 arguments. However, we must also consume options in order
+        # for the default retry function to work correctly. Because we support
+        # ruby 1.9, we cannot use default arguments in a lambda, so we resort to
+        # the following workaround to supply a 4th argument if the function
+        # expects it.
+        call_args = [first_attempt, time_of_recorded_failure, attempts]
+        call_args << @options if @retry_function.arity == 4
+        retry_seconds = @retry_function.call(*call_args)
+        # Check to see if we should jitter or not and pass in the jitter
+        # function to retry function accordingly.
         if @should_jitter
            retry_seconds += @jitter_function.call(execution_id, retry_seconds/2)
         end
         return retry_seconds
       end
     end
+
   end
 end

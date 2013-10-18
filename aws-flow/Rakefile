@@ -20,9 +20,15 @@ Spec::Rake::SpecTask.new(:unit_tests) do |t|
   t.libs << 'lib'
   t.spec_opts = ['--color', '--format nested']
   t.spec_files = FileList['test/**/*.rb']
-  t.spec_files.delete_if {|x| x =~ /.*factories.rb/ || x =~ /.*spec_helper.rb/ || x =~ /.*integration.*/}
+  t.spec_files.delete_if  do |x|
+    (x =~ /.*factories.rb/) ||
+    (x =~ /.*spec_helper.rb/) ||
+      (x =~ /.*preinclude_tests.rb/) ||
+      (x =~ /.*integration.*/)
+  end
   t.spec_files.unshift("test/aws/factories.rb")
   t.spec_files.unshift("test/aws/spec_helper.rb")
+  t.spec_files.unshift("test/aws/preinclude_tests.rb")
 end
 task :test => :unit_tests
 
@@ -32,8 +38,13 @@ Spec::Rake::SpecTask.new do |t|
   #t.ruby_opts = ['-rspec/test/unit'] # Add this line in if you're using Test::Unit instead of RSpec
   t.spec_opts = ['--color', '--format nested']
   t.spec_files = FileList['test/**/*.rb']
-  t.spec_files.delete_if {|x| x =~ /.*factories.rb/ || x =~ /.*spec_helper.rb/}
+  t.spec_files.delete_if  do |x|
+    (x =~ /.*factories.rb/) ||
+    (x =~ /.*spec_helper.rb/) ||
+      (x =~ /.*preinclude_tests.rb/)
+  end
   t.spec_files.unshift("test/aws/factories.rb")
   t.spec_files.unshift("test/aws/spec_helper.rb")
+  t.spec_files.unshift("test/aws/preinclude_tests.rb")
 end
 task :integration_tests => :spec
