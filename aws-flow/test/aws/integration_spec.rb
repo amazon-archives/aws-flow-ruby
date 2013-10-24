@@ -538,114 +538,129 @@ describe "RubyFlowDecider" do
     # This also effectively tests "RequestCancelExternalWorkflowExecutionInitiated"
 
     # TODO: These three tests will sometimes fail, seemingly at random. We need to fix this.
-    # it "ensures that handle_child_workflow_execution_canceled is correct" do
-    #   class OtherCancellationChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_child_workflow", :execution_start_to_close_timeout => 3600} }
-    #     def entry_point(arg)
-    #       create_timer(5)
-    #     end
-    #   end
-    #   class BadCancellationChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_workflow", :execution_start_to_close_timeout => 3600} }
-    #     def other_entry_point
-    #     end
+    it "ensures that handle_child_workflow_execution_canceled is correct" do
+      class OtherCancellationChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_child_cancelled_workflow", :execution_start_to_close_timeout => 3600} }
+        def entry_point(arg)
+          create_timer(5)
+        end
+      end
+      class BadCancellationChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_cancelled_workflow", :execution_start_to_close_timeout => 3600} }
 
-    #     def entry_point(arg)
-    #       client = workflow_client($swf.client, $domain) { {:from_class => "OtherCancellationChildWorkflow"} }
-    #       workflow_future = client.send_async(:start_execution, 5)
-    #       client.request_cancel_workflow_execution(workflow_future)
-    #     end
-    #   end
-    #   worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_workflow", OtherCancellationChildWorkflow)
-    #   worker2.register
-    #   worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_workflow", BadCancellationChildWorkflow)
-    #   worker.register
-    #   client = workflow_client(@swf.client, @domain) { {:from_class => "BadCancellationChildWorkflow"} }
-    #   workflow_execution = client.entry_point(5)
+        def entry_point(arg)
+          client = workflow_client($swf.client, $domain) { {:from_class => "OtherCancellationChildWorkflow"} }
+          workflow_future = client.send_async(:start_execution, 5)
+          client.request_cancel_workflow_execution(workflow_future)
+        end
+      end
+      worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_cancelled_workflow", OtherCancellationChildWorkflow)
+      worker2.register
+      worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_cancelled_workflow", BadCancellationChildWorkflow)
+      worker.register
+      client = workflow_client(@swf.client, @domain) { {:from_class => "BadCancellationChildWorkflow"} }
+      workflow_execution = client.entry_point(5)
 
-    #   worker.run_once
-    #   worker2.run_once
-    #   worker.run_once
-    #   workflow_execution.events.map(&:event_type).should include "ExternalWorkflowExecutionCancelRequested"
-    #   worker2.run_once
-    #   workflow_execution.events.map(&:event_type).should include "ChildWorkflowExecutionCanceled"
-    #   worker.run_once
-    #   workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::Core::Cancellation/
-    # end
+      worker.run_once
+      worker2.run_once
+      worker.run_once
+      workflow_execution.events.map(&:event_type).should include "ExternalWorkflowExecutionCancelRequested"
+      worker2.run_once
+      workflow_execution.events.map(&:event_type).should include "ChildWorkflowExecutionCanceled"
+      worker.run_once
+      workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::Core::Cancellation/
+    end
 
-    # it "ensures that handle_child_workflow_terminated is handled correctly" do
-    #   class OtherTerminationChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_child_workflow", :execution_start_to_close_timeout => 3600} }
+    it "ensures that handle_child_workflow_terminated is handled correctly" do
+      class OtherTerminationChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_child_terminated_workflow", :execution_start_to_close_timeout => 3600} }
 
-    #     def entry_point(arg)
-    #       create_timer(5)
-    #     end
+        def entry_point(arg)
+          create_timer(5)
+        end
 
-    #   end
-    #   $workflow_id = nil
-    #   class BadTerminationChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_workflow", :execution_start_to_close_timeout => 3600} }
-    #     def other_entry_point
-    #     end
+      end
+      $workflow_id = nil
+      class BadTerminationChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_terminated_workflow", :execution_start_to_close_timeout => 3600} }
+        def other_entry_point
+        end
 
-    #     def entry_point(arg)
-    #       client = workflow_client($swf.client, $domain) { {:from_class => "OtherTerminationChildWorkflow"} }
-    #       workflow_future = client.send_async(:start_execution, 5)
-    #       $workflow_id = workflow_future.workflow_execution.workflow_id.get
-    #     end
-    #   end
-    #   worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_workflow", OtherTerminationChildWorkflow)
-    #   worker2.register
-    #   worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_workflow", BadTerminationChildWorkflow)
-    #   worker.register
-    #   client = workflow_client(@swf.client, @domain) { {:from_class => "BadTerminationChildWorkflow"} }
-    #   workflow_execution = client.entry_point(5)
+        def entry_point(arg)
+          client = workflow_client($swf.client, $domain) { {:from_class => "OtherTerminationChildWorkflow"} }
+          workflow_future = client.send_async(:start_execution, 5)
+          $workflow_id = workflow_future.workflow_execution.workflow_id.get
+        end
+      end
+      worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_terminated_workflow", OtherTerminationChildWorkflow)
+      worker2.register
+      worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_terminated_workflow", BadTerminationChildWorkflow)
+      worker.register
+      client = workflow_client(@swf.client, @domain) { {:from_class => "BadTerminationChildWorkflow"} }
+      workflow_execution = client.entry_point(5)
 
-    #   worker.run_once
-    #   worker2.run_once
-    #   $swf.client.terminate_workflow_execution({:workflow_id => $workflow_id, :domain => $domain.name})
-    #   worker.run_once
-    #   workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::ChildWorkflowTerminatedException/
-    # end
+      worker.run_once
+      worker2.run_once
+      $swf.client.terminate_workflow_execution({:workflow_id => $workflow_id, :domain => $domain.name})
+      worker.run_once
+      workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::ChildWorkflowTerminatedException/
+    end
 
-    # it "ensures that handle_child_workflow_timed_out is handled correctly" do
-    #   class OtherTimedOutChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_child_workflow", :execution_start_to_close_timeout => 5} }
+    it "ensures that handle_child_workflow_timed_out is handled correctly" do
+      class OtherTimedOutChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_child_timed_out_workflow", :execution_start_to_close_timeout => 5} }
 
-    #     def entry_point(arg)
-    #       create_timer(5)
-    #     end
+        def entry_point(arg)
+          create_timer(5)
+        end
 
-    #   end
-    #   $workflow_id = nil
-    #   class BadTimedOutChildWorkflow
-    #     extend Workflows
-    #     workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_workflow", :execution_start_to_close_timeout => 3600} }
-    #     def other_entry_point
-    #     end
+      end
+      $workflow_id = nil
+      class BadTimedOutChildWorkflow
+        extend Workflows
+        workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_timed_out_workflow", :execution_start_to_close_timeout => 3600} }
+        def other_entry_point
+        end
 
-    #     def entry_point(arg)
-    #       client = workflow_client($swf.client, $domain) { {:from_class => "OtherTimedOutChildWorkflow"} }
-    #       workflow_future = client.send_async(:start_execution, 5)
-    #       $workflow_id = workflow_future.workflow_execution.workflow_id.get
-    #     end
-    #   end
-    #   worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_workflow", OtherTimedOutChildWorkflow)
-    #   worker2.register
-    #   worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_workflow", BadTimedOutChildWorkflow)
-    #   worker.register
-    #   client = workflow_client(@swf.client, @domain) { {:from_class => "BadTimedOutChildWorkflow"} }
-    #   workflow_execution = client.entry_point(5)
-    #   worker.run_once
-    #   sleep 8
-    #   worker.run_once
-    #   workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::ChildWorkflowTimedOutException/
-    # end
+        def entry_point(arg)
+          client = workflow_client($swf.client, $domain) { {:from_class => "OtherTimedOutChildWorkflow"} }
+          workflow_future = client.send_async(:start_execution, 5)
+          $workflow_id = workflow_future.workflow_execution.workflow_id.get
+        end
+      end
+      worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_timed_out_workflow", OtherTimedOutChildWorkflow)
+      worker2.register
+      worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_timed_out_workflow", BadTimedOutChildWorkflow)
+      worker.register
+      client = workflow_client(@swf.client, @domain) { {:from_class => "BadTimedOutChildWorkflow"} }
+      workflow_execution = client.entry_point(5)
+      worker.run_once
+      sleep 8
+      worker.run_once
+      workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::ChildWorkflowTimedOutException/
+    end
+
+    it "ensures that handle_start_child_workflow_execution_failed is fine" do
+      general_test(:task_list => "handle_start_child_workflow_execution_failed", :class_name => "HandleStartChildWorkflowExecutionFailed")
+      @workflow_class.class_eval do
+        def entry_point
+          wf = AWS::Flow.workflow_client { { :prefix_name => "FooBar", :execution_method => 'badworkflow', :version => "1", :execution_start_to_close_timeout => 3000, :task_list => "yay" } }
+          wf.start_execution("foo")
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+
+      @worker.run_once
+      @worker.run_once
+      workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionFailed"
+      # Make sure this is actually caused by a child workflow failed
+      workflow_execution.events.to_a.last.attributes.details.should =~ /ChildWorkflowFailed/
+    end
 
     it "ensures that handle_timer_canceled is fine" do
         general_test(:task_list => "handle_timer_canceled", :class_name => "HandleTimerCanceled")
@@ -1057,7 +1072,8 @@ describe "RubyFlowDecider" do
       worker.run_once
       activity_worker.run_once
       worker.run_once
-      workflow_execution.events.to_a[6].attributes[:result].should =~ /1/
+      activity_completed_index = workflow_execution.events.map(&:event_type).index("ActivityTaskCompleted")
+      workflow_execution.events.to_a[activity_completed_index].attributes.result.should =~ /1\z/
     end
 
     it "makes sure that timers work" do
@@ -1316,8 +1332,10 @@ describe "RubyFlowDecider" do
       worker.run_once
       worker2.run_once
       worker.run_once
+      # We have to find the index dynamically, because due to how scheduled/starts work, it isn't necessarily in the same place in our history.
+      child_execution_completed_index = workflow_execution.events.map(&:event_type).index("ChildWorkflowExecutionCompleted")
 
-      workflow_execution.events.to_a[7].attributes.result.should =~ /1/
+      workflow_execution.events.to_a[child_execution_completed_index].attributes.result.should =~ /1\z/
     end
 
     it "makes sure that the new way of doing child workflows works" do
@@ -2587,7 +2605,7 @@ describe "RubyFlowDecider" do
     execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
   end
 
-  it "makes sure that workers don't error out on schedule_activity_task_failed" do
+  it "makes sure that workflow errors out on schedule_activity_task_failed" do
     class BadActivityActivity
       extend Activity
       activity(:run_activity1) do
@@ -2608,7 +2626,7 @@ describe "RubyFlowDecider" do
     execution = client.with_opts(:task_list => "Foobarbaz").start_execution
     worker.run_once
     worker.run_once
-    execution.events.map(&:event_type).last.should == "DecisionTaskCompleted"
+    execution.events.map(&:event_type).last.should == "WorkflowExecutionFailed"
   end
 
   it "makes sure that you can have arbitrary activity names with from_class" do

@@ -139,10 +139,10 @@ module AWS
        [:created, :handle_decision_task_started_event, :decision_sent],
        [:decision_sent, :cancel, :cancelled_before_initiated],
        [:decision_sent, :handle_initiated_event, :initiated],
-       [:decision_sent, :handle_initiation_failed_event, :decision_sent],
+       [:decision_sent, :handle_initiation_failed_event, :completed],
        [:initiated, :cancel, :cancelled_after_initiated],
-                       [:initiated, :handle_completion_event, :completed],
-                       [:started, :handle_decision_task_started_event, :started],
+       [:initiated, :handle_completion_event, :completed],
+       [:started, :handle_decision_task_started_event, :started],
                       ]
       self_transitions(:handle_decision_task_started_event)
 
