@@ -82,6 +82,7 @@ module AWS
         converter = method_pair.data_converter
         method_name = method_pair.method_name
         error_handler do |t|
+          parameters = nil
           t.begin do
             if input.class <= NoInput
               @instance.send(method_name)
