@@ -17,7 +17,7 @@ module AWS
   module Flow
 
 
-        # Exception used to communicate failure during fulfillment of a decision sent to SWF. This exception and all its
+    # Exception used to communicate failure during fulfillment of a decision sent to SWF. This exception and all its
     # subclasses are expected to be thrown by the framework.
     class DecisionException < Exception
       attr_accessor :event_id

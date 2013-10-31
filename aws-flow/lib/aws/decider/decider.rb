@@ -111,8 +111,11 @@ module AWS
                        :consume_symbol => :handle_completion_event,
                        :decision_helper_scheduled => :scheduled_external_workflows,
                        :handle_open_request => lambda do |event, open_request|
-                         reason = event.attributes.reason
-                         details = event.attributes.details
+                         attributes = event.attributes
+                         reason = attributes[:reason] if attributes.keys.include? :reason
+                         reason ||= "The activity which failed did not provide a reason"
+                         details = attributes[:details] if attributes.keys.include? :details
+                         details ||= "The activity which failed did not provide details"
                          # workflow_id = @decision_helper.child_initiated_event_id_to_workflow_id[event.attributes.initiated_event_id]
                          # @decision_helper.scheduled_external_workflows[workflow_id]
                          failure = ChildWorkflowFailedException.new(event.id, event.attributes[:workflow_execution], event.attributes.workflow_type, reason, details )
@@ -202,7 +205,7 @@ module AWS
                      })
       end
 
-      # Handler for the StartExternalWorkflowExecutionFailed event.
+      # Handler for the StartChildWorkflowExecutionFailed event.
       #
       # @param [Object] event The event instance.
       #

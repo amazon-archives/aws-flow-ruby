@@ -510,6 +510,78 @@ describe "RubyFlowDecider" do
     @my_workflow_client = workflow_client(@swf.client, @domain) { {:from_class => @workflow_class} }
   end
 
+  it "ensures that not filling in details/reason for activity_task_failed is handled correctly" do
+    general_test(:task_list => "ActivityTaskFailedManually", :class_name => "ActivityTaskFailedManually")
+    $task_token = nil
+
+    @activity_class.class_eval do
+      activity :run_activityManual do
+        {
+          :default_task_heartbeat_timeout => "3600",
+          :default_task_list => task_list,
+          :task_schedule_to_start_timeout => 120,
+          :task_start_to_close_timeout => 120,
+          :version => "1",
+          :manual_completion => true
+        }
+      end
+      def run_activityManual
+        $task_token = activity_execution_context.task_token
+      end
+    end
+
+    @workflow_class.class_eval do
+      def entry_point
+        begin
+          activity.run_activityManual
+        rescue Exception => e
+          #pass
+        end
+      end
+    end
+
+    activity_worker = ActivityWorker.new(@swf.client, @domain, "ActivityTaskFailedManually", @activity_class) {{ :use_forking => false }}
+    activity_worker.register
+
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    activity_worker.run_once
+
+    $swf.client.respond_activity_task_failed(:task_token => $task_token)
+
+    @worker.run_once
+    workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
+  end
+
+  it "ensures that raising inside a with_retry propagates up correctly" do
+    general_test(:task_list => "WithRetryPropagation", :class_name => "WithRetryPropagation")
+    @workflow_class.class_eval do
+      def entry_point
+        error = nil
+        begin
+          with_retry(:maximum_attempts => 1) { activity.run_activity1 }
+        rescue ActivityTaskFailedException => e
+          error = e
+        end
+        return error
+      end
+    end
+    @activity_class.class_eval do
+      def run_activity1
+        raise "Error!"
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    @activity_worker.run_once
+    @worker.run_once
+    @worker.run_once
+    @activity_worker.run_once
+    @worker.run_once
+    workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
+    workflow_execution.events.to_a[-1].attributes.result.should =~ /Error!/
+  end
+
   it "ensures that backtraces are set correctly with yaml" do
     general_test(:task_list => "Backtrace_test", :class_name => "BacktraceTest")
     @workflow_class.class_eval do
@@ -647,15 +719,30 @@ describe "RubyFlowDecider" do
 
     it "ensures that handle_start_child_workflow_execution_failed is fine" do
       general_test(:task_list => "handle_start_child_workflow_execution_failed", :class_name => "HandleStartChildWorkflowExecutionFailed")
+      class FooBar
+        extend Workflows
+        workflow :bad_workflow do
+          {
+            :version => "1",
+            :execution_start_to_close_timeout => 3600,
+            :task_list => "handle_start_child_workflow_execution_failed_child"
+          }
+        end
+        def bad_workflow
+          raise "Child workflow died"
+        end
+      end
       @workflow_class.class_eval do
         def entry_point
-          wf = AWS::Flow.workflow_client { { :prefix_name => "FooBar", :execution_method => 'badworkflow', :version => "1", :execution_start_to_close_timeout => 3000, :task_list => "yay" } }
+          wf = AWS::Flow.workflow_client { { :prefix_name => "FooBar", :execution_method => 'bad_workflow', :version => "1", :execution_start_to_close_timeout => 3600, :task_list => "handle_start_child_workflow_execution_failed_child" } }
           wf.start_execution("foo")
         end
       end
       workflow_execution = @my_workflow_client.start_execution
-
+      child_worker = WorkflowWorker.new($swf.client, $domain, "handle_start_child_workflow_execution_failed_child", FooBar)
+      child_worker.register
       @worker.run_once
+      child_worker.run_once
       @worker.run_once
       workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionFailed"
       # Make sure this is actually caused by a child workflow failed
@@ -2267,6 +2354,7 @@ describe "RubyFlowDecider" do
 
       worker.run_once
       internal_worker.run_once
+
       # Make sure that we finish the execution and fail before reporting ack
       sleep 10
       worker.run_once

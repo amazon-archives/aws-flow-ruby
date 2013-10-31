@@ -26,18 +26,20 @@ module AWS
       def execute(command, options = nil)
         return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0) if @return_on_start
         output = Utilities::AddressableFuture.new
+        result_lock = Utilities::AddressableFuture.new
         error_handler do |t|
           t.begin do
             output.set(schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0))
           end
-          t.rescue(StandardError) do |error|
+          t.rescue(Exception) do |error|
             @error_seen = error
           end
           t.ensure do
             output.set unless output.set?
+            result_lock.set
           end
         end
-        output.get
+        result_lock.get
         raise @error_seen if @error_seen
         output
       end

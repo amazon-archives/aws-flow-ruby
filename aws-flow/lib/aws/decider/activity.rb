@@ -170,8 +170,11 @@ module AWS
         activity_id = @decision_helper.get_activity_id(attributes[:scheduled_event_id])
         @decision_helper[activity_id].consume(:handle_completion_event)
         open_request_info = @decision_helper.scheduled_activities.delete(activity_id)
-        reason = attributes[:reason]
-        details = attributes[:details]
+        reason = attributes[:reason] if attributes.keys.include? :reason
+        reason ||= "The activity which failed did not provide a reason"
+        details = attributes[:details] if attributes.keys.include? :details
+        details ||= "The activity which failed did not provide details"
+
         # TODO consider adding user_context to open request, and adding it here
         # @decision_helper[@decision_helper.activity_scheduling_event_id_to_activity_id[event.attributes.scheduled_event_id]].attributes[:options].data_converter
         failure = ActivityTaskFailedException.new(event.id, activity_id, reason, details)
