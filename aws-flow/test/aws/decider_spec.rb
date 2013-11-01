@@ -390,6 +390,17 @@ describe "FakeHistory" do
         @trace << task_completed_request
       end
       def start_workflow_execution(options)
+        @trace ||= []
+        @trace << options
+        {"runId" => "blah"}
+      end
+      def register_activity_type(options)
+      end
+      def register_workflow_type(options)
+      end
+      def respond_activity_task_completed(task_token, result)
+      end
+      def start_workflow_execution(options)
         {"runId" => "blah"}
       end
     end
@@ -1174,8 +1185,8 @@ describe "FakeHistory" do
     worker.start
     swf_client.trace.first[:decisions].first[:start_timer_decision_attributes][:start_to_fire_timeout].should == "5"
   end
-
 end
+
 describe "Misc tests" do
   it "makes sure that Workflows is equivalent to Decider" do
     class TestDecider
@@ -1246,8 +1257,94 @@ describe FlowConstants do
 
 end
 
+class TestActivity
+  extend Activity
 
+  activity :run_activity1 do |o|
+    o.default_task_heartbeat_timeout = "3600"
+    o.default_task_list = "activity_task_list"
+    o.default_task_schedule_to_close_timeout = "3600"
+    o.default_task_schedule_to_start_timeout = "3600"
+    o.default_task_start_to_close_timeout = "3600"
+    o.version = "1"
+  end
+  def run_activity1
+    "first regular activity"
+  end
+  def run_activity2
+    "second regular activity"
+  end
+end
 
+class TestActivityWorker < ActivityWorker
+
+  attr_accessor :executor
+  def initialize(service, domain, task_list, forking_executor, *args, &block)
+    super(service, domain, task_list, *args)
+    @executor = forking_executor
+  end
+end
+
+describe ActivityWorker do
+
+  it "will test whether the ActivityWorker shuts down cleanly when an interrupt is received" do
+
+    task_list = "TestWorkflow_tasklist"
+    service = FakeServiceClient.new
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    forking_executor = ForkingExecutor.new
+    activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor)
+
+    activity_worker.add_activities_implementation(TestActivity)
+    # Starts the activity worker in a forked process. Also, attaches an at_exit handler to the process. When the process
+    # exits, the handler checks whether the executor's internal is_shutdown variable is set correctly or not.
+    pid = fork do
+      at_exit {
+        activity_worker.executor.is_shutdown.should == true
+      }
+      activity_worker.start true
+    end
+    # Adding a sleep to let things get setup correctly (not ideal but going with this for now)
+    sleep 1
+    # Send an interrupt to the child process
+    Process.kill("INT", pid)
+    status = Process.waitall
+    status[0][1].success?.should be_true
+  end
+
+  # This method will take a long time to run, allowing us to test our shutdown scenarios
+  def dumb_fib(n)
+    n < 1 ? 1 : dumb_fib(n - 1) + dumb_fib(n - 2)
+  end
+
+  it "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
+    task_list = "TestWorkflow_tasklist"
+    service = FakeServiceClient.new
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    forking_executor = ForkingExecutor.new
+    activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor)
+
+    activity_worker.add_activities_implementation(TestActivity)
+    # Starts the activity worker in a forked process. Also, executes a task using the forking executor of the activity
+    # worker. The executor will create a child process to run that task. The task (dumb_fib) is purposefully designed to
+    # be long running so that we can test our shutdown scenario.
+    pid = fork do
+      activity_worker.executor.execute {
+        dumb_fib(1000)
+      }
+      activity_worker.start true
+    end
+    # Adding a sleep to let things get setup correctly (not idea but going with this for now)
+    sleep 2
+    # Send 2 interrupts to the child process
+    2.times { Process.kill("INT", pid); sleep 3 }
+    status = Process.waitall
+    status[0][1].success?.should be_false
+  end
+
+end
 
 describe "testing changing default values in RetryOptions and RetryPolicy" do
 

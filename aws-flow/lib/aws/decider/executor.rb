@@ -91,11 +91,19 @@ module AWS
         unless @pids.empty?
           @log.info "Exit requested, waiting up to #{timeout_seconds} seconds for child processes to finish"
 
-          # check every second for child processes to finish
-          timeout_seconds.times do
-            sleep 1
-            remove_completed_pids
-            break if @pids.empty?
+          # If the timeout_seconds value is set to Float::INFINITY, it will wait indefinitely till all workers finish
+          # their work. This allows us to handle graceful shutdown of workers.
+          if timeout_seconds == Float::INFINITY
+            @log.info "Exit requested, waiting indefinitely till all child processes finish"
+            remove_completed_pids true while !@pids.empty?
+          else
+            @log.info "Exit requested, waiting up to #{timeout_seconds} seconds for child processes to finish"
+            # check every second for child processes to finish
+            timeout_seconds.times do
+              sleep 1
+              remove_completed_pids
+              break if @pids.empty?
+            end
           end
 
           # forcibly kill all remaining children

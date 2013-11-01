@@ -80,16 +80,14 @@ module AWS
     end
 
     class ActivityTaskPoller
-      def initialize(service, domain, task_list, activity_definition_map, options=nil)
+      def initialize(service, domain, task_list, activity_definition_map, executor, options=nil)
         @service = service
         @domain = domain
         @task_list = task_list
         @activity_definition_map = activity_definition_map
         @logger = options.logger if options
         @logger ||= Utilities::LogFactory.make_logger(self, "debug")
-        max_workers = options.execution_workers if options
-        max_workers = 20 if (max_workers.nil? || max_workers.zero?)
-        @executor = ForkingExecutor.new(:max_workers => max_workers, :logger => @logger)
+        @executor = executor
 
       end
 

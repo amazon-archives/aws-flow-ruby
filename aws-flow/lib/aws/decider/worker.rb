@@ -230,7 +230,27 @@ module AWS
         @activity_definition_map = {}
         @activity_type_options = []
         @options = Utilities::interpret_block_for_options(WorkerOptions, block)
+        @logger = @options.logger if @options
+        @logger ||= Utilities::LogFactory.make_logger(self, "debug")
+        max_workers = @options.execution_workers if @options
+        max_workers = 20 if (max_workers.nil? || max_workers.zero?)
+        @executor = ForkingExecutor.new(:max_workers => max_workers, :logger => @logger)
         super(service, domain, task_list, *args)
+
+        @shutting_down = false
+        %w{ TERM INT }.each do |signal|
+          Signal.trap(signal) do
+            if @shutting_down
+              @executor.shutdown 0
+              Kernel.exit! 1
+            else
+              @shutting_down = true
+              @executor.shutdown Float::INFINITY
+              Kernel.exit
+            end
+          end
+        end
+
       end
 
       # Adds an Activity implementation to this ActivityWorker.
@@ -297,7 +317,7 @@ module AWS
       #
       def start(should_register = true)
         register if should_register
-        poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @options)
+        poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @executor, @options)
         loop do
           run_once(false, poller)
         end
@@ -313,7 +333,7 @@ module AWS
       #
       def run_once(should_register = true, poller = nil)
         register if should_register
-        poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @options) if poller.nil?
+        poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @executor, @options) if poller.nil?
         poller.poll_and_process_single_task(@options.use_forking)
       end
     end
