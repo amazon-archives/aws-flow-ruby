@@ -133,7 +133,7 @@ module AWS
       end
 
       def process_single_task(task)
-        @service = AWS::SimpleWorkflow.new.client.with_http_handler(AWS::Core::Http::NetHttpHandler.new(:ssl_ca_file => AWS.config.ssl_ca_file))
+        @service = AWS::SimpleWorkflow.new.client.with_http_handler(AWS::Core::Http::NetHttpHandler.new(AWS.config.to_h))
         begin
           begin
             execute(task)
