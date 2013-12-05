@@ -13,12 +13,6 @@
 # permissions and limitations under the License.
 #++
 
-# @!visibility private
-def require_all(path)
-  glob = File.join(path, "*.rb")
-  Dir[glob].each { |f| require f}
-  Dir[glob].map { |f| File.basename(f) }
-end
 
 require 'aws/flow'
 include AWS::Flow::Core

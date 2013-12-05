@@ -13,24 +13,17 @@
 # permissions and limitations under the License.
 ##
 
-require 'rubygems'
 
-require 'aws/flow'
+# Everything depends on fiber, so we have to require that before anything else
+require 'aws/flow/fiber'
 
-include AWS::Flow::Core
-
-Spec::DSL::Main.class_eval do
-  if method_defined? :context
-    undef :context
-  end
-end
-
-def constantize(camel_case_word)
-  names = camel_case_word.split('::')
-  names.shift if names.empty? || names.first.empty?
-  constant = Object
-  names.each do |name|
-    constant = constant.const_defined?(name) ? constant.const_get(name) : constant.const_missing(name)
-  end
-  constant
-end
+# Require everything else
+require 'aws/flow/async_backtrace.rb'
+require 'aws/flow/async_scope.rb'
+require 'aws/flow/begin_rescue_ensure.rb'
+require 'aws/flow/flow_utils.rb'
+require 'aws/flow/future.rb'
+require 'aws/flow/implementation.rb'
+require 'aws/flow/simple_dfa.rb'
+require 'aws/flow/tasks.rb'
+$RUBY_FLOW_FILES = ["async_backtrace","tasks.rb","simple_dfa.rb","implementation.rb","future.rb","flow_utils.rb","begin_rescue_ensure.rb","async_scope.rb"]
