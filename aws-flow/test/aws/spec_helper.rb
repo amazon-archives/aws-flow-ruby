@@ -13,18 +13,10 @@
 # permissions and limitations under the License.
 ##
 
-require 'aws/decider'
-require 'rubygems'
-
 require 'aws/flow'
 
 include AWS::Flow::Core
 
-Spec::DSL::Main.class_eval do
-  if method_defined? :context
-    undef :context
-  end
-end
 
 def constantize(camel_case_word)
   names = camel_case_word.split('::')
