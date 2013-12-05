@@ -16,11 +16,24 @@
 module AWS
   module Flow
 
+    class MinimalDomain
+      attr_accessor :name
+      def initialize(domain); @domain = domain; end
+    end
+
+    class MinimalWorkflowExecution
+      attr_accessor :workflow_id, :run_id, :domain
+      def initialize(domain, workflow_id, run_id)
+        @domain = domain
+        @workflow_id = workflow_id
+        @run_id = run_id
+      end
+    end
 
     # A future provided by a [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html).
     #
     # @!attribute _workflow_execution
-    #   The [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html)
+    #   A MinimalWorkflowExecution
     #   instance that this future belongs to.
     #
     # @!attribute return_value
@@ -35,7 +48,7 @@ module AWS
       # @param workflow_execution
       #
       def initialize(workflow_execution)
-        @_workflow_execution = workflow_execution
+        @_workflow_execution = workflow_execution.dup
         @return_value = Future.new
       end
 
@@ -208,7 +221,8 @@ module AWS
         get_decision_context
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
         workflow_id_future, run_id_future = Future.new, Future.new
-        output = WorkflowFuture.new(AWS::SimpleWorkflow::WorkflowExecution.new(@domain, workflow_id_future, run_id_future))
+        minimal_domain = MinimalDomain.new(@domain.name.to_s)
+        output = WorkflowFuture.new(AWS::Flow::MinimalWorkflowExecution.new(minimal_domain, workflow_id_future, run_id_future))
         options = Utilities::merge_all_options(@options, options)
         new_options = StartWorkflowOptions.new(options)
         open_request = OpenRequestInfo.new

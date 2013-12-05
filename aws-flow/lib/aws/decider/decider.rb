@@ -198,7 +198,7 @@ module AWS
                        :consume_symbol => :handle_completion_event,
                        :decision_helper_scheduled => :scheduled_signals,
                        :handle_open_request => lambda do |event, open_request|
-                         workflow_execution = AWS::SimpleWorkflow::WorkflowExecution.new("",event.attributes.workflow_id, event.attributes.run_id)
+                         workflow_execution = AWS::Flow::MinimalWorkflowExecution.new("",event.attributes.workflow_id, event.attributes.run_id)
                          failure = SignalExternalWorkflowException(event.id, workflow_execution, event.attributes.cause)
                          open_request.completion_handle.fail(failure)
                        end
@@ -215,7 +215,7 @@ module AWS
                      :consume_symbol => :handle_initiation_failed_event,
                      :decision_helper_scheduled => :scheduled_external_workflows,
                      :handle_open_request => lambda do |event, open_request|
-                         workflow_execution = AWS::SimpleWorkflow::WorkflowExecution.new("",event.attributes.workflow_id, nil)
+                         workflow_execution = AWS::Flow::MinimalWorkflowExecution.new("",event.attributes.workflow_id, nil)
                        workflow_type = event.attributes.workflow_type
                        cause = event.attributes.cause
                        failure = StartChildWorkflowFailedException.new(event.id, workflow_execution, workflow_type, cause)

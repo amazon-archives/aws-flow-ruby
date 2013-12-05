@@ -274,12 +274,16 @@ describe "RubyFlowDecider" do
         end
       end
       class SubsequentWorkflow
-        extend Decider
+        extend Workflows
+        workflow :entry_point do
+          {
+            :version => "1",
+          }
+        end
         version "1"
         activity_client :activity do |options|
           options.prefix_name = "SubsequentActivity"
         end
-        entry_point :entry_point
         def entry_point
           activity.run_activity1
           activity.run_activity2
@@ -294,14 +298,24 @@ describe "RubyFlowDecider" do
       worker.register
       activity_worker.register
       sleep 3
-      workflow_id = "basic_subsequent_activities"
-      run_id = @swf.client.start_workflow_execution(:execution_start_to_close_timeout => "3600", :task_list => {:name => task_list}, :task_start_to_close_timeout => "3600", :child_policy => "REQUEST_CANCEL", :workflow_type => {:name => workflow_type_name, :version => "1"}, :workflow_id => workflow_id, :domain => @domain.name.to_s)
-      workflow_execution = AWS::SimpleWorkflow::WorkflowExecution.new(@domain, workflow_id, run_id["runId"])
+
+
+      my_workflow_client = workflow_client(@swf.client, @domain) do
+        {
+          :from_class => "SubsequentWorkflow",
+          :execution_start_to_close_timeout => "3600",
+          :task_list => task_list,
+          :task_start_to_close_timeout => "3600",
+          :child_policy => "REQUEST_CANCEL",
+        }
+      end
+      workflow_execution = my_workflow_client.start_execution
       worker.run_once
       activity_worker.run_once
       worker.run_once
       activity_worker.run_once
       worker.run_once
+      p workflow_execution.events.to_a
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
     end
 
@@ -1274,7 +1288,7 @@ describe "RubyFlowDecider" do
         end
         entry_point :entry_point
         def entry_point(arg)
-          my_workflow_factory = workflow_factory($swf.client, $domain) do |options|
+          client = workflow_client do |options|
             options.workflow_name = "OtherChildWorkflow"
             options.execution_method = "entry_point"
             options.execution_start_to_close_timeout = 3600
@@ -1282,7 +1296,7 @@ describe "RubyFlowDecider" do
             options.version = "1"
             options.task_list = "test2"
           end
-          client = my_workflow_factory.get_client
+
           client.send_async(:start_execution, 5)
           client.send_async(:start_execution, 5)
         end
@@ -1306,6 +1320,7 @@ describe "RubyFlowDecider" do
 
       # Start, start off the child workflow
       worker.run_once
+
       # Run Both child workflows
       worker2.run_once
       worker2.run_once
@@ -1315,6 +1330,7 @@ describe "RubyFlowDecider" do
       # In order to deal with this, we have the following line below
       worker.run_once if workflow_execution.events.map(&:event_type).last == "DecisionTaskCompleted"
       events = workflow_execution.events.map(&:event_type)
+      workflow_execution.events.to_a.last.attributes.result.should_not =~ /secret_access_key/
       events.should include "ChildWorkflowExecutionStarted"
       events.should include "ChildWorkflowExecutionCompleted"
       events.should include "WorkflowExecutionCompleted"
@@ -1575,9 +1591,9 @@ describe "RubyFlowDecider" do
         activity :run_activity1 do |options|
           options.version = "1"
           options.default_task_list = "exponential_test_return_task_list"
-          options.default_task_schedule_to_close_timeout = "5"
-          options.default_task_schedule_to_start_timeout = "5"
-          options.default_task_start_to_close_timeout = "5"
+          options.default_task_schedule_to_close_timeout = "15"
+          options.default_task_schedule_to_start_timeout = "15"
+          options.default_task_start_to_close_timeout = "15"
           options.default_task_heartbeat_timeout = "3600"
         end
         def run_activity1
@@ -1629,10 +1645,10 @@ describe "RubyFlowDecider" do
       workflow_execution = client.start_execution
       worker.run_once
       activity_worker.run_once
-
+      activity_worker.run_once unless workflow_execution.events.map(&:event_type).include? "ActivityTaskCompleted"
       worker.run_once
+      p workflow_execution.events.to_a
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
-
     end
 
     it "makes sure that signals work correctly" do
@@ -1931,7 +1947,6 @@ describe "RubyFlowDecider" do
         options.default_task_start_to_close_timeout = "3600"
       end
       def run_activity1(arg)
-        arg.should == 5
         arg + 1
       end
       def run_activity2(arg)
@@ -1942,7 +1957,7 @@ describe "RubyFlowDecider" do
       end
     end
     # Definition of the workflow logic
-    class MyWorkflow
+    class ParallelWorkflow
       extend Decider
       version "1"
       activity_client :activity do |options|
@@ -1983,15 +1998,15 @@ describe "RubyFlowDecider" do
     task_list = "parallel_split_task_list"
     # @swf and @domain are set beforehand with the aws ruby sdk
     worker = WorkflowWorker.new(@swf.client, @domain, task_list)
-    worker.add_workflow_implementation(MyWorkflow)
-    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list)
+    worker.add_workflow_implementation(ParallelWorkflow)
+    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list) { {:use_forking => false}}
     activity_worker.add_activities_implementation(ParallelSplitActivity)
     worker.register
     activity_worker.register
 
     # Get a workflow client to start the workflow
     my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-      options.workflow_name = "MyWorkflow"
+      options.workflow_name = "ParallelWorkflow"
       options.execution_start_to_close_timeout = 3600
       options.task_list = task_list
       options.task_start_to_close_timeout = 10
@@ -2019,6 +2034,7 @@ describe "RubyFlowDecider" do
     # Sleep to give the threads some time to compute, as we'll run right out of
     # the test before they can run otherwise
     sleep 50
+    p workflow_execution.events.to_a
     workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
   end
 
@@ -2223,7 +2239,7 @@ describe "RubyFlowDecider" do
           "did some work in run_activity1"
         end
       end
-      class MyWorkflow
+      class TimeoutWorkflow
         extend Decider
         version "1"
         activity_client :activity do |options|
@@ -2234,17 +2250,18 @@ describe "RubyFlowDecider" do
           activity.run_activity1
         end
       end
-      worker = WorkflowWorker.new(@swf.client, @domain, "timeout_test", MyWorkflow)
+      worker = WorkflowWorker.new(@swf.client, @domain, "timeout_test", TimeoutWorkflow)
       activity_worker = ActivityWorker.new(@swf.client, @domain, "timeout_test", TimeoutActivity)
       worker.register
       activity_worker.register
       my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "MyWorkflow"
+        options.workflow_name = "TimeoutWorkflow"
         options.execution_start_to_close_timeout = 3600
+        options.task_start_to_close_timeout = 5
         options.task_list = "timeout_test"
       end
       my_workflow_client = my_workflow_factory.get_client
-      num_tests = 50
+      num_tests = 30
       workflow_executions = []
       1.upto(num_tests)  { |i| workflow_executions << my_workflow_client.entry_point }
       forking_executor  = ForkingExecutor.new(:max_workers => 3)
@@ -2252,6 +2269,7 @@ describe "RubyFlowDecider" do
       forking_executor.execute { activity_worker.start }
       sleep 60
       failed_executions = workflow_executions.each{|x| x.events.to_a.last.event_type.should == "WorkflowExecutionCompleted" }
+
     end
   end
 
@@ -2273,7 +2291,7 @@ describe "RubyFlowDecider" do
         version "1"
         entry_point :entry_point
         def entry_point(arg)
-          my_workflow_factory = workflow_factory($swf_client, $domain) do |options|
+          client = workflow_client(@swf_client, @domain) do |options|
             options.workflow_name = "SendAsyncWorkflow"
             options.execution_method = "entry_point"
             options.execution_start_to_close_timeout = 3600
@@ -2281,7 +2299,6 @@ describe "RubyFlowDecider" do
             options.version = "1"
             options.task_list = "client_test_async2"
           end
-          client = my_workflow_factory.get_client
           client.send_async(:start_execution, arg) { {:task_start_to_close_timeout => 35 } }
           client.send_async(:start_execution, arg)
         end
@@ -2297,8 +2314,8 @@ describe "RubyFlowDecider" do
       end
       my_workflow_client = my_workflow_factory.get_client
       workflow_execution = my_workflow_client.entry_point(5)
-
       worker.run_once
+
       internal_worker.run_once
       internal_worker.run_once
       worker.run_once
@@ -2407,7 +2424,7 @@ describe "RubyFlowDecider" do
     end
 
     it "ensures that with_retry does asynchronous blocking correctly" do
-      general_test(:task_list => "with_retry_synch", :class_name => "WithRetrySynchronous")
+      general_test(:task_list => "with_retry_synch", :class_name => "WithRetryAsynchronous")
       @workflow_class.class_eval do
         def entry_point
           with_retry do
