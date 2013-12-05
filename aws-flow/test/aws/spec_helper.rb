@@ -14,10 +14,24 @@
 ##
 
 require 'aws/decider'
+require 'rubygems'
 
-# So that we can have a method called context
+require 'aws/flow'
+
+include AWS::Flow::Core
+
 Spec::DSL::Main.class_eval do
   if method_defined? :context
     undef :context
   end
+end
+
+def constantize(camel_case_word)
+  names = camel_case_word.split('::')
+  names.shift if names.empty? || names.first.empty?
+  constant = Object
+  names.each do |name|
+    constant = constant.const_defined?(name) ? constant.const_get(name) : constant.const_missing(name)
+  end
+  constant
 end
