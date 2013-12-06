@@ -1653,42 +1653,45 @@ describe "RubyFlowDecider" do
 
     it "makes sure that signals work correctly" do
       class SignalWorkflow
-        class << self
-          attr_accessor :task_list, :trace
+        extend Workflows
+        workflow :entry_point do
+          {
+            :version => "1"
+          }
         end
-        @trace = []
-        extend Decider
-        version "1"
-        def this_signal
+        def this_signal(input)
           @wait.broadcast
+          @input = input
         end
         signal :this_signal
-        entry_point :entry_point
         def entry_point
+          @input = "bad_input"
           @wait ||= FiberConditionVariable.new
           @wait.wait
+          @input.should =~ /new input!/
         end
       end
       task_list = "SignalWorkflow_tasklist"
       worker = WorkflowWorker.new(@swf.client, @domain, task_list)
       worker.add_workflow_implementation(SignalWorkflow)
       worker.register
-      my_workflow_factory = workflow_factory(@swf.client, @domain) do |options|
+      my_workflow_client = workflow_client(@swf.client, @domain) do |options|
         options.workflow_name = "SignalWorkflow"
         options.execution_start_to_close_timeout = 3600
         options.task_list = task_list
         options.task_start_to_close_timeout = 10
         options.child_policy = :request_cancel
       end
-      my_workflow = my_workflow_factory.get_client
       sleep 3
-      workflow_execution = my_workflow.start_execution
+      workflow_execution = my_workflow_client.start_execution
       forking_executor = ForkingExecutor.new(:max_workers => 2)
       worker.run_once
-      my_workflow.signal_workflow_execution("this_signal", workflow_execution)
+
+      my_workflow_client.signal_workflow_execution("this_signal", workflow_execution) { {:input => "new input!"}}
       worker.run_once
       forking_executor.shutdown(1)
-
+      require 'debugger'
+      debugger
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
     end
 
