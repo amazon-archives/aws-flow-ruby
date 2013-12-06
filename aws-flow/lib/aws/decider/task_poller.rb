@@ -99,7 +99,10 @@ module AWS
           raise "This activity worker was told to work on activity type #{activity_type.name}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}" unless activity_implementation
           output = activity_implementation.execute(task.input, context)
           @logger.debug "Responding on task_token #{task.task_token} for task #{task}"
-          if ! activity_implementation.execution_options.manual_completion
+          if output.length > 32768
+            output = output.slice(0..32767)
+            respond_activity_task_failed_with_retry(task.task_token, "You cannot send a response with a result greater thank 32768. Please reduce the response size. The first part of the output is included in the details field.", output )
+          elsif ! activity_implementation.execution_options.manual_completion
             @service.respond_activity_task_completed(:task_token => task.task_token, :result => output)
           end
         rescue ActivityFailureException => e

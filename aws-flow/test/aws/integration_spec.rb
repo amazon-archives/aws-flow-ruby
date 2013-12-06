@@ -524,6 +524,27 @@ describe "RubyFlowDecider" do
     @my_workflow_client = workflow_client(@swf.client, @domain) { {:from_class => @workflow_class} }
   end
 
+  it "ensures that an activity returning more than 32k data fails the activity" do
+    general_test(:task_list => "ActivityTaskLargeOutput", :class_name => "ActivityTaskLargeOutput")
+    @activity_class.class_eval do
+      def run_activity1
+        # Make sure we return something that's over 32k. Note this won't
+        # necessarily work with all converters, as it's pretty trivially
+        # compressible
+        return "a" * 33000
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    @activity_worker.run_once
+    @worker.run_once
+    history_events = workflow_execution.events.map(&:event_type)
+    # Previously, it would time out, as the failure would include the original large output that killed the completion call. Thus, we need to check that we fail the ActivityTask correctly.
+    history_events.should include "ActivityTaskFailed"
+    history_events.last.should == "WorkflowExecutionFailed"
+
+  end
+
   it "ensures that not filling in details/reason for activity_task_failed is handled correctly" do
     general_test(:task_list => "ActivityTaskFailedManually", :class_name => "ActivityTaskFailedManually")
     $task_token = nil
