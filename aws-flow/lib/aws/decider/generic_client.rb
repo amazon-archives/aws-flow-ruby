@@ -80,6 +80,8 @@ module AWS
         elsif block.arity == 0
           modified_options = Proc.new do
             result = block.call
+            # We need to copy the hash to make sure that we don't mutate it
+            result = result.dup
             result[:return_on_start] = true
             result
           end

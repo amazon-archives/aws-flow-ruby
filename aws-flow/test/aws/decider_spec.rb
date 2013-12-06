@@ -1232,6 +1232,33 @@ describe "Misc tests" do
   end
 
 
+  it "ensures that using send_async doesn't mutate the original hash" do
+    class GenericClientTest < GenericClient
+      def call_options(*args, &options)
+        options.call
+      end
+    end
+    # Instead of setting up the fiber, just pretend we're internal
+    module Utilities
+      class << self
+        alias_method :old_is_external, :is_external
+        def is_external
+          return false
+        end
+      end
+    end
+    generic_client = GenericClientTest.new
+    previous_hash = {:key => :value}
+    previous_hash_copy = previous_hash.dup
+    generic_client.send_async(:call_options) { previous_hash }
+    # Put is_external back before we have a chance of failing
+    module Utilities
+      class << self
+        alias_method :is_external, :old_is_external
+      end
+    end
+    previous_hash.should == previous_hash_copy
+  end
 end
 
 describe FlowConstants do
