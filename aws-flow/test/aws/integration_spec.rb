@@ -315,7 +315,6 @@ describe "RubyFlowDecider" do
       worker.run_once
       activity_worker.run_once
       worker.run_once
-      p workflow_execution.events.to_a
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
     end
 

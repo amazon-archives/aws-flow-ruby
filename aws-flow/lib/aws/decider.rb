@@ -21,9 +21,6 @@ require 'aws-sdk'
 # Setting the user-agent as ruby-flow for all calls to the service
 AWS.config(:user_agent_prefix => "ruby-flow")
 
-#LOAD_PATH << File.dirname(File.expand_path(__FILE__))
-
-
 require "aws/decider/utilities"
 require "aws/decider/worker"
 require 'aws/decider/generic_client'

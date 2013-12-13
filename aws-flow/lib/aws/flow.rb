@@ -26,4 +26,4 @@ require 'aws/flow/future.rb'
 require 'aws/flow/implementation.rb'
 require 'aws/flow/simple_dfa.rb'
 require 'aws/flow/tasks.rb'
-$RUBY_FLOW_FILES = ["async_backtrace","tasks.rb","simple_dfa.rb","implementation.rb","future.rb","flow_utils.rb","begin_rescue_ensure.rb","async_scope.rb"]
+$RUBY_FLOW_FILES = ["async_backtrace.rb","tasks.rb","simple_dfa.rb","implementation.rb","future.rb","flow_utils.rb","begin_rescue_ensure.rb","async_scope.rb"]
