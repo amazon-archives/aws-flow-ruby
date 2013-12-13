@@ -13,7 +13,36 @@
 # permissions and limitations under the License.
 ##
 
-require 'rubygems'
+require 'aws/flow'
+include AWS::Flow::Core
+
+
+class FlowFactory
+
+  attr_accessor :async_scope
+  def generate_BRE(options = {})
+    scope = generate_scope
+    bre = BeginRescueEnsure.new(:parent => scope.root_context)
+    begin_statement = options[:begin] ? options[:begin] : lambda {}
+    rescue_statement = options[:rescue] ? options[:rescue] : lambda {|x| }
+    rescue_exception = options[:rescue_exceptions] ? options[:rescue_exceptions] : StandardError
+    ensure_statement = options[:ensure] ? options[:ensure] : lambda {}
+    bre.begin begin_statement
+    bre.rescue(rescue_exception, rescue_statement)
+    bre.ensure ensure_statement
+    scope << bre
+    bre
+  end
+
+  def generate_scope(options = {})
+    lambda = options[:lambda] || lambda {}
+    @async_scope ||= AsyncScope.new do
+      lambda.call
+    end
+    return @async_scope
+  end
+
+end
 
 class WorkflowGenerator
   class << self
