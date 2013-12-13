@@ -1103,7 +1103,7 @@ describe "FakeHistory" do
     BadWorkflow.trace.should == [:start, :middle, :end]
   end
 
-  it "makes sure that signal works correctly" do
+  it "makes sure that raising an error properly fails a workflow" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_tasks
         fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
@@ -1192,6 +1192,85 @@ describe "FakeHistory" do
     workflow_execution = my_workflow.start_execution
     worker.start
     swf_client.trace.first[:decisions].first[:start_timer_decision_attributes][:start_to_fire_timeout].should == "5"
+  end
+
+  it "ensures that CompleteWorkflowExecutionFailed is correctly handled" do
+    class FakeAttribute
+      def initialize(data)
+        @data = data
+      end
+      def method_missing(method_name, *args, &block)
+        if @data.keys.include? method_name
+          return @data[method_name]
+        end
+        super
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_tasks
+        fake_workflow_type = FakeWorkflowType.new(nil, "CompleteWorkflowExecutionFailedWorkflow.entry_point", "1")
+        TestHistoryWrapper.new(fake_workflow_type,
+                               [
+                                TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
+                                TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
+                                TestHistoryEvent.new("DecisionTaskStarted", 3, {}),
+                                TestHistoryEvent.new("DecisionTaskCompleted", 4, {}),
+                                TestHistoryEvent.new("ActivityTaskScheduled", 5, {:activity_id => "Activity1"}),
+                                TestHistoryEvent.new("ActivityTaskScheduled", 6, {:activity_id => "Activity2"}),
+                                TestHistoryEvent.new("ActivityTaskStarted", 7, {}),
+                                TestHistoryEvent.new("ActivityTaskFailed", 8, {:scheduled_event_id => 5}),
+                                TestHistoryEvent.new("DecisionTaskScheduled", 9, {}),
+                                TestHistoryEvent.new("ActivityTaskStarted", 10, {}),
+                                TestHistoryEvent.new("ActivityTaskFailed", 11, {:scheduled_event_id => 6}),
+                                TestHistoryEvent.new("DecisionTaskStarted", 12, {}),
+                                TestHistoryEvent.new("DecisionTaskCompleted", 13, {}),
+                                TestHistoryEvent.new("RequestCancelActivityTaskFailed", 14, FakeAttribute.new({:activity_id => "Activity2"}) ) ,
+                                TestHistoryEvent.new("CompleteWorkflowExecutionFailed", 15, {}),
+                                TestHistoryEvent.new("DecisionTaskScheduled", 16, {}),
+                               ])
+      end
+    end
+    workflow_type_object = double("workflow_type", :name => "CompleteWorkflowExecutionFailedWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+
+    class CompleteWorkflowExecutionFailedActivity
+      extend Activity
+      activity :run_activity1
+      def run_activity1; raise StandardError; end
+    end
+    class CompleteWorkflowExecutionFailedWorkflow
+      extend Workflows
+      workflow(:entry_point) { {:version => "1"} }
+      activity_client(:activity) { {:version => "1", :prefix_name => "CompleteWorkflowExecutionFailedActivity" } }
+      def entry_point
+        child_futures = []
+        error_handler do |t|
+          t.begin do
+            child_futures << activity.send_async(:run_activity1)
+            child_futures << activity.send_async(:run_activity1)
+            wait_for_all(child_futures)
+          end
+          t.rescue(Exception) do |error|
+          end
+          t.ensure do
+          end
+        end
+      end
+    end
+    swf_client = FakeServiceClient.new
+    task_list = "CompleteWorkflowExecutionFailedWorkflow_tasklist"
+    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
+      options.workflow_name = "CompleteWorkflowExecutionFailedWorkflow"
+      options.execution_start_to_close_timeout = 3600
+      options.task_list = task_list
+    end
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
+    worker.add_workflow_implementation(CompleteWorkflowExecutionFailedWorkflow)
+    my_workflow = my_workflow_factory.get_client
+    workflow_execution = my_workflow.start_execution
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
   end
 end
 

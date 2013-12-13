@@ -132,7 +132,7 @@ module AWS
       # @!visibility private
       def get_next_state_machine_which_will_schedule(list)
         return if list.empty?
-        ele = list.first
+        ele = list.shift
         ele = list.shift until (list.empty? || ele.get_decision != nil)
         ele
       end
@@ -159,18 +159,19 @@ module AWS
           end
           decision_state_machine.consume(:handle_decision_task_started_event)
           decision_state_machine = next_decision_state_machine
-          if (next_decision_state_machine != nil &&
-              count < DecisionHelper.maximum_decisions_per_completion)
-            next_decision_state_machine.consume(:handle_decision_task_started_event)
-          end
+        end
+        if (next_decision_state_machine != nil &&
+            count < DecisionHelper.maximum_decisions_per_completion)
+          next_decision_state_machine.consume(:handle_decision_task_started_event)
         end
       end
 
-      # @!visibility private
-      def method_missing(method_name, *args)
-        if [:[]=, :[]].include? method_name
-          @decision_map.send(method_name, *args)
-        end
+
+      def [](key)
+        return @decision_map[key]
+      end
+      def []=(key, val)
+        return @decision_map[key] = val
       end
 
       # Returns the activity ID for a scheduled activity
@@ -336,7 +337,7 @@ module AWS
       #
       def complete_workflow
         return unless @completed && ! @unhandled_decision
-        decision_id = DecisionID.new(:Self, nil)
+        decision_id = [:SELF, nil]
         if @failure
           @decision_helper[decision_id] = make_fail_decision(decision_id, @failure)
         elsif @cancel_requested
@@ -459,7 +460,7 @@ module AWS
 
       def handle_closing_failure
         @unhandled_decision = true
-        @decision_helper[:SELF, nil].consume(:handle_initiation_failed_event)
+        @decision_helper[[:SELF, nil]].consume(:handle_initiation_failed_event)
       end
 
       # Handler for the `:CompleteWorkflowExecutionFailed` event.

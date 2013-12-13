@@ -88,6 +88,8 @@ module AWS
           # Otherwise, it will expect an options object passed in, and will do things on that object. So make our new Proc do that, and add an option
         else modified_options = Proc.new do |x|
             result = block.call(x)
+            # We need to copy the hash to make sure that we don't mutate it
+            result = result.dup
             result.return_on_start = true
             result
           end

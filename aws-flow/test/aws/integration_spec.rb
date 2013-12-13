@@ -539,7 +539,9 @@ describe "RubyFlowDecider" do
     @activity_worker.run_once
     @worker.run_once
     history_events = workflow_execution.events.map(&:event_type)
-    # Previously, it would time out, as the failure would include the original large output that killed the completion call. Thus, we need to check that we fail the ActivityTask correctly.
+    # Previously, it would time out, as the failure would include the original
+    # large output that killed the completion call. Thus, we need to check that
+    # we fail the ActivityTask correctly.
     history_events.should include "ActivityTaskFailed"
     history_events.last.should == "WorkflowExecutionFailed"
 
@@ -1668,7 +1670,6 @@ describe "RubyFlowDecider" do
       activity_worker.run_once
       activity_worker.run_once unless workflow_execution.events.map(&:event_type).include? "ActivityTaskCompleted"
       worker.run_once
-      p workflow_execution.events.to_a
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
     end
 
@@ -1711,8 +1712,6 @@ describe "RubyFlowDecider" do
       my_workflow_client.signal_workflow_execution("this_signal", workflow_execution) { {:input => "new input!"}}
       worker.run_once
       forking_executor.shutdown(1)
-      require 'debugger'
-      debugger
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
     end
 
@@ -2199,10 +2198,15 @@ describe "RubyFlowDecider" do
 
   it "ensures you cannot schedule more than 99 things in one decision" do
     general_test(:task_list => "schedule_more_than_100", :class_name => "Above100TasksScheduled")
+    @activity_class.class_eval do
+      def run_activity1(arg)
+        arg
+      end
+    end
     @workflow_class.class_eval do
       def entry_point
-        101.times do
-          activity.send_async(:run_activity1)
+        101.times do |i|
+          activity.send_async(:run_activity1, i)
         end
       end
     end
