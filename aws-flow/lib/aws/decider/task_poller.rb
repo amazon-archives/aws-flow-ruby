@@ -101,7 +101,8 @@ module AWS
           @logger.debug "Responding on task_token #{task.task_token} for task #{task}"
           if output.length > 32768
             output = output.slice(0..32767)
-            respond_activity_task_failed_with_retry(task.task_token, "You cannot send a response with a result greater thank 32768. Please reduce the response size. The first part of the output is included in the details field.", output )
+            @logger.warn "The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{output}"
+            respond_activity_task_failed_with_retry(task.task_token, "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.", output )
           elsif ! activity_implementation.execution_options.manual_completion
             @service.respond_activity_task_completed(:task_token => task.task_token, :result => output)
           end
@@ -136,6 +137,10 @@ module AWS
       end
 
       def process_single_task(task)
+        # previous_config = @service.config.to_h
+        # previous_config.delete(:http_handler)
+        # @service = AWS::SimpleWorkflow.new.client
+        # @service = @service.with_http_handler(AWS::Core::Http::NetHttpHandler.new(previous_config))
         @service = AWS::SimpleWorkflow.new.client.with_http_handler(AWS::Core::Http::NetHttpHandler.new(AWS.config.to_h))
         begin
           begin

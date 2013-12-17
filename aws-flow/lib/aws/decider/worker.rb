@@ -42,6 +42,18 @@ module AWS
         @task_list = task_list_to_poll
         @options = Utilities::interpret_block_for_options(WorkerOptions, block)
         args.each { |klass_or_instance| add_implementation(klass_or_instance) } if args
+        @shutting_down = false
+        %w{ TERM INT }.each do |signal|
+          Signal.trap(signal) do
+            if @shutting_down
+              @executor.shutdown(0) if @executor
+              Kernel.exit! 1
+            else
+              @shutting_down = true
+              @shutdown_first_time_function.call if @shutdown_first_time_function
+            end
+          end
+        end
       end
 
       # @!visibility private
@@ -113,6 +125,8 @@ module AWS
         @workflow_definition_map = {}
         @workflow_type_options = []
         super(service, domain, task_list, *args)
+
+
       end
 
       def set_workflow_implementation_types(workflow_implementation_types)
@@ -196,6 +210,7 @@ module AWS
       def run_once(should_register = false, poller = nil)
         register if should_register
         poller = WorkflowTaskPoller.new(@service, @domain, DecisionTaskHandler.new(@workflow_definition_map, @options), @task_list, @options) if poller.nil?
+        Kernel.exit if @shutting_down
         poller.poll_and_process_single_task
       end
     end
@@ -235,22 +250,11 @@ module AWS
         max_workers = @options.execution_workers if @options
         max_workers = 20 if (max_workers.nil? || max_workers.zero?)
         @executor = ForkingExecutor.new(:max_workers => max_workers, :logger => @logger)
-        super(service, domain, task_list, *args)
-
-        @shutting_down = false
-        %w{ TERM INT }.each do |signal|
-          Signal.trap(signal) do
-            if @shutting_down
-              @executor.shutdown 0
-              Kernel.exit! 1
-            else
-              @shutting_down = true
-              @executor.shutdown Float::INFINITY
-              Kernel.exit
-            end
-          end
+        @shutdown_first_time_function = lambda do
+          @executor.shutdown Float::INFINITY
+          Kernel.exit
         end
-
+        super(service, domain, task_list, *args)
       end
 
       # Adds an Activity implementation to this ActivityWorker.

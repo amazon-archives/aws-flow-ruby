@@ -539,11 +539,62 @@ describe "RubyFlowDecider" do
     @worker.run_once
     history_events = workflow_execution.events.map(&:event_type)
     # Previously, it would time out, as the failure would include the original
-    # large output that killed the completion call. Thus, we need to check that
-    # we fail the ActivityTask correctly.
+    # large output that killed the completion and failure call. Thus, we need to
+    # check that we fail the ActivityTask.
     history_events.should include "ActivityTaskFailed"
     history_events.last.should == "WorkflowExecutionFailed"
+  end
 
+  it "ensures that activities can be processed with different configurations" do
+    class TwoConfigActivity
+      extend Activities
+      activity :run_activity1 do
+        {
+          :default_task_heartbeat_timeout => "3600",
+          :default_task_list => "TwoConfigTaskList",
+          :default_task_schedule_to_start_timeout => 120,
+          :default_task_start_to_close_timeout => 120,
+          :version => "1",
+        }
+      end
+      def run_activity1
+      end
+    end
+
+    class TwoConfigWorkflow
+      extend Workflows
+      activity_client(:activity) { { :from_class => TwoConfigActivity }}
+      workflow :entry_point do
+        {
+          :version => 1,
+          :default_execution_start_to_close_timeout => 30,
+          :default_child_policy => "request_cancel",
+          :default_task_list => "TwoConfigTaskList"
+        }
+      end
+      def entry_point
+        activity.run_activity1
+        activity.run_activity1 { {:task_list => "other_config_task_list"} }
+      end
+    end
+    worker = WorkflowWorker.new(@swf.client, @domain, "TwoConfigTaskList", TwoConfigWorkflow)
+    activity_worker = ActivityWorker.new(@swf.client, @domain, "TwoConfigTaskList", TwoConfigActivity) {{ :use_forking => false }}
+    swf = AWS::SimpleWorkflow.new(access_key_id: "AWS_SWF_KEY", secret_access_key: "AWS_SWF_SECRET")
+    activity_worker_different_config = ActivityWorker.new(swf.client, @domain, "other_config_task_list", TwoConfigActivity) {{ :use_forking => false }}
+    my_workflow_client = workflow_client(@swf.client, @domain) {{:from_class => TwoConfigWorkflow}}
+
+    worker.register
+    activity_worker.register
+    workflow_execution = my_workflow_client.start_execution
+    worker.run_once
+    activity_worker.run_once
+    worker.run_once
+    require 'debugger'
+    debugger
+    expect { activity_worker_different_config.run_once }.to raise_error AWS::SimpleWorkflow::Errors::UnrecognizedClientException
+    require 'debugger'
+    debugger
+    worker.run_once
   end
 
   it "ensures that not filling in details/reason for activity_task_failed is handled correctly" do

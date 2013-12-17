@@ -13,9 +13,14 @@
 # permissions and limitations under the License.
 ##
 
+
 require 'aws/flow'
 include AWS::Flow::Core
 
+
+require 'factory_girl'
+require 'aws/flow'
+include AWS::Flow::Core
 
 class FlowFactory
 
@@ -42,33 +47,9 @@ class FlowFactory
     return @async_scope
   end
 
-end
+  def generate_daemon_task(options = {})
+    scope = generate_scope
+    task = DaemonTask.new
 
-class WorkflowGenerator
-  class << self
-    def generate_workflow(domain, options = {})
-
-      name = options[:name] || "default_name"
-      version = options[:version] || "1"
-      task_list = options[:task_list] || "default_task_list"
-      child_policy = options[:child_policy] || :request_cancel
-      task_start_to_close = options[:task_start_to_close] || 3600
-      default_execution_timeout = options[:default_execution_timeout] || 24 * 3600
-
-
-      target_workflow = domain.workflow_types.page.select { |x| x.name == name}
-      if target_workflow.length == 0
-        workflow_type = domain.workflow_types.create(name, version,
-                                                     :default_task_list => task_list,
-                                                     :default_child_policy => child_policy,
-                                                     :default_task_start_to_close_timeout => task_start_to_close,
-                                                     :default_execution_start_to_close_timeout => default_execution_timeout)
-      else
-        workflow_type = target_workflow.first
-      end
-
-      return workflow_type
-    end
   end
-
 end

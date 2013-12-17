@@ -60,6 +60,7 @@ class FakeDomain
   def page; FakePage.new(@workflow_type_object); end
   def workflow_executions; FakeWorkflowExecutionCollecton.new; end
   def name; "fake_domain"; end
+
 end
 
 
@@ -232,6 +233,7 @@ describe WorkflowDefinitionFactory do
       def multiple_arguments(arg1, arg2, arg3)
         arg3
       end
+
     end
     class WorkflowDefinition
       attr_accessor :decision_helper, :workflow_method, :converter
@@ -272,7 +274,7 @@ describe WorkflowDefinitionFactory do
     end
   end
 end
-p
+
 describe ForkingExecutor do
   it "makes sure that forking executors basic execute works" do
     test_file_name = "ForkingExecutorTestFile"
@@ -1310,7 +1312,6 @@ describe "Misc tests" do
     File.unlink(test_file_name)
   end
 
-
   it "ensures that using send_async doesn't mutate the original hash" do
     class GenericClientTest < GenericClient
       def call_options(*args, &options)
@@ -1370,7 +1371,18 @@ describe FlowConstants do
   end
 
 end
+class TestWorkflow
+  extend Workflows
+  workflow :entry_point do
+    {
+      :execution_start_to_close_timeout => 30, :version => "1"
+    }
+  end
+  def entry_point
 
+  end
+
+end
 class TestActivity
   extend Activity
 
@@ -1399,41 +1411,108 @@ class TestActivityWorker < ActivityWorker
   end
 end
 
+class FakeTaskPoller < WorkflowTaskPoller
+  def get_decision_tasks
+    nil
+  end
+end
+def dumb_fib(n)
+  n < 1 ? 1 : dumb_fib(n - 1) + dumb_fib(n - 2)
+end
+describe WorkflowWorker do
+  it "will test whether WorkflowWorker shuts down cleanly when an interrupt is received" do
+    task_list = "TestWorkflow_tasklist"
+    service = FakeServiceClient.new
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    forking_executor = ForkingExecutor.new
+    workflow_worker = WorkflowWorker.new(service, domain, task_list)
+    workflow_worker.add_workflow_implementation(TestWorkflow)
+    pid = fork do
+      loop do
+        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
+      end
+    end
+    # Send an interrupt to the child process
+    Process.kill("INT", pid)
+    # Adding a sleep to let things get setup correctly (not ideal but going with
+    # this for now)
+    sleep 5
+    return_pid, status = Process.wait2(pid, Process::WNOHANG)
+    Process.kill("KILL", pid) if return_pid.nil?
+    return_pid.should_not be nil
+    status.success?.should be_true
+  end
+
+  it "will test whether WorkflowWorker dies cleanly when two interrupts are received" do
+    class FakeTaskPoller
+      def poll_and_process_single_task
+        dumb_fib(5000)
+      end
+    end
+    task_list = "TestWorkflow_tasklist"
+    service = FakeServiceClient.new
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    forking_executor = ForkingExecutor.new
+    workflow_worker = WorkflowWorker.new(service, domain, task_list)
+    workflow_worker.add_workflow_implementation(TestWorkflow)
+    pid = fork do
+      loop do
+        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
+      end
+    end
+    # Send an interrupt to the child process
+    sleep 3
+    2.times { Process.kill("INT", pid); sleep 2 }
+    return_pid, status = Process.wait2(pid, Process::WNOHANG)
+
+    Process.kill("KILL", pid) if return_pid.nil?
+    return_pid.should_not be nil
+    status.success?.should be_false
+  end
+
+end
 describe ActivityWorker do
 
-  # it "will test whether the ActivityWorker shuts down cleanly when an interrupt is received" do
+  class FakeDomain
+    def activity_tasks
+      sleep 30
+    end
+  end
+  it "will test whether the ActivityWorker shuts down cleanly when an interrupt is received" do
 
-  #   task_list = "TestWorkflow_tasklist"
-  #   service = FakeServiceClient.new
-  #   workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-  #   domain = FakeDomain.new(workflow_type_object)
-  #   forking_executor = ForkingExecutor.new
-  #   activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }
+    task_list = "TestWorkflow_tasklist"
+    service = FakeServiceClient.new
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    forking_executor = ForkingExecutor.new
+    activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }
+    activity_worker.add_activities_implementation(TestActivity)
+    # Starts the activity worker in a forked process. Also, attaches an at_exit
+    # handler to the process. When the process exits, the handler checks whether
+    # the executor's internal is_shutdown variable is set correctly or not.
+    pid = fork do
+      at_exit {
+        activity_worker.executor.is_shutdown.should == true
+      }
+      activity_worker.start true
+    end
+    # Send an interrupt to the child process
+    Process.kill("INT", pid)
+    # Adding a sleep to let things get setup correctly (not ideal but going with
+    # this for now)
+    sleep 5
+    return_pid, status = Process.wait2(pid, Process::WNOHANG)
+    Process.kill("KILL", pid) if return_pid.nil?
+    return_pid.should_not be nil
 
-  #   activity_worker.add_activities_implementation(TestActivity)
-  #   # Starts the activity worker in a forked process. Also, attaches an at_exit
-  #   # handler to the process. When the process exits, the handler checks whether
-  #   # the executor's internal is_shutdown variable is set correctly or not.
-  #   pid = fork do
-  #     at_exit {
-  #       activity_worker.executor.is_shutdown.should == true
-  #     }
-  #     activity_worker.start true
-  #   end
-  #   # Adding a sleep to let things get setup correctly (not ideal but going with
-  #   # this for now)
-  #   #sleep 1
-  #   # Send an interrupt to the child process
-  #   Process.kill("INT", pid)
-  #   status = Process.waitall
-  #   status[0][1].success?.should be_true
-  # end
+    status.success?.should be_true
+  end
 
   # This method will take a long time to run, allowing us to test our shutdown
   # scenarios
-  def dumb_fib(n)
-    n < 1 ? 1 : dumb_fib(n - 1) + dumb_fib(n - 2)
-  end
+
 
   it "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
     task_list = "TestWorkflow_tasklist"
