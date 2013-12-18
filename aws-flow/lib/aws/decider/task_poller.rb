@@ -137,11 +137,10 @@ module AWS
       end
 
       def process_single_task(task)
-        # previous_config = @service.config.to_h
-        # previous_config.delete(:http_handler)
-        # @service = AWS::SimpleWorkflow.new.client
-        # @service = @service.with_http_handler(AWS::Core::Http::NetHttpHandler.new(previous_config))
-        @service = AWS::SimpleWorkflow.new.client.with_http_handler(AWS::Core::Http::NetHttpHandler.new(AWS.config.to_h))
+        previous_config = @service.config.to_h
+        previous_config.delete(:http_handler)
+        @service = AWS::SimpleWorkflow.new(previous_config).client
+        @service = @service.with_http_handler(AWS::Core::Http::NetHttpHandler.new(previous_config))
         begin
           begin
             execute(task)

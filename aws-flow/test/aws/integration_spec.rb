@@ -43,17 +43,23 @@ def setup_swf
   File.open(file_name, 'w+') {|f| f.write(last_run)}
   current_date = Time.now.strftime("%d-%m-%Y")
   config_file = File.open('credentials.cfg') { |f| f.read }
-  config = YAML.load(config_file).first
-  AWS.config(config)
-  swf = AWS::SimpleWorkflow.new
+  if config_file.include? ":Primary"
+    yaml_config = YAML.load(config_file)
+    swf = AWS::SimpleWorkflow.new(yaml_config[:Primary])
+    secondary_swf = AWS::SimpleWorkflow.new(yaml_config[:Secondary])
+  else
+    config = YAML.load(config_file).first
+    AWS.config(config)
+    swf = AWS::SimpleWorkflow.new
+    secondary_swf = nil
+  end
   $RUBYFLOW_DECIDER_DOMAIN = "rubyflow_decider_domain_#{current_date}-#{last_run}"
   begin
     domain = swf.domains.create($RUBYFLOW_DECIDER_DOMAIN, "10")
   rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
     domain = swf.domains[$RUBYFLOW_DECIDER_DOMAIN]
   end
-
-  return swf, domain, $RUBYFLOW_DECIDER_DOMAIN
+  return swf, domain, $RUBYFLOW_DECIDER_DOMAIN, secondary_swf
 end
 
 
@@ -76,8 +82,8 @@ describe "RubyFlowDecider" do
       version "1"
       # TODO more of the stuff from the proposal
     end
-    @swf, @domain, $RUBYFLOW_DECIDER_DOMAIN = setup_swf
-    $swf, $domain = @swf, @domain
+    @swf, @domain, $RUBYFLOW_DECIDER_DOMAIN, @swf_secondary = setup_swf
+    $swf, $domain, $swf_secondary = @swf, @domain, @swf_secondary
     # If there are any outstanding decision tasks before we start the test, that
     # could really mess things up, and make the tests non-idempotent. So lets
     # clear those out
@@ -580,7 +586,7 @@ describe "RubyFlowDecider" do
     worker = WorkflowWorker.new(@swf.client, @domain, "TwoConfigTaskList", TwoConfigWorkflow)
     activity_worker = ActivityWorker.new(@swf.client, @domain, "TwoConfigTaskList", TwoConfigActivity) {{ :use_forking => false }}
     swf = AWS::SimpleWorkflow.new(access_key_id: "AWS_SWF_KEY", secret_access_key: "AWS_SWF_SECRET")
-    activity_worker_different_config = ActivityWorker.new(swf.client, @domain, "other_config_task_list", TwoConfigActivity) {{ :use_forking => false }}
+    activity_worker_different_config = ActivityWorker.new($swf_secondary.client, @domain, "other_config_task_list", TwoConfigActivity) {{ :use_forking => false }}
     my_workflow_client = workflow_client(@swf.client, @domain) {{:from_class => TwoConfigWorkflow}}
 
     worker.register
@@ -589,12 +595,9 @@ describe "RubyFlowDecider" do
     worker.run_once
     activity_worker.run_once
     worker.run_once
-    require 'debugger'
-    debugger
-    expect { activity_worker_different_config.run_once }.to raise_error AWS::SimpleWorkflow::Errors::UnrecognizedClientException
-    require 'debugger'
-    debugger
+    activity_worker_different_config.run_once
     worker.run_once
+    workflow_execution.events.map(&:event_type).last == "WorkflowExecutionCompleted"
   end
 
   it "ensures that not filling in details/reason for activity_task_failed is handled correctly" do
