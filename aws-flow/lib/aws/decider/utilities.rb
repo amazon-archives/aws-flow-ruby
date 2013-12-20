@@ -39,6 +39,13 @@ module AWS
         future
       end
 
+      def self.shrink_size(original_object, max_size)
+        if original_object.respond_to? :slice
+          return original_object.send(:slice, 0..30000)
+        end
+        # TODO add more ways to shrink
+      end
+
 
       # @!visibility private
       def self.merge_all_options(*args)

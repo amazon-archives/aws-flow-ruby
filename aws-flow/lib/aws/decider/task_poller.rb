@@ -75,6 +75,8 @@ module AWS
           # Log stuff
           @logger.debug "Error in the poller, #{e}"
           @logger.debug "The error class in #{e.class}"
+        rescue Exception => e
+          @logger.debug "Error in the poller, #{e}"
         end
       end
     end
@@ -97,17 +99,18 @@ module AWS
           context = ActivityExecutionContext.new(@service, @domain, task)
           activity_implementation = @activity_definition_map[activity_type]
           raise "This activity worker was told to work on activity type #{activity_type.name}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}" unless activity_implementation
-          output = activity_implementation.execute(task.input, context)
+          output, original_result, too_large = activity_implementation.execute(task.input, context)
           @logger.debug "Responding on task_token #{task.task_token} for task #{task}"
-          if output.length > 32768
-            output = output.slice(0..32767)
-            @logger.warn "The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{output}"
-            respond_activity_task_failed_with_retry(task.task_token, "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.", output )
+          if ! too_large.nil?
+            @logger.warn "The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{original_result}"
+            respond_activity_task_failed_with_retry(task.task_token, "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.", output)
           elsif ! activity_implementation.execution_options.manual_completion
             @service.respond_activity_task_completed(:task_token => task.task_token, :result => output)
           end
         rescue ActivityFailureException => e
+          @logger.debug "The activity failed, with original output of #{original_result} and dataconverted result of #{output}. aws-flow will now attempt to fail it."
           respond_activity_task_failed_with_retry(task.task_token, e.message, e.details)
+
         end
         #TODO all the completion stuffs
       end

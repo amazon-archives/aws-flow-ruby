@@ -536,7 +536,7 @@ describe "RubyFlowDecider" do
         # Make sure we return something that's over 32k. Note this won't
         # necessarily work with all converters, as it's pretty trivially
         # compressible
-        return "a" * 33000
+        return ":" + "a" * 33000
       end
     end
     workflow_execution = @my_workflow_client.start_execution
@@ -548,6 +548,8 @@ describe "RubyFlowDecider" do
     # large output that killed the completion and failure call. Thus, we need to
     # check that we fail the ActivityTask.
     history_events.should include "ActivityTaskFailed"
+
+    workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
     history_events.last.should == "WorkflowExecutionFailed"
   end
 
