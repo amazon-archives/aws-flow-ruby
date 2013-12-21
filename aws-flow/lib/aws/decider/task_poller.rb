@@ -72,7 +72,6 @@ module AWS
           end
           @service.respond_decision_task_completed(task_completed_request)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
-          # Log stuff
           @logger.debug "Error in the poller, #{e}"
           @logger.debug "The error class in #{e.class}"
         rescue Exception => e
@@ -101,7 +100,7 @@ module AWS
           raise "This activity worker was told to work on activity type #{activity_type.name}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}" unless activity_implementation
           output, original_result, too_large = activity_implementation.execute(task.input, context)
           @logger.debug "Responding on task_token #{task.task_token} for task #{task}"
-          if ! too_large.nil?
+          if too_large
             @logger.warn "The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{original_result}"
             respond_activity_task_failed_with_retry(task.task_token, "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.", output)
           elsif ! activity_implementation.execution_options.manual_completion

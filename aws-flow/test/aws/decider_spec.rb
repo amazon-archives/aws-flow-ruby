@@ -194,11 +194,11 @@ describe ActivityDefinition do
   end
   it "ensures that an activity definition can handle one argument" do
     activity_definition = ActivityDefinition.new(MyActivity.new, :test_one_argument, nil , nil, TrivialConverter.new)
-    activity_definition.execute(5, nil).should == 5
+    activity_definition.execute(5, nil).first.should == 5
   end
   it "ensures that you can get the activity context " do
     activity_definition = ActivityDefinition.new(MyActivity.new, :test_getting_context, nil , nil, TrivialConverter.new)
-    (activity_definition.execute(nil, ActivityExecutionContext.new(nil, nil, nil)).is_a? ActivityExecutionContext).should == true
+    (activity_definition.execute(nil, ActivityExecutionContext.new(nil, nil, nil)).first.is_a? ActivityExecutionContext).should == true
   end
   it "ensures that the activity context gets unset after the execute" do
     activity_definition = ActivityDefinition.new(MyActivity.new, :test_getting_context, nil , nil, TrivialConverter.new)
@@ -211,11 +211,12 @@ describe ActivityDefinition do
   end
   it "ensures that an activity definition can handle multiple arguments" do
     activity_definition = ActivityDefinition.new(MyActivity.new, :test_three_arguments, nil , nil, TrivialConverter.new)
-    activity_definition.execute([1,2,3], nil).should == 6
+
+    activity_definition.execute([1,2,3], nil).first.should == 6
   end
   it "ensures that an activity definition can handle no arguments" do
     activity_definition = ActivityDefinition.new(MyActivity.new, :test_no_arguments, nil , nil, TrivialConverter.new)
-    activity_definition.execute(nil, nil).should == :no_arguments
+    activity_definition.execute(nil, nil).first.should == :no_arguments
   end
 end
 
@@ -1425,7 +1426,6 @@ describe WorkflowWorker do
     service = FakeServiceClient.new
     workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
-    forking_executor = ForkingExecutor.new
     workflow_worker = WorkflowWorker.new(service, domain, task_list)
     workflow_worker.add_workflow_implementation(TestWorkflow)
     pid = fork do
@@ -1454,7 +1454,6 @@ describe WorkflowWorker do
     service = FakeServiceClient.new
     workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
-    forking_executor = ForkingExecutor.new
     workflow_worker = WorkflowWorker.new(service, domain, task_list)
     workflow_worker.add_workflow_implementation(TestWorkflow)
     pid = fork do

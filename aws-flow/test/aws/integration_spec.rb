@@ -2344,7 +2344,7 @@ describe "RubyFlowDecider" do
         options.task_list = "timeout_test"
       end
       my_workflow_client = my_workflow_factory.get_client
-      num_tests = 30
+      num_tests = 20
       workflow_executions = []
       1.upto(num_tests)  { |i| workflow_executions << my_workflow_client.entry_point }
       forking_executor  = ForkingExecutor.new(:max_workers => 3)
