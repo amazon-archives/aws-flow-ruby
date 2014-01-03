@@ -89,7 +89,6 @@ module AWS
         @logger = options.logger if options
         @logger ||= Utilities::LogFactory.make_logger(self, "debug")
         @executor = executor
-
       end
 
       def execute(task)
@@ -166,11 +165,13 @@ module AWS
       end
 
       def poll_and_process_single_task(use_forking = true)
-
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
         @logger.debug "before the poll\n\n"
+        # This is to warm the lazily loaded clients in the @service, so we don't
+        # pay for their loading in every forked client
+        @service.config.to_h
         begin
           if use_forking
             @executor.block_on_max_workers

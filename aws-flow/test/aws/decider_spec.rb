@@ -17,10 +17,43 @@ require 'yaml'
 
 require 'aws/decider'
 include AWS::Flow
+class FakeConfig
+  def to_h
 
+  end
+end
 
 $RUBYFLOW_DECIDER_DOMAIN = "rubyflow_decider_domain_06-12-2012"
 $RUBYFLOW_DECIDER_TASK_LIST = 'test_task_list'
+
+class FakeAttribute
+  def initialize(data); @data = data; end
+  def method_missing(method_name, *args, &block)
+    if @data.keys.include? method_name
+      return @data[method_name]
+    end
+    super
+  end
+  def keys; @data.keys; end
+  def [](key); @data[key]; end
+  def to_h; @data; end
+  def []=(key, val); @data[key] = val; end
+end
+
+class FakeEvents
+  def initialize(args)
+    @events = []
+    args.each_with_index do |event, index|
+      event, attr = event if event.is_a? Array
+      attr ||= {}
+      @events << TestHistoryEvent.new(event, index + 1, FakeAttribute.new(attr))
+    end
+    @events
+  end
+  def to_a
+    @events
+  end
+end
 class TrivialConverter
   def dump(x)
     x
@@ -44,9 +77,11 @@ class FakePage
 end
 
 class FakeWorkflowExecution
-  def run_id
-    "1"
+  def initialize(run_id = "1", workflow_id = "1")
+    @run_id = run_id
+    @workflow_id = workflow_id
   end
+  attr_accessor :run_id, :workflow_id
 end
 
 class FakeWorkflowExecutionCollecton
@@ -142,6 +177,7 @@ describe Activity do
 end
 
 describe WorkflowClient do
+
   class FakeServiceClient
     attr_accessor :trace
     def respond_decision_task_completed(task_completed_request)
@@ -155,6 +191,7 @@ describe WorkflowClient do
     end
     def register_workflow_type(options)
     end
+
   end
   class TestWorkflow
     extend Decider
@@ -413,6 +450,9 @@ describe "FakeHistory" do
       end
       def start_workflow_execution(options)
         {"runId" => "blah"}
+      end
+      def config
+        FakeConfig.new
       end
     end
 
@@ -1198,17 +1238,6 @@ describe "FakeHistory" do
   end
 
   it "ensures that CompleteWorkflowExecutionFailed is correctly handled" do
-    class FakeAttribute
-      def initialize(data)
-        @data = data
-      end
-      def method_missing(method_name, *args, &block)
-        if @data.keys.include? method_name
-          return @data[method_name]
-        end
-        super
-      end
-    end
 
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_tasks
@@ -1270,6 +1299,139 @@ describe "FakeHistory" do
     end
     worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
     worker.add_workflow_implementation(CompleteWorkflowExecutionFailedWorkflow)
+    my_workflow = my_workflow_factory.get_client
+    workflow_execution = my_workflow.start_execution
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
+  end
+
+  it "ensures that time outs do not cause problems" do
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_tasks
+        fake_workflow_type = FakeWorkflowType.new(nil, "TimeOutWorkflow.entry_point", "1")
+        TestHistoryWrapper.new(fake_workflow_type,
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["StartChildWorkflowExecutionInitiated", {:workflow_id => "child_workflow_test"}],
+                                               ["ChildWorkflowExecutionStarted", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               ["ChildWorkflowExecutionCompleted", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskTimedOut",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ActivityTaskScheduled", {:activity_id => "Activity1"}],
+                                               "ActivityTaskStarted",
+                                               ["ActivityTaskCompleted", {:scheduled_event_id => 14}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted"
+                                              ]))
+      end
+    end
+    workflow_type_object = double("workflow_type", :name => "TimeOutWorkflow.entry_point", :start_execution => "" )
+
+
+    domain = FakeDomain.new(workflow_type_object)
+    swf_client = FakeServiceClient.new
+    $my_workflow_client  = workflow_client(swf_client, domain) {{:prefix_name => "TimeOutWorkflow", :execution_method => "entry_point", :version => "1"}}
+    class TimeOutActivity
+      extend Activity
+      activity :run_activity1
+      def run_activity1; nil; end
+    end
+    class TimeOutWorkflow
+      extend Workflows
+      workflow(:entry_point) { {:version => "1"} }
+      activity_client(:activity) { {:version => "1", :prefix_name => "TimeOutActivity" } }
+
+      def entry_point
+        $my_workflow_client.start_execution() { {:task_list => "nonsense_task_list", :workflow_id => "child_workflow_test"}}
+        activity_client.run_activity1
+        p "yay"
+      end
+
+    end
+
+    task_list = "TimeOutWorkflow_tasklist"
+    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
+      options.workflow_name = "TimeOutWorkflow"
+      options.execution_start_to_close_timeout = 3600
+      options.task_list = task_list
+    end
+
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
+    worker.add_workflow_implementation(TimeOutWorkflow)
+    my_workflow = my_workflow_factory.get_client
+    workflow_execution = my_workflow.start_execution
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
+  end
+
+  it "ensures that the other timeout issue is not a problem" do
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_tasks
+        fake_workflow_type = FakeWorkflowType.new(nil, "OtherTimeOutWorkflow.entry_point", "1")
+        TestHistoryWrapper.new(fake_workflow_type,
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ActivityTaskScheduled", {:activity_id => "Activity1"}],
+                                               ["ActivityTaskScheduled", {:activity_id => "Activity2"}],
+                                               "ActivityTaskStarted",
+                                               "ActivityTaskStarted",
+                                               ["ActivityTaskCompleted", {:scheduled_event_id => 5}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               ["ActivityTaskCompleted", {:scheduled_event_id => 6}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskTimedOut",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ActivityTaskScheduled", {:activity_id => "Activity3"}],
+                                               "ActivityTaskStarted",
+                                               ["ActivityTaskCompleted", {:scheduled_event_id => 17}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted"
+                                              ]))
+      end
+    end
+    workflow_type_object = double("workflow_type", :name => "OtherTimeOutWorkflow.entry_point", :start_execution => "" )
+    domain = FakeDomain.new(workflow_type_object)
+    swf_client = FakeServiceClient.new
+    $my_workflow_client  = workflow_client(swf_client, domain) {{:prefix_name => "OtherTimeOutWorkflow", :execution_method => "entry_point", :version => "1"}}
+    class OtherTimeOutActivity
+      extend Activity
+      activity :run_activity1
+      def run_activity1; nil; end
+    end
+    class OtherTimeOutWorkflow
+      extend Workflows
+      workflow(:entry_point) { {:version => "1"} }
+      activity_client(:activity) { {:version => "1", :prefix_name => "OtherTimeOutActivity" } }
+
+      def entry_point
+        futures = []
+        futures << activity_client.send_async(:run_activity1)
+        futures << activity_client.send_async(:run_activity1)
+        wait_for_all(futures)
+        activity_client.run_activity1
+      end
+
+    end
+
+    task_list = "OtherTimeOutWorkflow_tasklist"
+    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
+      options.workflow_name = "OtherTimeOutWorkflow"
+      options.execution_start_to_close_timeout = 3600
+      options.task_list = task_list
+    end
+
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
+    worker.add_workflow_implementation(OtherTimeOutWorkflow)
     my_workflow = my_workflow_factory.get_client
     workflow_execution = my_workflow.start_execution
     worker.start

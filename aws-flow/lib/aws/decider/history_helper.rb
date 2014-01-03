@@ -131,6 +131,7 @@ module AWS
         decision_start_to_completion_events, decision_completion_to_start_events = [], []
         next_replay_current_time_milliseconds = -1
         last_decision_index = -1
+        concurrent_to_decision = true
         while @events.events.length > 0
           event = @events.events.shift
           event_type = event.event_type.to_sym

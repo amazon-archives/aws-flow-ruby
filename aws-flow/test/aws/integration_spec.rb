@@ -1007,6 +1007,7 @@ describe "RubyFlowDecider" do
           raise "simulated error"
         end
         def run_activity2
+
         end
       end
       workflow_execution = @my_workflow_client.start_execution
@@ -1014,8 +1015,10 @@ describe "RubyFlowDecider" do
       @activity_worker.run_once
       @worker.run_once
       @worker.run_once
-      workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.length.should == 17
+      history = workflow_execution.events.map(&:event_type)
+      history.last.should == "WorkflowExecutionFailed"
+      # Should look something like: ["WorkflowExecutionStarted", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "ActivityTaskScheduled", "ActivityTaskScheduled", "ActivityTaskStarted", "ActivityTaskFailed", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "ActivityTaskCancelRequested", "ActivityTaskCanceled", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "WorkflowExecutionFailed"]
+      history.should include "ActivityTaskCancelRequested"
     end
 
     it "makes sure that you can use the :exponential_retry key" do
@@ -2285,7 +2288,6 @@ describe "RubyFlowDecider" do
           version "1"
           entry_point :entry_point
           def entry_point
-            "yay"
           end
         end
         worker = WorkflowWorker.new(swf.client, domain, "timeout_test", WorkflowIDWorkflow)
@@ -2344,7 +2346,7 @@ describe "RubyFlowDecider" do
         options.task_list = "timeout_test"
       end
       my_workflow_client = my_workflow_factory.get_client
-      num_tests = 20
+      num_tests = 15
       workflow_executions = []
       1.upto(num_tests)  { |i| workflow_executions << my_workflow_client.entry_point }
       forking_executor  = ForkingExecutor.new(:max_workers => 3)
@@ -2529,7 +2531,6 @@ describe "RubyFlowDecider" do
         version "1"
         entry_point :entry_point
         def entry_point
-          "yay"
         end
       end
       worker = WorkflowWorker.new(@swf.client, @domain, "client_test_inheritance", OptionsWorkflow)
@@ -2552,7 +2553,6 @@ describe "RubyFlowDecider" do
         version "1"
         entry_point :entry_point
         def entry_point
-          "yay"
         end
       end
       worker = WorkflowWorker.new(@swf.client, @domain, "client_test_inheritance", OptionsWorkflow)
@@ -2742,7 +2742,7 @@ describe "RubyFlowDecider" do
     class WorkflowWorkflow
       extend Workflows
       workflow(:entry_point) { {:version => "1", :execution_start_to_close_timeout => 3600, :task_list => "test"} }
-      def entry_point; "yay";end
+      def entry_point; ;end
     end
     worker = WorkflowWorker.new(@swf.client, @domain, "test", WorkflowWorkflow)
     worker.register
@@ -2755,7 +2755,7 @@ describe "RubyFlowDecider" do
     class WorkflowWorkflow
       extend Workflows
       workflow(:entry_point) { {:version => "1", :execution_start_to_close_timeout => 3600, :task_list => "test"} }
-      def entry_point; "yay";end
+      def entry_point; ;end
     end
     worker = WorkflowWorker.new(@swf.client, @domain, "Foobarbaz", WorkflowWorkflow)
     worker.register
@@ -2783,7 +2783,7 @@ describe "RubyFlowDecider" do
       extend Workflows
       workflow(:entry_point) { {:version => "1", :execution_start_to_close_timeout => 3600, :task_list => "test"} }
 
-      def entry_point; "yay";end
+      def entry_point; ;end
     end
     worker = WorkflowWorker.new(@swf.client, @domain, "Foobarbaz", WorkflowWorkflow)
     worker.register
