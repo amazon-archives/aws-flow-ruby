@@ -16,7 +16,7 @@
 module AWS
   module Flow
     def self.version
-      "1.0.7"
+      "1.0.8"
     end
   end
 end
