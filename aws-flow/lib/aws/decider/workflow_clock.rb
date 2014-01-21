@@ -44,7 +44,7 @@ module AWS
       # Get the current time.
       #
       # @return [Time]
-      #   A `Time` object initialized to the the current time in milliseconds for a replay. This is the same time that
+      #   A `Time` object initialized to the current time in milliseconds for a replay. This is the same time that
       #   is provided by the `:replay_current_time_millis` attribute.
       #
       def current_time

@@ -92,7 +92,7 @@ module AWS
     # Represents a policy for retrying failed tasks.
     class RetryPolicy
 
-      # Creates a new RetryPolicy instance
+      # Creates a new `RetryPolicy` instance.
       #
       # @param retry_function
       #   The method to be called for each retry attempt.
@@ -134,7 +134,7 @@ module AWS
          #return (!@exceptions_to_exclude.include?(failure) && @exceptions_to_include.include?(failure))
       end
 
-      # Schedules a new retry attempt
+      # Schedules a new retry attempt.
       #
       # @param first_attempt
       #
@@ -155,7 +155,6 @@ module AWS
           return -1 if attempts[failure.class] > @retries_per_exception[failure.class]
         end
         return -1 if failure == nil
-
 
         # For reverse compatbility purposes, we must ensure that this function
         # can take 3 arguments. However, we must also consume options in order

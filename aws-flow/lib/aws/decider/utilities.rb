@@ -17,9 +17,9 @@ require 'tmpdir'
 
 module AWS
   module Flow
-    # Utilities for the AWS Flow Framework for Ruby
+    # Utilities for the AWS Flow Framework for Ruby.
     module Utilities
-      # @!visibility private
+      # @api private
       class LogFactory
         def self.make_logger(klass, name)
           logname = "#{Dir.tmpdir}/#{klass.class.to_s}_#{name}"
@@ -31,7 +31,7 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def self.drill_on_future(future)
         while (future.respond_to? :is_flow_future?) && future.is_flow_future?
           future = future.get
@@ -39,7 +39,7 @@ module AWS
         future
       end
 
-      # @!visibility private
+      # @api private
       def self.merge_all_options(*args)
         args.compact!
         youngest = args.last
@@ -49,7 +49,7 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def self.interpret_block_for_options(option_class, block, use_defaults = false)
 
         return option_class.new({}, use_defaults) if block.nil?
@@ -87,7 +87,7 @@ module AWS
           @return_value = Future.new
         end
 
-        # determines whether the object is a flow future. The contract is that
+        # Determines whether the object is a flow future. The contract is that
         # flow futures must have a #get method.
         def is_flow_future?
           true
@@ -102,7 +102,7 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       def self.is_external
         if (defined? Fiber).nil?
           return true
@@ -112,9 +112,9 @@ module AWS
         return true
       end
 
-      # @!visibility private
+      # @api private
       module SelfMethods
-        # @!visibility private
+        # @api private
         def handle_event(event, options)
           id = options[:id_lambda].call(event) if options[:id_lambda]
           id = event.attributes
@@ -139,11 +139,11 @@ module AWS
         end
       end
 
-      # @!visibility private
+      # @api private
       module UpwardLookups
         attr_accessor :precursors
 
-        # @!visibility private
+        # @api private
         def held_properties
           precursors = self.ancestors.dup
           precursors.delete(self)
@@ -152,7 +152,7 @@ module AWS
           result.flatten
         end
 
-        # @!visibility private
+        # @api private
         def property(name, methods_to_prepare = [lambda(&:to_s)])
           @held_properties ||= []
           @held_properties << name
@@ -170,12 +170,12 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def properties(*args)
           args.each { |arg| property(arg) }
         end
 
-        # @!visibility private
+        # @api private
         module InstanceMethods
           attr_accessor :precursors
           def look_upwards(variable)
