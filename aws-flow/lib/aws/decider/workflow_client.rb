@@ -33,8 +33,7 @@ module AWS
     # A future provided by a [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html).
     #
     # @!attribute _workflow_execution
-    #   A MinimalWorkflowExecution
-    #   instance that this future belongs to.
+    #   A {MinimalWorkflowExecution} instance that this future belongs to.
     #
     # @!attribute return_value
     #   The return value of the future.

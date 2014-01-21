@@ -284,14 +284,13 @@ module AWS
     class ExponentialRetryOptions < RetryOptions
       default_classes << RetryDefaults.new
 
-      # The backoff coefficient to use. This is a floating point value that is
-      # multiplied with the current retry interval after every retry attempt.
-      # The default value is `2.0`, which means that each retry will take twice
-      # as long as the previous one.
+      # The backoff coefficient to use. This is a floating point value that is multiplied with the current retry
+      # interval after every retry attempt.  The default value is `2.0`, which means that each retry will take twice as
+      # long as the previous one.
       property(:backoff_coefficient, [lambda(&:to_i)])
 
-      # The retry expiration interval, in seconds. This will be increased after
-      # every retry attempt by the factor provided in `backoff_coefficient`.
+      # The retry expiration interval, in seconds. This will be increased after every retry attempt by the factor
+      # provided in `backoff_coefficient`.
       property(:retry_expiration_interval_seconds, [lambda(&:to_i)])
 
       # @api private

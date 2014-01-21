@@ -87,7 +87,7 @@ module AWS
           end
           # Otherwise, it will expect an options object passed in, and will do
           # things on that object. So make our new Proc do that, and add an
-          # option
+          # option.
         else modified_options = Proc.new do |x|
             result = block.call(x)
             # Same as the above dup, we'll copy to avoid any possible mutation
