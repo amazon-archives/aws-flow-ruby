@@ -27,7 +27,7 @@
      end
 
 
-     # The context for a workflow
+     # The context for a workflow.
      class WorkflowContext
 
        attr_accessor :continue_as_new_options
@@ -37,7 +37,7 @@
        # The {WorkflowClock} for this workflow.
        attr_accessor :workflow_clock
 
-       # Creates a new `WorkflowContext`
+       # Creates a new `WorkflowContext`.
        #
        # @param decision_task
        #   The decision task method for this workflow. This is accessible after instance creation by using the

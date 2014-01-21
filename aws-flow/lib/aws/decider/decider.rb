@@ -16,7 +16,7 @@
 module AWS
   module Flow
 
-    # A MethodPair groups a method name with an associated data converter.
+    # Groups a method name with an associated data converter.
     class MethodPair
       # The method name for the method pair.
       attr_accessor :method_name
@@ -61,17 +61,19 @@ module AWS
         @workflow_context = workflow_context
       end
 
-      # Handler for the ExternalWorkflowExecutionCancelRequested event.
+      # Handler for the `ExternalWorkflowExecutionCancelRequested` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_external_workflow_execution_cancel_requested(event)
         # NOOP
       end
 
-      # Handler for the ChildWorkflowExecutionCanceled event.
+      # Handler for the `ChildWorkflowExecutionCanceled` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_canceled(event)
         handle_event(event,
@@ -87,11 +89,11 @@ module AWS
       end
 
 
-      # Handler for the ChildWorkflowExecutionCompleted event.
+      # Handler for the `ChildWorkflowExecutionCompleted` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
-
       def handle_child_workflow_execution_completed(event)
         handle_event(event,
                      {:id_methods => [:workflow_execution, :workflow_id],
@@ -101,9 +103,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionFailed event.
+      # Handler for the `ChildWorkflowExecutionFailed` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_failed(event)
         handle_event(event,
@@ -126,9 +129,10 @@ module AWS
       end
 
 
-      # Handler for the ChildWorkflowExecutionStarted event.
+      # Handler for the `ChildWorkflowExecutionStarted` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_started(event)
         handle_event(event,
@@ -141,9 +145,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionTerminated event.
+      # Handler for the `ChildWorkflowExecutionTerminated` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_terminated(event)
         handle_event(event,
@@ -157,9 +162,10 @@ module AWS
                      })
       end
 
-      # Handler for the ChildWorkflowExecutionTimedOut event.
+      # Handler for the `ChildWorkflowExecutionTimedOut` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_child_workflow_execution_timed_out(event)
         handle_event(event,
@@ -173,9 +179,10 @@ module AWS
                      })
       end
 
-      # Handler for the ExternalWorkflowExecutionSignaled event.
+      # Handler for the `ExternalWorkflowExecutionSignaled` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_external_workflow_execution_signaled(event)
         signal_id = @decision_helper.signal_initiated_event_to_signal_id[event.attributes[:initiated_event_id]]
@@ -188,9 +195,10 @@ module AWS
         end
       end
 
-      # Handler for the SignalExternalWorkflowExecutionFailed event.
+      # Handler for the `SignalExternalWorkflowExecutionFailed` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_signal_external_workflow_execution_failed(event)
         handle_event(event, {
@@ -205,9 +213,10 @@ module AWS
                      })
       end
 
-      # Handler for the StartChildWorkflowExecutionFailed event.
+      # Handler for the `StartExternalWorkflowExecutionFailed` event.
       #
-      # @param [Object] event The event instance.
+      # @param [Object] event
+      #   The event instance.
       #
       def handle_start_child_workflow_execution_failed(event)
         handle_event(event, {
@@ -225,11 +234,10 @@ module AWS
       end
     end
 
-
     # Types and methods related to workflow execution. Extend this to implement a workflow decider.
     #
     # @!attribute version
-    #   Sets or returns the Decider version.
+    #   Sets or returns the decider version.
     #
     # @!attribute options
     #   Sets or returns the {WorkflowOptions} for this decider.
@@ -249,10 +257,9 @@ module AWS
         base.send :include, InstanceMethods
       end
 
-      #  This method is for internal use only and may be changed or removed
-      #   without prior notice.  Use {#workflows} instead. Set the entry point
-      #   in the {#workflow} method when creating a new workflow.
-      # @!visibility private
+      # @deprecated Set the entry point with {Workflows#workflow} instead.
+      #
+      # @api private
       def entry_point(input=nil)
         if input
           @entry_point = input
@@ -267,10 +274,8 @@ module AWS
         raise "You must set an entry point on the workflow definition"
       end
 
-      #  This method is for internal use only and may be changed or removed
-      # without prior notice.  Use {#workflows} instead.
-      # Set the version in the {WorkflowOptions} passed in to the {#workflow} method.
-      # @!visibility private
+      # @deprecated Set the version in the {WorkflowOptions} passed in to the {#workflow} method.
+      # @api private
       def version(arg = nil)
         if arg
           self.workflows.each { |workflow| workflow.version = arg }
@@ -321,10 +326,10 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def _options; self.workflows.map(&:options); end
 
-      # Defines a new workflow
+      # Defines a new workflow.
       #
       # @param entry_point
       #   The entry point (method) that starts the workflow.
@@ -341,7 +346,7 @@ module AWS
       end
 
       # @return [MethodPair]
-      #   A {MethodPair} object
+      #   A {MethodPair} object.
       #
       def get_state_method(get_state_method = nil, options = {})
         data_converter = options[:data_converter]
@@ -375,7 +380,7 @@ module AWS
       end
 
 
-      # Instance methods for {DecisionContext}
+      # Instance methods for {DecisionContext}.
       module InstanceMethods
 
         # Returns the {DecisionContext} instance.
@@ -389,7 +394,7 @@ module AWS
         # Returns the workflow ID.
         #
         # @return
-        #   The workflow ID
+        #   The workflow ID.
         #
         def workflow_id
           self.decision_context.workflow_context.decision_task.workflow_execution.workflow_id
@@ -451,7 +456,7 @@ module AWS
         # @deprecated
         #   Use {#create_timer_async} instead.
         #
-        # @!visibility private
+        # @api private
         def async_create_timer(delay_seconds, &block)
           task { self.decision_context.workflow_clock.create_timer(delay_seconds, block) }
         end
@@ -482,12 +487,12 @@ module AWS
             continue_as_new_options.input = input
           end
           known_workflows = self.class.workflows
-          # If there is only one workflow, we can unambiguously say that we should use that one
+          # If there is only one workflow, we can unambiguously say that we should use that one.
 
           if known_workflows.length == 1
             continue_as_new_options.precursors << known_workflows.first.options
           end
-          # If we can find a name that matches, use that one
+          # If we can find a name that matches, use that one.
           if continue_as_new_options.execution_method
             matching_option = self.class.workflows.map(&:options).find {|x| x.execution_method == continue_as_new_options.execution_method }
             continue_as_new_options.precursors << matching_option unless matching_option.nil?
@@ -501,7 +506,7 @@ module AWS
     # without prior notice.
     #  Use {Workflows} instead.
     #
-    # @!visibility private
+    # @api private
     module Decider
       include Workflows
 

@@ -17,11 +17,11 @@ module AWS
   module Flow
 
 
-    # A decision task handler to work with a {WorkflowTaskPoller}. Create a DecisionTaskHandler and pass it to
-    # WorkflowTaskPoller on {WorkflowTaskPoller#initialize construction}.
+    # A decision task handler to work with a {WorkflowTaskPoller}. Create a `DecisionTaskHandler` and pass it to
+    # {WorkflowTaskPoller} on {WorkflowTaskPoller#initialize construction}.
     class DecisionTaskHandler
 
-      # Creates a new DecisionTaskHandler
+      # Creates a new `DecisionTaskHandler`.
       #
       # @param workflow_definition_map
       #
@@ -35,7 +35,7 @@ module AWS
       end
 
 
-      # Handles a decision task
+      # Handles a decision task.
       #
       # @param decision_task_iterator
       #
@@ -58,7 +58,7 @@ module AWS
       #
       # @param history_helper
       #
-      # @return [AsyncDecider] the created AsyncDecider.
+      # @return [AsyncDecider] The created {AsyncDecider}.
       #
       def create_async_decider(history_helper)
         task = history_helper.get_decision_task

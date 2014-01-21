@@ -13,17 +13,20 @@
 # permissions and limitations under the License.
 #++
 
-# This file contains the externally visible parts of flow that are expected to be used by customers of flow
+# This file contains the externally visible parts of flow that are expected to be used by customers of flow.
 module AWS
   module Flow
     module Core
       class NoContextException < Exception; end
 
+      # @param [Future] future
+      #   Unused.
+      #
       # @param block
       #   The block of code to be executed when the task is run.
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       # @return [Future]
       #   The tasks result, which is a {Future}.
@@ -46,7 +49,7 @@ module AWS
       #   The tasks result, which is a {Future}.
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def daemon_task(&block)
         fiber = ::Fiber.current
@@ -65,7 +68,7 @@ module AWS
       # @return [nil]
       #
       # @raise [NoContextException]
-      #   If the current fiber does not respond to {#__context__}.
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def external_task(&block)
         fiber = ::Fiber.current
@@ -77,15 +80,16 @@ module AWS
         nil
       end
 
-
+      # @param block
+      #   A block that is passed to the {BeginRescueEnsureWrapper} and defines the {BeginRescueEnsure#begin},
+      #   {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
       #
+      # @return
+      #   The result of the `begin` statement if there is no error; otherwise this returns the value of the `return`
+      #   statement.
       #
-      # * *Args*    :
-      #   - block -> a block, which is passed in a BeginRescueEnsureWrapper, and which will define the BeginRescueEnsure#begin, BeginRescueEnsure#rescue, and BeginRescueEnsure#ensure methods
-      # * *Returns* :
-      #   - The result of the begin statement, if there is no error, otherwise the value of the return statement
-      # * *Raises* :
-      #   - +NoContextException+ -> If the current fiber does not respond to #__context__
+      # @raise [NoContextException]
+      #   If the current fiber does not respond to `Fiber.__context__`.
       #
       def error_handler(&block)
         fiber = ::Fiber.current
@@ -98,15 +102,24 @@ module AWS
         begin_rescue_ensure
       end
 
-      # @param block
-      #   A code block, which is passed within a {BeginRescueEnsureWrapper}, and which must define the
-      #   {BeginRescueEnsure#begin}, {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
-      # @!visibility private
+      # @api private
+      #
       def _error_handler(&block)
         error_handler(&block).result
       end
 
 
+      # Waits for the passed-in function to complete, setting values for the provided futures when it does.
+      #
+      # @param function
+      #   The function to wait for.
+      #
+      # @param [Array<Future>] futures
+      #   A list of futures to provide values for when the function completes.
+      #
+      # @return [Array<Future>]
+      #   A list of the set futures, in the order of being set.
+      #
       def wait_for_function(function, *futures)
         conditional = FiberConditionVariable.new
         futures.flatten!
@@ -125,10 +138,10 @@ module AWS
 
       # Blocks until *any* of the arguments are set.
       #
-      # @param [Array] futures
+      # @param [Array<Future>] futures
       #   A list of futures to wait for. The function will return when at least one of these is set.
       #
-      # @return [Array]
+      # @return [Array<Future>]
       #   A list of the set futures, in the order of being set.
       #
       def wait_for_any(*futures)
@@ -140,7 +153,7 @@ module AWS
       # @param [Array<Future>] futures
       #   A list of futures to wait for. The function will return only when all of them are set.
       #
-      # @return [Array]
+      # @return [Array<Future>]
       #   A list of the set futures, in the order of being set.
       #
       def wait_for_all(*futures)

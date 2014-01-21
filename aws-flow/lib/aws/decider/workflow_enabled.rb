@@ -17,7 +17,7 @@ module AWS
   module Flow
     #  This method is for internal use only and may be changed or removed
     #   without prior notice.  Use {#workflow_client} instead.
-    # @!visibility private
+    # @api private
     def workflow_factory(client, domain, &options)
       WorkflowFactory.new(client, domain,  options)
     end

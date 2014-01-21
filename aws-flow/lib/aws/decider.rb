@@ -13,7 +13,6 @@
 # permissions and limitations under the License.
 #++
 
-
 require 'aws/flow'
 include AWS::Flow::Core
 
@@ -48,7 +47,7 @@ require "aws/decider/flow_defaults"
 require "aws/decider/implementation"
 require "aws/decider/version"
 
-# @!visibility private
+# @api private
 def get_const(name)
   name = name.split('::').reverse
   current = Object

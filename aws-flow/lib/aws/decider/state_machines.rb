@@ -16,7 +16,7 @@
 module AWS
   module Flow
 
-    # @!visibility private
+    # @api private
     module DecisionStateMachineDFA
       attr_accessor :transitions, :symbols, :states, :start_state
 
@@ -40,7 +40,7 @@ module AWS
       end
 
       def get_transitions
-        # Turns out, you are your own ancestor
+        # Turns out, you are your own ancestor.
         ancestors.slice(1..-1).map {|x| x.transitions if x.respond_to? :transitions}.compact.
           inject({}) {|x, y| x.merge(y)}.merge(@transitions)
       end
@@ -77,7 +77,7 @@ module AWS
       end
     end
 
-    # @!visibility private
+    # @api private
     class CompleteWorkflowStateMachine
       extend DecisionStateMachineDFA
       attr_reader :id
@@ -86,10 +86,10 @@ module AWS
         return if symbol == :handle_decision_task_started_event
         raise "UnsupportedOperation"
       end
-      # Creates a new CompleteWorkflowStateMachine
+      # Creates a new `CompleteWorkflowStateMachine`.
       #
       # @param id
-      #   The decider id.
+      #   The decider ID.
       #
       # @param attributes
       #
@@ -110,7 +110,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class DecisionStateMachineBase
       extend DecisionStateMachineDFA
       attr_reader :id
@@ -152,7 +152,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class ActivityDecisionStateMachine < DecisionStateMachineBase
 
       attr_reader :attributes
@@ -207,7 +207,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class TimerDecisionStateMachine < DecisionStateMachineBase
       attr_accessor :cancelled
       def initialize(decision_id, attributes)
@@ -257,7 +257,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class SignalDecisionStateMachine < DecisionStateMachineBase
       def initialize(decision_id, attributes)
         @attributes = attributes
@@ -305,7 +305,7 @@ module AWS
     end
 
 
-    # @!visibility private
+    # @api private
     class ChildWorkflowDecisionStateMachine < DecisionStateMachineBase
       attr_accessor :run_id, :attributes
       def initialize(decision_id, attributes)
