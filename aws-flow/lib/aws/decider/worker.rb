@@ -322,7 +322,7 @@ module AWS
       def start(should_register = true)
         register if should_register
         poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @executor, @options)
-        loop do
+        while ! @shutting_down do
           run_once(false, poller)
         end
       end
