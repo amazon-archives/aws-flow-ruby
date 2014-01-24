@@ -1820,4 +1820,21 @@ describe "testing changing default values in RetryOptions and RetryPolicy" do
     result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
     result.should == 5
   end
+
+  it "ensures that the next_retry_delay_seconds honors -1 returned by the retry function" do
+    my_retry_func = lambda do |first, time_of_failure, attempts|
+      -1
+    end
+    options = {
+      :should_jitter => true
+    }
+    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
+    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception, 1)
+    result.should == -1
+  end
+
+  it "ensures that the jitter function checks arguments passed to it" do
+    expect { FlowConstants.jitter_function.call(1, -1) }.to raise_error(
+      ArgumentError, "max_value should be greater than 0")
+  end
 end

@@ -25,8 +25,8 @@ module AWS
       class BeginRescueEnsure < FlowFiber
 
         extend SimpleDFA
-        attr_accessor :parent, :begin_task, :ensure_task, :rescue_tasks,
-        :rescue_exceptions, :failure, :cancelled, :heirs, :nonDaemonHeirsCount, :executor, :result
+        attr_accessor :parent, :begin_task, :ensure_task, :rescue_hash,
+          :failure, :cancelled, :heirs, :nonDaemonHeirsCount, :executor, :result
         attr_reader :backtrace, :__context__
 
         # Create a new BeginRescueEnsure object, with the provided options.
@@ -42,8 +42,7 @@ module AWS
           # because we want to ensure that we process the rescues in the order
           # they are written, and because prior to Ruby 1.9, hashes will not
           # return their elements in the order they were inserted.
-          @rescue_exceptions = []
-          @rescue_tasks = []
+          @rescue_hash = {}
           @parent = options[:parent] || Fiber.current.__context__
           @current = @parent
           @executor = @parent.executor
@@ -109,7 +108,7 @@ module AWS
           end
           task_out = @heirs.delete?(this_task)
           raise "There was a task attempted to be removed from a BRE, when the BRE did not have that task as an heir" unless task_out
-          @nonDaemonHeirsCount -= 1 if ! this_task.is_daemon?
+          @nonDaemonHeirsCount -= 1 unless this_task.is_daemon?
           cancelHeirs
           update_state
         end
@@ -124,7 +123,7 @@ module AWS
 
           task_out = @heirs.delete?(this_task)
           raise "There was a task attempted to be removed from a BRE, when the BRE did not have that task as an heir" unless task_out
-          @nonDaemonHeirsCount -= 1 if ! this_task.is_daemon?
+          @nonDaemonHeirsCount -= 1 unless this_task.is_daemon?
           update_state
         end
 
@@ -226,15 +225,15 @@ module AWS
             # Emulates the behavior of the actual Ruby rescue, see
             # http://Ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
             # for more details
-            bre.rescue_exceptions.each_index do |index|
+            bre.rescue_hash.each_pair do |exception_class, exception_function|
               this_failure = bre.failure
               failure_class = bre.failure.is_a?(Exception) ? bre.failure.class : bre.failure
-              if failure_class <=  bre.rescue_exceptions[index]
+              # TODO change <=  to something more explicit about subclass check
+              unless exception_class.select { |x| failure_class <= x }.empty?
                 bre.result.unset
                 bre.failure = nil
-                task = bre.rescue_tasks[index]
+                task = exception_function
                 bre << Task.new(bre) { bre.result.set(task.call(this_failure)) }
-                # bre.rescue_tasks[index].call(this_failure)
                 break
               end
             end
@@ -268,21 +267,21 @@ module AWS
           @begin_task = Task.new(self) { @result.set(block.call) }
         end
 
-        # Binds the block to the a lambda to be called when we get to the rescue part of the DFA
+        # Binds the block to a lambda to be called when we get to the rescue part of the DFA
         #
-        # @param error_type
-        #   The error type.
+        # @param error_types
+        #   The error types.
         #
         # @param block
         #   The code block to be called when asynchronous *rescue* starts.
         #
-        def rescue(error_type, block)
+        def rescue(error_types, block)
+          error_types = [error_types] unless error_types.is_a? Array
           this_task = lambda { |failure| block.call(failure) }
-          if @rescue_exceptions.include? error_type
-            raise "You have already registered #{error_type}!"
+          if @rescue_hash.key? error_types
+            raise "You have already registered #{error_types}"
           end
-          @rescue_exceptions << error_type
-          @rescue_tasks << this_task
+          @rescue_hash[error_types] = this_task
         end
 
         # Binds the block to the a lambda to be called when we get to the ensure part of the DFA
@@ -368,8 +367,8 @@ module AWS
         def ensure(&block) @beginRescueEnsure.ensure(block) end
 
         # (see BeginRescueEnsure#rescue)
-        def rescue(error_type, &block)
-          @beginRescueEnsure.rescue(error_type, block)
+        def rescue(*error_types, &block)
+          @beginRescueEnsure.rescue(error_types, block)
         end
 
         private

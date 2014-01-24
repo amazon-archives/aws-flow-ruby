@@ -70,8 +70,9 @@ module AWS
       end
 
       @jitter_function = lambda do |seed, max_value|
-         random = Random.new(seed.to_i)
-         random.rand(max_value)
+        raise ArgumentError.new("max_value should be greater than 0") unless max_value > 0
+        random = Random.new(seed.to_i)
+        random.rand(max_value)
       end
 
       @default_data_converter = YAMLDataConverter.new
