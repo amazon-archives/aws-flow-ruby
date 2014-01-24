@@ -19,6 +19,7 @@ require 'logger'
 module AWS
   module Flow
 
+    # @api private
     class LogMock
       attr_accessor :log_level
       def initialize()
@@ -39,6 +40,7 @@ module AWS
     end
     class RejectedExecutionException < Exception; end
 
+    # @api private
     class ForkingExecutor
 
       class << self
@@ -114,6 +116,7 @@ module AWS
         end
       end
 
+      # @api private
       def block_on_max_workers
         @log.debug "block_on_max_workers workers=#{@pids.size}, max_workers=#{@max_workers}"
         if @pids.size >= @max_workers
@@ -129,6 +132,7 @@ module AWS
 
       # Removes all child processes from @pids list that have finished.
       # Block for at least one child to finish if block argument is set to `true`.
+      # @api private
       def remove_completed_pids(block=false)
         loop do
           # waitpid2 throws an Errno::ECHILD if there are no child processes,

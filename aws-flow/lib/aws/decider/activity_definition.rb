@@ -85,17 +85,24 @@ module AWS
 
     end
 
+    # The execution context for an activity task.
     class ActivityExecutionContext
       attr_accessor :service, :domain, :task
 
-
       # Initializes a new `ActivityExecutionContext` object.
       #
-      # @param service
+      # @param [AWS::SimpleWorkflow] service
+      #   An instance of [AWS::SimpleWorkflow](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow.html) to
+      #   set for the activity execution context.
       #
-      # @param domain
+      # @param [AWS::SimpleWorkflow::Domain] domain
+      #   The [AWS::SimpleWorkflow::Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html)
+      #   in which the activity task is running.
       #
-      # @param task
+      # @param [AWS::SimpleWorkflow::ActivityTask] task
+      #   The
+      #   [AWS::SimpleWorkflow::ActivityTask](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/ActivityTask.html)
+      #   that this execution context is for.
       #
       def initialize(service, domain, task)
         @service = service
@@ -103,20 +110,34 @@ module AWS
         @task = task
       end
 
-      # Gets the task token for this activity execution.
+      # Gets the [task
+      # token](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/ActivityTask.html#task_token-instance_method),
+      # an opaque string that can be used to uniquely identify this task execution.
+      # @return [String] the activity task token.
       def task_token
         @task.task_token
       end
 
-      # Gets the workflow execution that is the context for this activity execution.
+      # Gets the
+      # [AWS::SimpleWorkflow::WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html)
+      # instance that is the context for this activity execution.
       #
-      # @return {AWS::SWF::WorkflowExecution}
+      # @return [AWS::SimpleWorkflow::WorkflowExecution]
       #   The `WorkflowExecution` in this activity execution context.
       #
       def workflow_execution
         @task.workflow_execution
       end
 
+      # Records a heartbeat for the activity, indicating to Amazon SWF that the activity is still making progress.
+      #
+      # @param [String] details
+      #   If specified, contains details about the progress of the activity task. Up to 2048
+      #   characters can be provided.
+      #
+      # @raise [CancellationException]
+      #   The activity task has been cancelled.
+      #
       def record_activity_heartbeat(details)
         to_send = {:task_token => task_token.to_s, :details => details.to_s }
         response = @service.record_activity_task_heartbeat(to_send)

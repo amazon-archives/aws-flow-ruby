@@ -17,10 +17,12 @@
 module AWS
   module Flow
     module Core
+
+      # A basic exception class with no context.
       class NoContextException < Exception; end
 
       # @param [Future] future
-      #   Unused.
+      #   Unused; defaults to **nil**.
       #
       # @param block
       #   The block of code to be executed when the task is run.
@@ -80,13 +82,14 @@ module AWS
         nil
       end
 
+      # Creates a new error handler for asynchronous tasks.
+      #
       # @param block
-      #   A block that is passed to the {BeginRescueEnsureWrapper} and defines the {BeginRescueEnsure#begin},
-      #   {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure} methods.
+      #   A block that defines the {BeginRescueEnsure#begin}, {BeginRescueEnsure#rescue}, and {BeginRescueEnsure#ensure}
+      #   methods.
       #
       # @return
-      #   The result of the `begin` statement if there is no error; otherwise this returns the value of the `return`
-      #   statement.
+      #   The result of the `begin` statement if there is no error; otherwise the value of the `return` statement.
       #
       # @raise [NoContextException]
       #   If the current fiber does not respond to `Fiber.__context__`.

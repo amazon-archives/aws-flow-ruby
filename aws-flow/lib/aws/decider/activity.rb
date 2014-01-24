@@ -356,16 +356,29 @@ module AWS
         base.send :include, InstanceMethods
       end
       module InstanceMethods
+        # Sets the {ActivityExecutionContext} instance for the activity task.
         attr_writer :_activity_execution_context
+
+        # Gets the activity execution context for the activity task. Raises an `IllegalStateException` if the activity
+        # has no context.
+        #
+        # @return [ActivityExecutionContext] The execution context for this activity.
+        #
         def activity_execution_context
           raise IllegalStateException.new("No activity execution context") unless @_activity_execution_context
           @_activity_execution_context
         end
+
+        # Records a heartbeat for the activity, indicating to Amazon SWF that the activity is still making progress.
+        #
+        # @param [String] details
+        #   If specified, contains details about the progress of the activity task. Up to 2048
+        #   characters can be provided.
+        #
         def record_activity_heartbeat(details)
           @_activity_execution_context.record_activity_heartbeat(details)
         end
       end
-
 
       # @api private
       extend Utilities::UpwardLookups

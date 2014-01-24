@@ -20,10 +20,9 @@ module AWS
   module Flow
     module Core
 
-      # Enables asynchronous error handling within the AWS Flow Framework for
-      # Ruby. Calling {#begin}/{#rescue}/{#ensure} is similar to Ruby's native
-      # `begin`/`rescue`/`end` semantics.
-      # @api private
+      # Enables asynchronous error handling within the AWS Flow Framework for Ruby. Calling {#begin}/{#rescue}/{#ensure}
+      # is similar to Ruby's native `begin`/`rescue`/`end` semantics.
+      #
       class BeginRescueEnsure < FlowFiber
 
         extend SimpleDFA
