@@ -16,13 +16,54 @@
 module AWS
   module Flow
 
+    # Contains data about an Amazon SWF domain.
+    #
+    # @!attribute name
+    #   The domain name.
+    #
     class MinimalDomain
       attr_accessor :name
+
+      # Creates a new `MinimalDomain` instance.
+      #
+      # @param domain
+      #   The [AWS::SimpleWorkflow::Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html)
+      #   that this instance will refer to.
+      #
       def initialize(domain); @domain = domain; end
     end
 
+    # Contains data about a workflow execution. This class represents a minimal set of data needed by the AWS Flow
+    # Framework for Ruby, based on the
+    # [AWS::SimpleWorkflow::WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html)
+    # class.
+    #
+    # @!attribute domain
+    #   The domain that the workflow is running in. See {MinimalWorkflowExecution#initialize} for details.
+    #
+    # @!attribute run_id
+    #   The unique run indentifier for this workflow. See {MinimalWorkflowExecution#initialize} for details.
+    #
+    # @!attribute workflow_id
+    #   The unique identifier for this workflow. See {MinimalWorkflowExecution#initialize} for details.
+    #
     class MinimalWorkflowExecution
       attr_accessor :workflow_id, :run_id, :domain
+
+      # Creates a new `MinimalWorkflowExecution` instance
+      #
+      # @param (Domain) domain
+      #   The Amazon SWF domain that the workflow is running in; an instance of
+      #   [AWS::SimpleWorkflow::Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html).
+      #
+      # @param (String) workflow_id
+      #   The unique workflow indentifier for this workflow; From
+      #   [AWS::SimpleWorkflow::WorkflowExecution#workflow_id](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html#workflow_id-instance_method).
+      #
+      # @param (String) run_id
+      #   The unique run indentifier for this workflow. From
+      #   [AWS::SimpleWorkflow::WorkflowExecution#run_id](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html#run_id-instance_method).
+      #
       def initialize(domain, workflow_id, run_id)
         @domain = domain
         @workflow_id = workflow_id
@@ -30,11 +71,11 @@ module AWS
       end
     end
 
-    # A future provided by a [WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html).
+    # A future provided by a
+    # [AWS::SimpleWorkflow::WorkflowExecution](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/WorkflowExecution.html).
     #
     # @!attribute _workflow_execution
-    #   A MinimalWorkflowExecution
-    #   instance that this future belongs to.
+    #   A {MinimalWorkflowExecution} instance that this future belongs to.
     #
     # @!attribute return_value
     #   The return value of the future.
@@ -43,28 +84,34 @@ module AWS
       attr_accessor :_workflow_execution, :return_value
 
 
-      # Creates a new workflow future
+      # Creates a new workflow future.
       #
       # @param workflow_execution
+      #   The {MinimalWorkflowExecution} to assign to this future.
       #
       def initialize(workflow_execution)
         @_workflow_execution = workflow_execution.dup
         @return_value = Future.new
       end
 
-      # determines whether the object is a flow future. The contract is that
-      # flow futures must have a #get method.
+      # Determines whether the object is a flow future. The contract is that flow futures must have a `get` method.
+      #
+      # @return
+      #   Always returns `true` for a {WorkflowFuture} object.
       def is_flow_future?
         true
       end
 
+      # @api private
       def method_missing(method_name, *args, &block)
         @return_value.send(method_name, *args, &block)
       end
 
-
-      # Gets the current value of the workflow execution
-      # @return
+      # Gets the current value of the workflow execution.
+      #
+      # @return {MinimalWorkflowExecution}
+      #   The workflow execution that this future belongs to.
+      #
       def workflow_execution
         @_workflow_execution
       end
@@ -73,16 +120,16 @@ module AWS
 
 
 
-    # @!visibility private
+    # @api private
     class NoInput
       def empty?; return true; end
     end
 
 
-    # A client for a workflow execution.
+    # Represents a client for a workflow execution.
     #
     # @!attribute domain
-    #   The SWF domain used for this workflow.
+    #   The Amazon SWF domain used for this workflow.
     #
     # @!attribute [Hash, WorkflowOptions] options
     #   Workflow options for this client.
@@ -90,14 +137,14 @@ module AWS
     class WorkflowClient < GenericClient
       attr_accessor :domain, :options
 
-      # Creates a new {WorkflowClient}
+      # Creates a new {WorkflowClient}.
       #
       # @param service
-      #   The SWF [Client](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html) to use for
+      #   The Amazon SWF [Client](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Client.html) to use for
       #   creating this {WorkflowClient}.
       #
       # @param domain
-      #   The SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) in which to
+      #   The Amazon SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) in which to
       #   start the workflow execution.
       #
       # @param workflow_class
@@ -115,10 +162,10 @@ module AWS
       end
 
 
-      # @!visibility private
+      # @api private
       def self.default_option_class; WorkflowOptions; end
 
-      # Gets the events for this workflow client
+      # Gets the events for this workflow client.
       #
       def events
         @execution.events if @execution
@@ -136,7 +183,7 @@ module AWS
       # Begins executing this workflow.
       #
       # @param input
-      #   Input to provide to the
+      #   Input to provide to the workflow.
       #
       # @param [Hash, StartWorkflowOptions] block
       #   A hash of {StartWorkflowOptions} to use for this workflow execution.
@@ -171,8 +218,8 @@ module AWS
       end
 
 
-        # Called by {#signal_workflow_execution}
-        # @!visibility private
+        # Called by {#signal_workflow_execution}.
+        # @api private
         def signal_external_workflow(signal_name, workflow_execution, &block)
         options = Utilities::interpret_block_for_options(SignalWorkflowOptions, block)
         options.signal_name ||= signal_name
@@ -183,8 +230,8 @@ module AWS
         @service.signal_workflow_execution(options.get_full_options)
       end
 
-        # Called by {#signal_workflow_execution}
-        # @!visibility private
+        # Called by {#signal_workflow_execution}.
+        # @api private
       def signal_internal_workflow(signal_name, workflow_execution, &block)
         get_decision_context
         options = Utilities::interpret_block_for_options(SignalWorkflowOptions, block)
@@ -215,8 +262,8 @@ module AWS
       end
 
 
-      # Called by {#start_execution}
-      # @!visibility private
+      # Called by {#start_execution}.
+      # @api private
       def start_internal_workflow(input = NoInput.new, &block)
         get_decision_context
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
@@ -288,8 +335,8 @@ module AWS
       end
 
 
-      # Called by {#start_execution}
-      # @!visibility private
+      # Called by {#start_execution}.
+      # @api private
       def start_external_workflow(input = NoInput.new, &block)
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
         options = Utilities::merge_all_options(@options, options)
@@ -350,19 +397,19 @@ module AWS
     end
 
 
-    # Instances of WorkflowFactory are generated by {#workflow_factory}.
+    # Represents a workflow factory. Instances of `WorkflowFactory` are generated by {#workflow_factory}.
     class WorkflowFactory
 
 
-      # Creates a new WorkflowFactory with the provided parameters. The construction parameters will be used for any
+      # Creates a new `WorkflowFactory` with the provided parameters. The construction parameters will be used for any
       # workflow clients generated by this workflow factory.
       #
       # @param service
       #   The service to use for workflow clients generated by this workflow factory
       #
       # @param domain
-      #   The SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) to use for
-      #   workflow clients generated by this workflow factory
+      #   The Amazon SWF [Domain](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/Domain.html) to use for
+      #   workflow clients generated by this workflow factory.
       #
       # @param block
       #   A block of {StartWorkflowOptions} to use for clients generated by this workflow factory.
@@ -382,7 +429,7 @@ module AWS
       # Get a {WorkflowClient} with the parameters used in the construction of this {WorkflowFactory}.
       #
       # @return [WorkflowClient]
-      #   A workflow client, created with the parameters used when creating the {WorkflowFactory}.
+      #   A workflow client created with the parameters used when creating the {WorkflowFactory}.
       #
       def get_client
         WorkflowClient.new(@service, @domain, @workflow_class, @options)

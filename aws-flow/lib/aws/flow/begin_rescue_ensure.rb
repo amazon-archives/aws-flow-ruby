@@ -20,8 +20,9 @@ module AWS
   module Flow
     module Core
 
-      # This class allows asynchronous error handling within the AWS Flow Framework for Ruby.  Calling
-      # {#begin}/{#rescue}/{#ensure} is similar to Ruby's native `begin`/`rescue`/`end` semantics.
+      # Enables asynchronous error handling within the AWS Flow Framework for Ruby. Calling {#begin}/{#rescue}/{#ensure}
+      # is similar to Ruby's native `begin`/`rescue`/`end` semantics.
+      #
       class BeginRescueEnsure < FlowFiber
 
         extend SimpleDFA
@@ -29,7 +30,7 @@ module AWS
         :rescue_exceptions, :failure, :cancelled, :heirs, :nonDaemonHeirsCount, :executor, :result
         attr_reader :backtrace, :__context__
 
-        # Create a new BeginRescueEnsure object, with the provided options.
+        # Create a new `BeginRescueEnsure` object, with the provided options.
         #
         # @param options
         #   Options to set for the class.
@@ -37,6 +38,7 @@ module AWS
         # @option options [Object] :parent
         #   The parent object.
         #
+        # @api private
         def initialize(options = {})
           # We have two different arrays, rather than a hash,
           # because we want to ensure that we process the rescues in the order
@@ -57,16 +59,16 @@ module AWS
         end
 
 
-        # @!visibility private
+        # @api private
         def is_daemon?
           false
         end
 
 
-        # @!visibility private
+        # @api private
         def <<(async_task)
           # Not going to include the promise to wait for, as it would appear that
-          # Fibers can wait on futures from their point of origin as part of their
+          # fibers can wait on futures from their point of origin as part of their
           # implementation, as opposed to adding the callback here.
           check_closed
           if ! @heirs.member? async_task
@@ -79,15 +81,15 @@ module AWS
           self
         end
 
-        # @!visibility private
+        # @api private
         def get_closest_containing_scope
-          # BRE's are special in that they act as a containing scope, so that things
-          # created in BRE's treat it as the parent, so that it can track the heirs
-          # correctly and close only when nonDaemonHeirsCount is 0
+          # BeginRescueEnsure's are special in that they act as a containing scope, so that things
+          # created in BeginRescueEnsure's treat it as the parent, so that it can track the heirs
+          # correctly and close only when nonDaemonHeirsCount is 0.
           self
         end
 
-        # @!visibility private
+        # @api private
         def check_closed
           raise IllegalStateException, @failure if @current_state == :closed
         end
@@ -100,6 +102,7 @@ module AWS
         # @param error
         #   The error associated with the failure.
         #
+        # @api private
         def fail(this_task, error)
           check_closed
           if ( ! (error.class <= CancellationException) || @failure == nil && !@daemondCausedCancellation)
@@ -114,11 +117,12 @@ module AWS
           update_state
         end
 
-        # Removes the task and updates the state
+        # Removes the task and updates the state.
         #
         # @param this_task
         #   The task to remove.
         #
+        # @api private
         def remove(this_task)
           check_closed
 
@@ -128,19 +132,19 @@ module AWS
           update_state
         end
 
-        # @!visibility private
+        # @api private
         def cancelHeirs
           toCancel = @heirs.dup
           toCancel.each { |heir|  heir.cancel(@failure) }
         end
 
-        # @!visibility private
+        # @api private
         def merge_stacktraces(failure, this_backtrace, error)
           backtrace = AsyncBacktrace.create_from_exception(this_backtrace, error)
           failure.set_backtrace(backtrace.backtrace) if backtrace
         end
 
-        # @!visibility private
+        # @api private
         def cancel(error)
           if @current_state == :created
             @current_state = :closed
@@ -159,8 +163,8 @@ module AWS
           end
         end
 
-        # Actually runs the BRE, by going through the DFA with the symbol :run.
-        # @!visibility private
+        # Actually runs the BeginRescueEnsure, by going through the data flow analysis with the symbol :run.
+        # @api private
         def run
           this_failure = @failure
           begin
@@ -178,13 +182,13 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def alive?
           @current_state != :closed
         end
 
-        # Updates the state based on the most recent transitions in the DFA
-        # @!visibility private
+        # Updates the state based on the most recent transitions in the data flow analysis.
+        # @api private
         def update_state
           #TODO ? Add the ! @executed part
           #return if @current_state == :closed || ! @executed
@@ -199,7 +203,7 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def get_heirs
           # TODO fix this so it returns string instead of printing to stdout
           str =  "I am a BeginRescueEnsure with #{heirs.length} heirs
@@ -209,7 +213,7 @@ module AWS
           # (@heirs.each(&:get_heirs) + [self]).flatten
         end
 
-        # @!visibility private
+        # @api private
         init(:created)
         {
           [:created, :run] => lambda { |bre| bre.current_state = :begin; bre.run },
@@ -257,7 +261,7 @@ module AWS
         # That is, any transition from closed leads back to itself
         define_general(:closed) { |t| t.current_state = :closed }
 
-        # Binds the block to the a lambda to be called when we get to the begin part of the DFA
+        # Binds the block to a lambda to be called when we get to the begin part of the data flow analysis.
         #
         # @param block
         #   The code block to be called when asynchronous *begin* starts.
@@ -268,7 +272,7 @@ module AWS
           @begin_task = Task.new(self) { @result.set(block.call) }
         end
 
-        # Binds the block to the a lambda to be called when we get to the rescue part of the DFA
+        # Binds the block to a lambda to be called when we get to the rescue part of the data flow analysis.
         #
         # @param error_type
         #   The error type.
@@ -285,7 +289,7 @@ module AWS
           @rescue_tasks << this_task
         end
 
-        # Binds the block to the a lambda to be called when we get to the ensure part of the DFA
+        # Binds the block to a lambda to be called when we get to the ensure part of the data flow analysis.
         #
         # @param block
         #   The code block to be called when asynchronous *ensure* starts.
@@ -300,7 +304,7 @@ module AWS
         end
       end
 
-      # Class to ensure that all the inner guts of BRE aren't exposed. This function is passed in when error_handler is
+      # Ensures that {BeginRescueEnsure} isn't exposed directly. This function is passed in when {#error_handler} is
       # called, like this:
       #
       #     error_handler do |t|
@@ -309,21 +313,23 @@ module AWS
       #       t.ensure { trace << t.begin_task }
       #     end
       #
-      # The *t* that is passed in is actually a {BeginRescueEnsureWrapper}, which will only pass begin/rescue/ensure
-      # onto the {BeginRescueEnsure} class itself.
+      # In this example, *t* is a {BeginRescueEnsureWrapper} which passes the begin/rescue/ensure calls to the
+      # {BeginRescueEnsure} class itself.
       #
+      # @api private
       class BeginRescueEnsureWrapper < FlowFiber
-        # Also has a few methods to ensure Fiber-ness, such as get_heirs and cancel.
+        # Also has a few methods to ensure fiber-ness, such as get_heirs and cancel.
         attr_reader :__context__
 
-        # Creates a new BeginRescueEnsureWrapper instance.
+        # Creates a new `BeginRescueEnsureWrapper` instance.
         #
         # @param block
-        #   A code block to be called.
+        #   *Required*. A code block to be called.
         #
         # @param begin_rescue_ensure
         #   The {BeginRescueEnsure} instance to wrap.
         #
+        # @api private
         def initialize(block, begin_rescue_ensure)
           @beginRescueEnsure = begin_rescue_ensure
           @__context__ = @beginRescueEnsure
@@ -337,26 +343,24 @@ module AWS
           end
         end
 
-        # @!visibility private
+        # @api private
         def get_heirs
           p "I am a BREWrapper"
           return
         end
 
+        # @api private
         def cancel(error_type)
           @beginRescueEnsure.parent.cancel(self)
         end
 
-        # @!visibility private
-        #
-        # @return [false]
-        #   Always returns `false`.
-        #
+        # @api private
         def is_daemon?
           false
         end
 
         # Gets the parent of the {BeginRescueEnsure} instance held by this class.
+        # @api private
         def get_closest_containing_scope
           @beginRescueEnsure.parent
         end
@@ -376,7 +380,9 @@ module AWS
         attr_accessor :beginRescueEnsure
       end
 
+      # @api private
       class DaemonBeginRescueEnsure < BeginRescueEnsure
+        # @api private
         def is_daemon?
           true
         end

@@ -88,7 +88,7 @@ module AWS
       # Creates a new `ChildWorkflowFailedException`
       #
       # @param event_id
-      #   The event id for the exception.
+      #   The event ID for the exception.
       #
       # @param execution
       #   The child workflow execution that raised the exception.
@@ -112,7 +112,7 @@ module AWS
 
 
     # This exception is used by the framework internally to communicate activity failure. When an activity fails due to
-    # an unhandled exception, it is wrapped in ActivityFailureException and reported to Amazon SWF. You need to deal
+    # an unhandled exception, it is wrapped in {ActivityFailureException} and reported to Amazon SWF. You need to deal
     # with this exception only if you use the activity worker extensibility points. Your application code will never
     # need to deal with this exception.
     #
@@ -139,12 +139,12 @@ module AWS
     # This exception is thrown if an activity was timed out by Amazon SWF. This could happen if the activity task could
     # not be assigned to the worker within the require time period or could not be completed by the worker in the
     # required time. You can set these timeouts on the activity using the @ActivityRegistrationOptions annotation or
-    # using the ActivitySchedulingOptions parameter when calling the activity method.
+    # using the `ActivitySchedulingOptions` parameter when calling the activity method.
     #
     # @abstract An exception raised when the activity task has timed out.
     class ActivityTaskTimedOutException < ActivityFailureException
 
-      # Creates a new ActivityTaskTimeoutException
+      # Creates a new `ActivityTaskTimeoutException`.
       def initialize(id, activity_id, reason, details)
         @id = id
         @activity_id = activity_id
@@ -159,14 +159,14 @@ module AWS
     end
 
     # Unhandled exceptions in activities are reported back to the workflow implementation by throwing an
-    # `ActivityTaskFailedException`. The original exception can be retrieved from the reason attribute of this
+    # `ActivityTaskFailedException`. The original exception can be retrieved from the `reason` attribute of this
     # exception. The exception also provides information in the `details` attribute that is useful for debugging
     # purposes, such as the unique activity identifier in the history.
     #
     # @abstract An exception raised when the activity task has failed.
     class ActivityTaskFailedException < ActivityFailureException
       attr_accessor :cause, :details
-      # Creates a new ActivityTaskFailedException
+      # Creates a new `ActivityTaskFailedException`.
       def initialize(id, activity_id, reason, details)
         @id = id
         @activity_id = activity_id
