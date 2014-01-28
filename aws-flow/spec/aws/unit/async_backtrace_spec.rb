@@ -12,6 +12,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 ##
+require 'spec_helper'
 
 def validate_stacktrace_content(method_to_call_on_async_backtrace, thing_to_look_for, should_it_be_there)
     it "makes sure that any of #{thing_to_look_for.join", "} #{should_it_be_there} be printed when we call #{method_to_call_on_async_backtrace} on AsyncBacktrace" do

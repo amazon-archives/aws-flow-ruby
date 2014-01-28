@@ -168,8 +168,8 @@ module AWS
         retry_seconds = @retry_function.call(*call_args)
         # Check to see if we should jitter or not and pass in the jitter
         # function to retry function accordingly.
-        if @should_jitter
-           retry_seconds += @jitter_function.call(execution_id, retry_seconds/2)
+        if @should_jitter && retry_seconds > 0
+          retry_seconds += @jitter_function.call(execution_id, retry_seconds/2)
         end
         return retry_seconds
       end

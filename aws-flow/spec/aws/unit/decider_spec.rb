@@ -22,6 +22,30 @@ class FakeConfig
 
   end
 end
+class FakeServiceClient
+  attr_accessor :trace
+  def respond_decision_task_completed(task_completed_request)
+    @trace ||= []
+    @trace << task_completed_request
+  end
+  def start_workflow_execution(options)
+    @trace ||= []
+    @trace << options
+    {"runId" => "blah"}
+  end
+  def register_activity_type(options)
+  end
+  def register_workflow_type(options)
+  end
+  def respond_activity_task_completed(task_token, result)
+  end
+  def start_workflow_execution(options)
+    {"runId" => "blah"}
+  end
+  def config
+    FakeConfig.new
+  end
+end
 
 $RUBYFLOW_DECIDER_DOMAIN = "rubyflow_decider_domain_06-12-2012"
 $RUBYFLOW_DECIDER_TASK_LIST = 'test_task_list'
@@ -178,21 +202,6 @@ end
 
 describe WorkflowClient do
 
-  class FakeServiceClient
-    attr_accessor :trace
-    def respond_decision_task_completed(task_completed_request)
-      @trace ||= []
-      @trace << task_completed_request
-    end
-    def start_workflow_execution(options)
-      @trace ||= []
-      @trace << options
-      {"runId" => "blah"}
-    end
-    def register_workflow_type(options)
-    end
-
-  end
   class TestWorkflow
     extend Decider
 
@@ -388,20 +397,6 @@ end
 describe WorkflowFactory do
   it "ensures that you can create a workflow_client without access to the Workflow definition" do
     workflow_type_object = double("workflow_type", :name => "NonExistantWorkflow.some_entry_method", :start_execution => "" )
-    class FakeServiceClient
-      attr_accessor :trace
-      def respond_decision_task_completed(task_completed_request)
-        @trace ||= []
-        @trace << task_completed_request
-      end
-      def start_workflow_execution(options)
-        @trace ||= []
-        @trace << options
-        {"runId" => "blah"}
-      end
-      def register_workflow_type(options)
-      end
-    end
     domain = FakeDomain.new(workflow_type_object)
     swf_client = FakeServiceClient.new
     my_workflow_factory = workflow_factory(swf_client, domain) do |options|
@@ -431,30 +426,6 @@ describe "FakeHistory" do
       end
     end
 
-    class FakeServiceClient
-      attr_accessor :trace
-      def respond_decision_task_completed(task_completed_request)
-        @trace ||= []
-        @trace << task_completed_request
-      end
-      def start_workflow_execution(options)
-        @trace ||= []
-        @trace << options
-        {"runId" => "blah"}
-      end
-      def register_activity_type(options)
-      end
-      def register_workflow_type(options)
-      end
-      def respond_activity_task_completed(task_token, result)
-      end
-      def start_workflow_execution(options)
-        {"runId" => "blah"}
-      end
-      def config
-        FakeConfig.new
-      end
-    end
 
     class Hash
       def to_h; self; end
@@ -1819,5 +1790,22 @@ describe "testing changing default values in RetryOptions and RetryPolicy" do
     options = ExponentialRetryOptions.new(options)
     result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
     result.should == 5
+  end
+
+  it "ensures that the next_retry_delay_seconds honors -1 returned by the retry function" do
+    my_retry_func = lambda do |first, time_of_failure, attempts|
+      -1
+    end
+    options = {
+      :should_jitter => true
+    }
+    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
+    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception, 1)
+    result.should == -1
+  end
+
+  it "ensures that the jitter function checks arguments passed to it" do
+    expect { FlowConstants.jitter_function.call(1, -1) }.to raise_error(
+      ArgumentError, "max_value should be greater than 0")
   end
 end

@@ -62,6 +62,7 @@ describe BeginRescueEnsure do
   let(:catching_BRE) do
     make_catching_BRE
   end
+
   context "BeginRescueEnsure in the :trying state" do
     subject { trying_BRE }
     its(:heirs) { should_not be_empty }
@@ -361,7 +362,7 @@ describe BeginRescueEnsure do
     end
     # TODO Make rescue give a specific error in this case
 
-    expect { scope.eventLoop }.to raise_error /You have already registered RescueTestingError/
+    expect { scope.eventLoop }.to raise_error /You have already registered \[RescueTestingError\]/
   end
 
   it "ensures that stack traces work properly" do
@@ -499,7 +500,94 @@ describe BeginRescueEnsure do
     trace.should == []
   end
 
-  describe "BRE's  closed behavior" do
+  # Tests in the following context are used to test the feature
+  context "when handling multiple exceptions in one block" do
+    it "ensures that rescue blocks can take in multiple exceptions" do
+      scope = AsyncScope.new do
+        error_handler do |t|
+          t.begin do
+            trace << :in_the_begin
+            raise RescueTestingError
+          end
+          t.rescue(RescueTestingError, ArgumentError) { trace << :in_the_rescue }
+        end
+      end
+      scope.eventLoop
+      trace.should == [:in_the_begin, :in_the_rescue]
+    end
+
+    it "ensures that blocks go to the first applicable block" do
+      scope = AsyncScope.new do
+        error_handler do |t|
+          t.begin do
+            trace << :in_the_begin
+            raise RescueTestingError
+          end
+          t.rescue(IOError) { trace << :bad_rescue }
+          t.rescue(RescueTestingError, ArgumentError) { trace << :in_the_rescue }
+          t.rescue(RescueTestingError) { trace << :bad_rescue_2 }
+        end
+      end
+      scope.eventLoop
+      trace.should == [:in_the_begin, :in_the_rescue]
+    end
+
+    it "makes sure an error is raised if none of the rescue blocks apply to it" do
+      scope = AsyncScope.new  do
+        error_handler do |t|
+          t.begin { raise RescueTestingError }
+          t.rescue(IOError, ArgumentError) { p "nothing doing here" }
+        end
+      end
+      expect { scope.eventLoop }.to raise_error RescueTestingError
+    end
+
+    it "ensures that the ensure block is called with a rescue path" do
+      scope = AsyncScope.new do
+        error_handler do |t|
+          t.begin do
+            trace << :in_the_begin
+            raise RescueTestingError
+          end
+          t.rescue(IOError, RescueTestingError) { trace << :in_the_rescue }
+          t.ensure { trace << :in_the_ensure }
+          end
+      end
+      scope.eventLoop
+      trace.should == [:in_the_begin, :in_the_rescue, :in_the_ensure]
+    end
+
+    it "ensures that the ensure block is called and the error is passed up
+    without an applicable rescue case" do
+      scope = AsyncScope.new do
+        error_handler do |t|
+          t.begin do
+            trace << :in_the_begin
+            raise RescueTestingError
+          end
+          t.rescue(IOError, ArgumentError) { trace << :in_the_rescue }
+          t.ensure { trace << :in_the_ensure }
+          expect { scope.eventLoop }.to raise_error RescueTestingError
+          trace.should == [:in_the_begin, :in_the_ensure]
+          end
+      end
+    end
+
+    it "ensures that the same rescue exception twice causes an exception" do
+      scope = AsyncScope.new do
+        error_handler do |t|
+          t.begin {}
+          t.rescue(RescueTestingError, ArgumentError) {}
+          t.rescue(RescueTestingError, ArgumentError) {}
+        end
+      end
+      # TODO Make rescue give a specific error in this case
+
+      expect { scope.eventLoop }.to raise_error /You have already registered \[RescueTestingError, ArgumentError\]/
+    end
+  end
+
+  describe "BRE's closed behavior" do
     before (:each) do
       @scope = AsyncScope.new do
         @error_handler = error_handler do |t|

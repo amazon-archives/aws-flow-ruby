@@ -13,38 +13,25 @@
 # permissions and limitations under the License.
 ##
 
-require 'spec/rake/spectask'
+require "rspec/core/rake_task"
 
-desc "Run unit tests in test/"
-Spec::Rake::SpecTask.new(:unit_tests) do |t|
-  t.libs << 'lib'
-  t.spec_opts = ['--color', '--format nested']
-  t.spec_files = FileList['test/**/*.rb']
-  t.spec_files.delete_if  do |x|
-    (x =~ /.*factories.rb/) ||
-    (x =~ /.*spec_helper.rb/) ||
-      (x =~ /.*preinclude_tests.rb/) ||
-      (x =~ /.*integration.*/)
-  end
-  t.spec_files.unshift("test/aws/factories.rb")
-  t.spec_files.unshift("test/aws/spec_helper.rb")
-  t.spec_files.unshift("test/aws/preinclude_tests.rb")
+desc "Run unit tests"
+RSpec::Core::RakeTask.new(:unit_tests) do |spec|
+  spec.rspec_opts = ['--color', '--format nested']
+  spec.pattern = 'spec/**/unit/*.rb'
 end
-task :test => :unit_tests
 
-desc "Run integration tests in test/"
-Spec::Rake::SpecTask.new do |t|
-  t.libs << 'lib'
-  #t.ruby_opts = ['-rspec/test/unit'] # Add this line in if you're using Test::Unit instead of RSpec
-  t.spec_opts = ['--color', '--format nested']
-  t.spec_files = FileList['test/**/*.rb']
-  t.spec_files.delete_if  do |x|
-    (x =~ /.*factories.rb/) ||
-    (x =~ /.*spec_helper.rb/) ||
-      (x =~ /.*preinclude_tests.rb/)
-  end
-  t.spec_files.unshift("test/aws/factories.rb")
-  t.spec_files.unshift("test/aws/spec_helper.rb")
-  t.spec_files.unshift("test/aws/preinclude_tests.rb")
+desc "Run integration tests"
+RSpec::Core::RakeTask.new(:integration_tests) do |spec|
+  spec.rspec_opts = ['--color', '--format nested']
+  spec.pattern = 'spec/**/integration/*.rb'
 end
-task :integration_tests => :spec
+
+desc "Run all tests"
+RSpec::Core::RakeTask.new(:all_tests) do |spec|
+  spec.rspec_opts = ['--color', '--format nested']
+  spec.pattern = 'spec/**/*.rb'
+end
+
+task :test => :all_tests
+
