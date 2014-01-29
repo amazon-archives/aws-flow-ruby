@@ -47,12 +47,12 @@ module AWS
       attr_accessor :max_workers, :pids, :is_shutdown
 
       def initialize(options = {})
-        @log = options[:logger]
-        @log ||= Logger.new("#{Dir.tmpdir}/forking_log")
+        unless @log = options[:logger]
+          @log = Logger.new("#{Dir.tmpdir}/forking_log")
+          @log.level = options[:log_level] || Logger::ERROR
+          @log.info("LOG INITIALIZED")
+        end
         @semaphore = Mutex.new
-        log_level = options[:log_level] || 4
-        @log.level = Logger::DEBUG
-        @log.info("LOG INITIALIZED")
         @max_workers = options[:max_workers] || 1
         @pids = []
         @is_shutdown = false
