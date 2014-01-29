@@ -338,6 +338,7 @@ module AWS
       def run_once(should_register = true, poller = nil)
         register if should_register
         poller = ActivityTaskPoller.new(@service, @domain, @task_list, @activity_definition_map, @executor, @options) if poller.nil?
+        Kernel.exit if @shutting_down
         poller.poll_and_process_single_task(@options.use_forking)
       end
     end

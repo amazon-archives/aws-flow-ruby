@@ -297,8 +297,10 @@ module AWS
             @executor.block_on_max_workers
           end
           task = @domain.activity_tasks.poll_for_single_task(@task_list)
-          @logger.error "got a task, #{task.activity_type.name}"
-          @logger.error "The task token I got was: #{task.task_token}"
+          if task
+            @logger.error "got a task, #{task.activity_type.name}"
+            @logger.error "The task token I got was: #{task.task_token}"
+          end
         rescue Exception => e
           @logger.debug "I have not been able to poll successfully, and am now bailing out, with error #{e}"
           @poll_semaphore.release
