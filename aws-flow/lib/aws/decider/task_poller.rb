@@ -72,10 +72,10 @@ module AWS
           end
           @service.respond_decision_task_completed(task_completed_request)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
-          @logger.debug "Error in the poller, #{e}"
-          @logger.debug "The error class in #{e.class}"
+          @logger.error "Error in the poller, #{e}"
+          @logger.error "The error class in #{e.class}"
         rescue Exception => e
-          @logger.debug "Error in the poller, #{e}"
+          @logger.error "Error in the poller, #{e}"
         end
       end
     end
@@ -144,7 +144,7 @@ module AWS
             @service.respond_activity_task_completed(:task_token => task.task_token, :result => output)
           end
         rescue ActivityFailureException => e
-          @logger.debug "The activity failed, with original output of #{original_result} and dataconverted result of #{output}. aws-flow will now attempt to fail it."
+          @logger.error "The activity failed, with original output of #{original_result} and dataconverted result of #{output}. aws-flow will now attempt to fail it."
           respond_activity_task_failed_with_retry(task.task_token, e.message, e.details)
 
         end
@@ -247,10 +247,22 @@ module AWS
       #   object to process.
       #
       def process_single_task(task)
-        previous_config = @service.config.to_h
-        previous_config.delete(:http_handler)
-        @service = AWS::SimpleWorkflow.new(previous_config).client
-        @service = @service.with_http_handler(AWS::Core::Http::NetHttpHandler.new(previous_config))
+
+        # We are using the 'build' method to create a new ConnectionPool here to
+        # make sure that connection pools are not shared among forked processes.
+        # The default behavior of the ConnectionPool class is to cache a pool
+        # for a set of options created by the 'new' method and always use the 
+        # same pool for the same set of options. This is undesirable when
+        # multiple processes want to use different connection pools with same
+        # options as is the case here.
+        # Since we can't change the pool of an already existing NetHttpHandler,
+        # we also create a new NetHttpHandler in order to use the new pool.
+
+        options = @service.config.to_h
+        options[:connection_pool] = AWS::Core::Http::ConnectionPool.build(options[:http_handler].pool.options)
+        options[:http_handler] = AWS::Core::Http::NetHttpHandler.new(options)
+        @service = AWS::SimpleWorkflow.new(options).client
+
         begin
           begin
             execute(task)
@@ -266,7 +278,7 @@ module AWS
           end
         rescue Exception => e
           semaphore_needs_release = true
-          @logger.debug "Got into the other error mode"
+          @logger.error "Got into the other error mode"
           raise e
         ensure
           @poll_semaphore.release if semaphore_needs_release
@@ -291,18 +303,17 @@ module AWS
         @logger.debug "before the poll\n\n"
         # This is to warm the lazily loaded clients in the @service, so we don't
         # pay for their loading in every forked client
-        @service.config.to_h
         begin
           if use_forking
             @executor.block_on_max_workers
           end
           task = @domain.activity_tasks.poll_for_single_task(@task_list)
           if task
-            @logger.error "got a task, #{task.activity_type.name}"
-            @logger.error "The task token I got was: #{task.task_token}"
+            @logger.info "got a task, #{task.activity_type.name}"
+            @logger.info "The task token I got was: #{task.task_token}"
           end
         rescue Exception => e
-          @logger.debug "I have not been able to poll successfully, and am now bailing out, with error #{e}"
+          @logger.error "I have not been able to poll successfully, and am now bailing out, with error #{e}"
           @poll_semaphore.release
           return false
         end
