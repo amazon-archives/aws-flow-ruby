@@ -192,7 +192,12 @@ describe "RubyFlowDecider" do
       sleep 3
       workflow_type, _ = @domain.workflow_types.page(:per_page => 1000).select {|x| x.name == workflow_type_name}
 
-      workflow_execution = workflow_type.start_execution(:execution_start_to_close_timeout => 3600, :task_list => task_list, :task_start_to_close_timeout => 3600, :child_policy => :request_cancel)
+      workflow_execution = workflow_type.start_execution(
+        :execution_start_to_close_timeout => 3600,
+        :task_list => task_list,
+        :task_start_to_close_timeout => 3600,
+        :child_policy => :request_cancel
+      )
       worker.run_once
       activity_worker.run_once
       worker.run_once
@@ -246,7 +251,18 @@ describe "RubyFlowDecider" do
       activity_worker.register
       sleep 3
       workflow_id = "basic_activity_workflow"
-      run_id = @swf.client.start_workflow_execution(:execution_start_to_close_timeout => "3600", :task_list => {:name => task_list}, :task_start_to_close_timeout => "3600", :child_policy => "REQUEST_CANCEL", :workflow_type => {:name => workflow_type_name, :version => "1"}, :workflow_id => workflow_id, :domain => @domain.name.to_s)
+      run_id = @swf.client.start_workflow_execution(
+        :execution_start_to_close_timeout => "3600",
+        :task_list => {:name => task_list},
+        :task_start_to_close_timeout => "3600",
+        :child_policy => "REQUEST_CANCEL",
+        :workflow_type => {
+          :name => workflow_type_name,
+          :version => "1"
+        },
+        :workflow_id => workflow_id,
+        :domain => @domain.name.to_s
+      )
       workflow_execution = AWS::SimpleWorkflow::WorkflowExecution.new(@domain, workflow_id, run_id["runId"])
       @forking_executor = ForkingExecutor.new(:max_workers => 3)
       @forking_executor.execute { worker.start }
@@ -379,7 +395,12 @@ describe "RubyFlowDecider" do
       workflow_type_name = "LargeWorkflow.entry_point"
       workflow_type, _ = @domain.workflow_types.page(:per_page => 1000).select {|x| x.name == workflow_type_name}
 
-      workflow_execution = workflow_type.start_execution(:execution_start_to_close_timeout => 3600, :task_list => task_list, :task_start_to_close_timeout => 15, :child_policy => :request_cancel)
+      workflow_execution = workflow_type.start_execution(
+        :execution_start_to_close_timeout => 3600,
+        :task_list => task_list,
+        :task_start_to_close_timeout => 15,
+        :child_policy => :request_cancel
+      )
       @forking_executor = ForkingExecutor.new(:max_workers => 5)
       @forking_executor.execute { activity_worker.start }
 
@@ -508,7 +529,14 @@ describe "RubyFlowDecider" do
     @activity_class = Object.const_set("#{class_name}Activity", new_activity_class)
     new_workflow_class = Class.new(ParentWorkflow) do
       extend Workflows
-      workflow(:entry_point) { {:version => 1, :execution_start_to_close_timeout => 3600, :task_list => task_list , :prefix_name => "#{class_name}Workflow"} }
+      workflow(:entry_point) {
+        {
+          :version => 1,
+          :execution_start_to_close_timeout => 3600,
+          :task_list => task_list,
+          :prefix_name => "#{class_name}Workflow"
+        }
+      }
       def entry_point
         activity.run_activity1
       end
@@ -611,8 +639,8 @@ describe "RubyFlowDecider" do
         {
           :default_task_heartbeat_timeout => "3600",
           :default_task_list => task_list,
-          :task_schedule_to_start_timeout => 120,
-          :task_start_to_close_timeout => 120,
+          :default_task_schedule_to_start_timeout => 120,
+          :default_task_start_to_close_timeout => 120,
           :version => "1",
           :manual_completion => true
         }
@@ -1017,7 +1045,6 @@ describe "RubyFlowDecider" do
       @worker.run_once
       history = workflow_execution.events.map(&:event_type)
       history.last.should == "WorkflowExecutionFailed"
-      # Should look something like: ["WorkflowExecutionStarted", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "ActivityTaskScheduled", "ActivityTaskScheduled", "ActivityTaskStarted", "ActivityTaskFailed", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "ActivityTaskCancelRequested", "ActivityTaskCanceled", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "WorkflowExecutionFailed"]
       history.should include "ActivityTaskCancelRequested"
     end
 
@@ -1025,7 +1052,11 @@ describe "RubyFlowDecider" do
       general_test(:task_list => "exponential_retry_key", :class_name => "ExponentialRetryKey")
       @workflow_class.class_eval do
         def entry_point
-          activity.reconfigure(:run_activity1) { {:exponential_retry => {:maximum_attempts => 1}, :task_schedule_to_start_timeout => 5} }
+          activity.reconfigure(:run_activity1) {
+            {
+              :exponential_retry => {:maximum_attempts => 1},
+              :default_task_schedule_to_start_timeout => 5}
+          }
           activity.run_activity1
         end
       end
@@ -1319,9 +1350,9 @@ describe "RubyFlowDecider" do
     it "makes sure that you can have an asynchronous timer with a block" do
       general_test(:task_list => "async_timer_with_block", :class_name => "AsyncBlock")
       @activity_class.class_eval do
-        def run_activity2
+        def run_activity3
         end
-        activity :run_activity2 do |options|
+        activity :run_activity3 do |options|
           options.default_task_heartbeat_timeout = "3600"
           options.default_task_list = self.task_list
           options.version = "1"
@@ -1330,7 +1361,7 @@ describe "RubyFlowDecider" do
       @workflow_class.class_eval do
         def entry_point
           create_timer_async(5) { activity.run_activity1 }
-          activity.run_activity2
+          activity.run_activity3
         end
       end
       @activity_worker = ActivityWorker.new(@swf.client, @domain, "async timer with block", AsyncBlockActivity)
@@ -1346,7 +1377,7 @@ describe "RubyFlowDecider" do
       history_events = @workflow_execution.events.to_a
       history_events[activity_scheduled.first - 1].event_type == "TimerStarted" ||
         history_events[activity_scheduled.first + 1].event_type == "TimerStarted"
-      history_events[activity_scheduled.first].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity2"
+      history_events[activity_scheduled.first].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity3"
       history_events[activity_scheduled.last].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity1"
     end
 
@@ -2115,7 +2146,6 @@ describe "RubyFlowDecider" do
     # Sleep to give the threads some time to compute, as we'll run right out of
     # the test before they can run otherwise
     sleep 50
-    p workflow_execution.events.to_a
     workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
   end
 
@@ -2228,7 +2258,6 @@ describe "RubyFlowDecider" do
     #     end
     #   end
     # end
-    # debugger
 
     worker.run_once
     activity_worker.run_once
@@ -2384,7 +2413,9 @@ describe "RubyFlowDecider" do
             options.version = "1"
             options.task_list = "client_test_async2"
           end
-          client.send_async(:start_execution, arg) { {:task_start_to_close_timeout => 35 } }
+          client.send_async(:start_execution, arg) {
+            { :task_start_to_close_timeout => 35 }
+          }
           client.send_async(:start_execution, arg)
         end
       end
@@ -3081,12 +3112,12 @@ describe "RubyFlowDecider" do
   it "ensures you can use manual completion" do
     general_test(:task_list => "manual_completion", :class_name => "ManualCompletion")
     @activity_class.class_eval do
-      activity :run_activity1 do
+      activity :run_activity3 do
         {
           :default_task_heartbeat_timeout => "3600",
           :default_task_list => task_list,
-          :task_schedule_to_start_timeout => 120,
-          :task_start_to_close_timeout => 120,
+          :default_task_schedule_to_start_timeout => 120,
+          :default_task_start_to_close_timeout => 120,
           :version => "1",
           :manual_completion => true
         }
@@ -3096,7 +3127,7 @@ describe "RubyFlowDecider" do
     activity_worker.register
     @workflow_class.class_eval do
       def entry_point
-        activity.run_activity1
+        activity.run_activity3
       end
     end
     workflow_execution = @my_workflow_client.start_execution

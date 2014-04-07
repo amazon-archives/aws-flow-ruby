@@ -473,6 +473,14 @@ module AWS
     # Defaults for the {ActivityOptions} class.
     class ActivityDefaults < Defaults
 
+      # The default schedule-to-start timeout for activity tasks. This timeout
+      # represents the time, in seconds, between when the activity task is first
+      # scheduled to when it is started.
+      #
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
+      def default_task_schedule_to_start_timeout; Float::INFINITY; end
+
       # The default schedule-to-close timeout for activity tasks. This timeout
       # represents the time, in seconds, between when the activity task is first
       # scheduled to when it is closed (whether due to success, failure, or a
@@ -480,8 +488,16 @@ module AWS
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
-      #
       def default_task_schedule_to_close_timeout;  Float::INFINITY; end
+
+      # The default start-to-close timeout for activity tasks. This timeout
+      # represents the time, in seconds, between when the activity task is first
+      # started to when it is closed (whether due to success, failure, or a
+      # timeout).
+      #
+      # This default can be overridden when scheduling an activity task. You can
+      # set this value to "NONE" to imply no timeout value.
+      def default_task_start_to_close_timeout; Float::INFINITY; end
 
       # The default maximum time, in seconds, before which a worker processing a
       # task of this type must report progress.  If the timeout is exceeded, the
@@ -490,34 +506,14 @@ module AWS
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
-      #
       def default_task_heartbeat_timeout; Float::INFINITY; end
-
-      # The default schedule-to-close timeout. This timeout represents the time
-      # between when the activity task is first scheduled to when it is closed
-      # (whether due to success, failure, or a timeout).
-      #
-      # This default can be overridden when scheduling an activity task. You can
-      # set this value to "NONE" to imply no timeout value.
-      #
-      def schedule_to_close_timeout; Float::INFINITY; end
-
-      # The default maximum time before which a worker processing a task of this
-      # type must report progress. If the timeout is exceeded, the activity task
-      # is automatically timed out. If the worker subsequently attempts to
-      # record a heartbeat or returns a result, it will be ignored. This default
-      # can be overridden when scheduling an activity task.
-      #
-      # This default can be overridden when scheduling an activity task. You can
-      # set this value to "NONE" to imply no timeout value.
-      #
-      def heartbeat_timeout; Float::INFINITY; end
 
       def data_converter; FlowConstants.default_data_converter; end
     end
 
 
-    # Options to use on an activity or decider. The following options are defined:
+    # Options to use on an activity or decider. The following options are
+    # defined:
     #
     # @!attribute default_task_heartbeat_timeout
     #   The optional default maximum time, specified when registering the
@@ -571,7 +567,13 @@ module AWS
       class << self
         attr_reader :default_options,  :runtime_options
       end
-      properties(:default_task_heartbeat_timeout, :default_task_list, :default_task_schedule_to_close_timeout, :default_task_schedule_to_start_timeout, :default_task_start_to_close_timeout, :heartbeat_timeout, :task_list, :schedule_to_close_timeout, :schedule_to_start_timeout, :start_to_close_timeout, :version, :input)
+      properties(:default_task_heartbeat_timeout, :default_task_list,
+                 :default_task_schedule_to_close_timeout,
+                 :default_task_schedule_to_start_timeout,
+                 :default_task_start_to_close_timeout, :heartbeat_timeout,
+                 :task_list, :schedule_to_close_timeout,
+                 :schedule_to_start_timeout, :start_to_close_timeout, :version,
+                 :input)
       property(:manual_completion, [lambda {|x| x == true}])
       property(:data_converter, [])
 
@@ -657,7 +659,8 @@ module AWS
         super(default_options, use_defaults)
       end
 
-      # Retrieves the runtime options for this activity. The runtime options returned are:
+      # Retrieves the runtime options for this activity. The runtime options
+      # returned are:
       #
       # * :heartbeat_timeout
       # * :task_list
@@ -671,8 +674,17 @@ module AWS
       #   The runtime option names and their current values.
       #
       def get_runtime_options
-        result = get_options([:heartbeat_timeout, :task_list, :schedule_to_close_timeout, :schedule_to_start_timeout, :start_to_close_timeout])
-        default_options = get_options([:default_task_heartbeat_timeout, :default_task_schedule_to_close_timeout, :default_task_schedule_to_start_timeout, :default_task_start_to_close_timeout])
+
+        result = get_options([:heartbeat_timeout, :task_list,
+                              :schedule_to_close_timeout,
+                              :schedule_to_start_timeout,
+                              :start_to_close_timeout])
+
+        default_options = get_options([:default_task_heartbeat_timeout,
+                                       :default_task_schedule_to_close_timeout,
+                                       :default_task_schedule_to_start_timeout,
+                                       :default_task_start_to_close_timeout])
+
         default_option_keys, default_option_values = default_options.keys, default_options.values
         default_option_keys.map! { |option| option.to_s.gsub(/default_task_/, "").to_sym }
         default_hash = Hash[default_option_keys.zip(default_option_values)]
