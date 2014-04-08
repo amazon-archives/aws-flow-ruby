@@ -338,7 +338,7 @@ module AWS
       #   A block of {WorkflowOptions} for the workflow.
       #
       def workflow(entry_point, &block)
-        options = Utilities::interpret_block_for_options(WorkflowOptionsWithDefaults, block)
+        options = Utilities::interpret_block_for_options(WorkflowOptions, block)
         options.execution_method = entry_point
         workflow_name = options.prefix_name || self.to_s
         workflow_type = WorkflowType.new(workflow_name.to_s + "." + entry_point.to_s, options.version, options)

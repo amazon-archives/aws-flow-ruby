@@ -25,6 +25,69 @@ module AWS
       end
     end
 
+    # This module refactors out some of the common methods for the Options
+    # classes. Any class including this module should implement
+    # make_runtime_key method and default_keys method. default_keys method
+    # provides an array of keys that are considered to be the default options
+    # for that class. make_runtime_key method converts a passed in default key
+    # to it's corresponding runtime key.
+    module OptionsMethods
+
+      # Retrieves the runtime values for the default options
+      #
+      # @return [Hash]
+      #   The runtime option names and their current values.
+      #
+      def get_runtime_options
+        runtime_options = {}
+        # For the default values that are present, convert the default keys into
+        # runtime keys. i.e. remove 'default_' and 'default_task_' from the key
+        # name and merge their values with the default values
+        get_default_options.each do |key, val|
+          new_key = make_runtime_key(key)
+          new_val = get_options([new_key])
+          runtime_options[new_key] = new_val.empty? ? val : new_val.values.first
+        end
+        runtime_options
+      end
+
+      # Retrieves the default options.
+      #
+      # @return [Hash]
+      #   A hash containing the default option names and their current values.
+      #
+      def get_default_options
+        # Get the default options
+        get_options(default_keys)
+      end
+
+      # Retrieves full options. It merges the runtime options with the remaining
+      # options
+      #
+      # @return [Hash]
+      #   A hash containing the full option names and their current values.
+      #
+      def get_full_options
+        # Initialize an empty hash
+        options_hash = {}
+
+        # Get all the properties held by this class
+        options_keys = self.class.held_properties
+
+        # Remove the unnecessary options (i.e. options not recognized by swf but
+        # only by flow) from the options_keys array.
+        default_keys.concat([:from_class]).each { |x| options_keys.delete(x) }
+
+        # If the value for an option is held by the class, get it and store it
+        # in a hash
+        options_keys.each do |option|
+          options_hash[option] = self.send(option) if self.send(option)
+        end
+        # Merge the options_hash with the runtime options
+        options_hash.merge(self.get_runtime_options)
+      end
+    end
+
     # The base class for all options classes in the AWS Flow Framework for Ruby.
     class Options
       extend Utilities::UpwardLookups
@@ -40,7 +103,9 @@ module AWS
       def self.inherited(child)
         child.precursors ||= []
         default_classes = child.ancestors.map do |precursor|
-          precursor.default_classes if precursor.methods.map(&:to_sym).include? :default_classes
+          if precursor.methods.map(&:to_sym).include? :default_classes
+            precursor.default_classes
+          end
         end.compact.flatten
         child.instance_variable_set("@default_classes", default_classes)
       end
@@ -69,8 +134,15 @@ module AWS
       #
       def get_options(options, extra_to_add = {})
         options = self.class.held_properties.compact if options.empty?
-        set_options = options.select {|option| self.send(option) != nil && self.send(option) != "" }
-        option_values = set_options.map {|option| self.send(option) == Float::INFINITY ? "NONE" : self.send(option) }
+
+        set_options = options.select do |option|
+          self.send(option) != nil && self.send(option) != ""
+        end
+
+        option_values = set_options.map do |option|
+          self.send(option) == Float::INFINITY ? "NONE" : self.send(option)
+        end
+
         result = Hash[set_options.zip(option_values)]
         result.merge(extra_to_add)
       end
@@ -280,17 +352,19 @@ module AWS
       end
     end
 
-    # Exponential retry options for the {ActivityClient#exponential_retry} method.
+    # Exponential retry options for the {ActivityClient#exponential_retry}
+    # method.
     class ExponentialRetryOptions < RetryOptions
       default_classes << RetryDefaults.new
 
-      # The backoff coefficient to use. This is a floating point value that is multiplied with the current retry
-      # interval after every retry attempt.  The default value is `2.0`, which means that each retry will take twice as
-      # long as the previous one.
+      # The backoff coefficient to use. This is a floating point value that is
+      # multiplied with the current retry interval after every retry attempt.
+      # The default value is `2.0`, which means that each retry will take twice
+      # as long as the previous one.
       property(:backoff_coefficient, [lambda(&:to_i)])
 
-      # The retry expiration interval, in seconds. This will be increased after every retry attempt by the factor
-      # provided in `backoff_coefficient`.
+      # The retry expiration interval, in seconds. This will be increased after
+      # every retry attempt by the factor provided in `backoff_coefficient`.
       property(:retry_expiration_interval_seconds, [lambda(&:to_i)])
 
       # @api private
@@ -306,10 +380,10 @@ module AWS
 
       # The default task start-to-close timeout duration. The default value is
       # `30`.
-      def task_start_to_close_timeout; 30; end
+      def default_task_start_to_close_timeout; 30; end
 
       # The default child workflow policy. The default value is `TERMINATE`.
-      def child_policy; :TERMINATE; end
+      def default_child_policy; "TERMINATE"; end
 
       # Returns a list of tags for the workflow. The default value is an empty
       # array (no tags).
@@ -411,44 +485,47 @@ module AWS
     #   * It must not contain the literal string "arn".
     #
     class WorkflowOptions < Options
-      properties(:version, :input, :workflow_id, :execution_start_to_close_timeout, :task_start_to_close_timeout, :task_list, :execution_method)
+      include OptionsMethods
+
+      properties(
+        :version,
+        :input,
+        :workflow_id,
+        :execution_start_to_close_timeout,
+        :task_start_to_close_timeout,
+        :task_list,
+        :execution_method
+      )
+
+      # Adding default properties
+      properties(
+        :default_task_start_to_close_timeout,
+        :default_execution_start_to_close_timeout,
+        :default_task_list
+      )
+      property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
+
+
       property(:tag_list, [])
       property(:child_policy, [lambda(&:to_s), lambda(&:upcase)])
       property(:data_converter, [])
+
       default_classes << WorkflowDefaults.new
 
-      # Returns a hash containing the runtime workflow options.
-      #
-      # @return [Hash] A hash of options with corresponding values.
-      #
-      def get_full_options
-        result = {}
-        usable_properties = self.class.held_properties
-        usable_properties.delete(:from_class)
-        usable_properties.each do |option|
-          result[option] = self.send(option) if self.send(option) && self.send(option) != ""
-        end
-        result
+      # This method provides the default option keys for workflows
+      def default_keys
+        [:default_task_start_to_close_timeout,
+         :default_execution_start_to_close_timeout,
+         :default_task_list,
+         :default_child_policy]
       end
-    end
 
-    # Provides the set of workflow options along with defaults.
-    #
-    # @!attribute default_task_start_to_close_timeout
-    #   (see WorkflowDefaults#task_start_to_close_timeout)
-    #
-    # @!attribute default_execution_start_to_close_timeout
-    #   (see WorkflowDefaults#execution_start_to_close_timeout)
-    #
-    # @!attribute default_task_list
-    #   (see WorkflowOptions#task_list)
-    #
-    # @!attribute default_child_policy
-    #   (see WorkflowDefaults#child_policy)
-    #
-    class WorkflowOptionsWithDefaults < WorkflowOptions
-      properties(:default_task_start_to_close_timeout, :default_execution_start_to_close_timeout, :default_task_list)
-      property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
+      # This method converts default option keys to runtime keys by replacing
+      # "default_" in the key name
+      def make_runtime_key(key)
+        key.to_s.gsub(/default_/, "").to_sym
+      end
+
     end
 
     # Options for {WorkflowClient#start_execution}.
@@ -563,21 +640,51 @@ module AWS
     #   decision.
     #
     class ActivityOptions < Options
+      include OptionsMethods
 
-      class << self
-        attr_reader :default_options,  :runtime_options
-      end
-      properties(:default_task_heartbeat_timeout, :default_task_list,
-                 :default_task_schedule_to_close_timeout,
-                 :default_task_schedule_to_start_timeout,
-                 :default_task_start_to_close_timeout, :heartbeat_timeout,
-                 :task_list, :schedule_to_close_timeout,
-                 :schedule_to_start_timeout, :start_to_close_timeout, :version,
-                 :input)
+      properties(
+        :heartbeat_timeout,
+        :task_list,
+        :schedule_to_close_timeout,
+        :schedule_to_start_timeout,
+        :start_to_close_timeout,
+        :version,
+        :input
+      )
+
+      # Adding default properties
+      properties(
+        :default_task_heartbeat_timeout,
+        :default_task_list,
+        :default_task_schedule_to_close_timeout,
+        :default_task_schedule_to_start_timeout,
+        :default_task_start_to_close_timeout,
+      )
+
       property(:manual_completion, [lambda {|x| x == true}])
       property(:data_converter, [])
 
       default_classes << ActivityDefaults.new
+
+      # This method provides the default option keys for activities
+      def default_keys
+        [:default_task_heartbeat_timeout,
+         :default_task_schedule_to_close_timeout,
+         :default_task_schedule_to_start_timeout,
+         :default_task_start_to_close_timeout,
+         :default_task_list]
+      end
+
+      # This method converts default option keys to runtime keys by replacing
+      # "default_task_" in the key name. It handles the exception of task_list
+      # where only "default_" needs to be replaced.
+      def make_runtime_key(key)
+        if key =~ /task_list/
+          key.to_s.gsub(/default_/, "").to_sym
+        else
+          key.to_s.gsub(/default_task_/, "").to_sym
+        end
+      end
 
       # Gets the activity prefix name.
       #
@@ -659,38 +766,6 @@ module AWS
         super(default_options, use_defaults)
       end
 
-      # Retrieves the runtime options for this activity. The runtime options
-      # returned are:
-      #
-      # * :heartbeat_timeout
-      # * :task_list
-      # * :schedule_to_close_timeout
-      # * :schedule_to_start_timeout
-      # * :start_to_close_timeout
-      #
-      # For a description of each of these options, see {#initialize}.
-      #
-      # @return [Hash]
-      #   The runtime option names and their current values.
-      #
-      def get_runtime_options
-
-        result = get_options([:heartbeat_timeout, :task_list,
-                              :schedule_to_close_timeout,
-                              :schedule_to_start_timeout,
-                              :start_to_close_timeout])
-
-        default_options = get_options([:default_task_heartbeat_timeout,
-                                       :default_task_schedule_to_close_timeout,
-                                       :default_task_schedule_to_start_timeout,
-                                       :default_task_start_to_close_timeout])
-
-        default_option_keys, default_option_values = default_options.keys, default_options.values
-        default_option_keys.map! { |option| option.to_s.gsub(/default_task_/, "").to_sym }
-        default_hash = Hash[default_option_keys.zip(default_option_values)]
-        default_hash.merge(result)
-      end
-
       property(:_exponential_retry, [])
 
       # Retries the supplied block with exponential retry logic.
@@ -701,35 +776,6 @@ module AWS
       def exponential_retry(&block)
         retry_options = Utilities::interpret_block_for_options(ExponentialRetryOptions, block)
         @_exponential_retry = retry_options
-      end
-
-      # Retrieves the runtime options for this activity.
-      #
-      # @return [Hash]
-      #   A hash containing the runtime option names and their current values.
-      #
-      def get_full_options
-        options_hash = self.get_runtime_options
-        [:task_list, :version, :_exponential_retry, :prefix_name, :return_on_start, :manual_completion, :data_converter].each do |attribute|
-          options_hash.merge!(attribute => self.send(attribute)) if self.send(attribute)
-        end
-        options_hash
-      end
-
-      # Retrieves the default options for this activity.
-      #
-      # @return [Hash]
-      #   A hash containing the default option names and their current values.
-      #
-      #   The options retrieved are:
-      #
-      #   * :default_task_heartbeat_timeout
-      #   * :default_task_schedule_to_close_timeout
-      #   * :default_task_schedule_to_start_timeout
-      #   * :default_task_start_to_close_timeout
-      #
-      def get_default_options
-        get_options([:default_task_heartbeat_timeout, :default_task_schedule_to_close_timeout, :default_task_schedule_to_start_timeout, :default_task_start_to_close_timeout])
       end
     end
 

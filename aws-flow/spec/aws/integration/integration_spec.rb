@@ -532,7 +532,7 @@ describe "RubyFlowDecider" do
       workflow(:entry_point) {
         {
           :version => 1,
-          :execution_start_to_close_timeout => 3600,
+          :execution_start_to_close_timeout => 120,
           :task_list => task_list,
           :prefix_name => "#{class_name}Workflow"
         }
@@ -1045,6 +1045,13 @@ describe "RubyFlowDecider" do
       @worker.run_once
       history = workflow_execution.events.map(&:event_type)
       history.last.should == "WorkflowExecutionFailed"
+      # Should look something like: ["WorkflowExecutionStarted",
+      # "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted",
+      # "ActivityTaskScheduled", "ActivityTaskScheduled", "ActivityTaskStarted",
+      # "ActivityTaskFailed", "DecisionTaskScheduled", "DecisionTaskStarted",
+      # "DecisionTaskCompleted", "ActivityTaskCancelRequested",
+      # "ActivityTaskCanceled", "DecisionTaskScheduled", "DecisionTaskStarted",
+      # "DecisionTaskCompleted", "WorkflowExecutionFailed"]
       history.should include "ActivityTaskCancelRequested"
     end
 
@@ -1349,19 +1356,10 @@ describe "RubyFlowDecider" do
     end
     it "makes sure that you can have an asynchronous timer with a block" do
       general_test(:task_list => "async_timer_with_block", :class_name => "AsyncBlock")
-      @activity_class.class_eval do
-        def run_activity3
-        end
-        activity :run_activity3 do |options|
-          options.default_task_heartbeat_timeout = "3600"
-          options.default_task_list = self.task_list
-          options.version = "1"
-        end
-      end
       @workflow_class.class_eval do
         def entry_point
           create_timer_async(5) { activity.run_activity1 }
-          activity.run_activity3
+          activity.run_activity2
         end
       end
       @activity_worker = ActivityWorker.new(@swf.client, @domain, "async timer with block", AsyncBlockActivity)
@@ -1377,7 +1375,7 @@ describe "RubyFlowDecider" do
       history_events = @workflow_execution.events.to_a
       history_events[activity_scheduled.first - 1].event_type == "TimerStarted" ||
         history_events[activity_scheduled.first + 1].event_type == "TimerStarted"
-      history_events[activity_scheduled.first].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity3"
+      history_events[activity_scheduled.first].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity2"
       history_events[activity_scheduled.last].attributes[:activity_type].name.should == "AsyncBlockActivity.run_activity1"
     end
 
@@ -3111,23 +3109,16 @@ describe "RubyFlowDecider" do
 
   it "ensures you can use manual completion" do
     general_test(:task_list => "manual_completion", :class_name => "ManualCompletion")
-    @activity_class.class_eval do
-      activity :run_activity3 do
-        {
-          :default_task_heartbeat_timeout => "3600",
-          :default_task_list => task_list,
-          :default_task_schedule_to_start_timeout => 120,
-          :default_task_start_to_close_timeout => 120,
-          :version => "1",
-          :manual_completion => true
-        }
-      end
-    end
+
     activity_worker = ActivityWorker.new(@swf.client, @domain, "manual_completion", @activity_class)
     activity_worker.register
     @workflow_class.class_eval do
+      activity_client(:activity1) { {
+        from_class: self.activity_class,
+        manual_completion: true
+      } }
       def entry_point
-        activity.run_activity3
+        activity.run_activity2
       end
     end
     workflow_execution = @my_workflow_client.start_execution
