@@ -363,7 +363,7 @@ module AWS
 
         task_list = options[:task_list]
         options[:task_list] = { :name => task_list } if options[:task_list]
-        options[:workflow_id] ||= UUIDTools::UUID.random_create.to_s
+        options[:workflow_id] ||= SecureRandom.uuid
         options[:domain] = @domain.name
         options[:workflow_type] = {
           :name => workflow_type_name.to_s,

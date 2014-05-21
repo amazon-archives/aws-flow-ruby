@@ -1473,7 +1473,25 @@ describe "Misc tests" do
     end
     previous_hash.should == previous_hash_copy
   end
+
+  it "makes sure we can remove depedency on UUIDTools" do
+    require "securerandom"
+    # first check if SecureRandom.uuid returns uuid in the right format
+    regex = /[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/
+    SecureRandom.uuid.should match(regex)
+
+    class FakeWorkflowExecutionCollecton
+      def at(workflow_id, run_id); FakeWorkflowExecution.new(run_id, workflow_id); end
+    end
+
+    # Now check if the uuid is correctly set in start_external_workflow method
+    workflow_type = WorkflowType.new(nil, "TestWorkflow.entry_point", "1")
+    client = AWS::Flow::WorkflowClient.new(FakeServiceClient.new, FakeDomain.new(workflow_type), TestWorkflow, WorkflowOptions.new)
+    workflow = client.start_external_workflow
+    workflow.workflow_id.should match(regex)
+  end
 end
+
 
 describe FlowConstants do
   options = {

@@ -243,7 +243,7 @@ module AWS
     #   Sets or returns the {WorkflowOptions} for this decider.
     #
     module Workflows
-      attr_accessor :version, :options
+      attr_accessor :version
       extend Utilities::UpwardLookups
       @precursors = []
       def look_upwards(variable)

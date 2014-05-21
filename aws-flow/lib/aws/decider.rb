@@ -17,6 +17,8 @@ require 'aws/flow'
 include AWS::Flow::Core
 
 require 'aws-sdk'
+require 'securerandom'
+
 # Setting the user-agent as ruby-flow for all calls to the service
 AWS.config(:user_agent_prefix => "ruby-flow")
 
