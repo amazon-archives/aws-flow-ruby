@@ -13,6 +13,8 @@
 # permissions and limitations under the License.
 #++
 
+require 'uuidtools'
+
 module AWS
   module Flow
 

@@ -12,4 +12,5 @@ Gem::Specification.new do |s|
   s.require_paths << "lib/aws/"
   s.add_dependency "aws-sdk", "~> 1", ">= 1.36.2"
   s.add_dependency "aws-flow-core", ">= 1.0.1"
+  s.add_dependency "uuidtools"
 end
