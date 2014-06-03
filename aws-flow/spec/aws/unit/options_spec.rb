@@ -69,7 +69,7 @@ end
 
 describe AWS::Flow::ActivityOptions do
   context "#defaults" do
-    it "should be initialized with NONE" do
+    it "should be initialized correctly" do
       options = AWS::Flow::ActivityOptions.new
       options.default_task_schedule_to_start_timeout.should == "NONE"
       options.default_task_schedule_to_close_timeout.should == "NONE"
@@ -104,6 +104,20 @@ describe AWS::Flow::ActivityOptions do
       options.default_task_start_to_close_timeout.should == "NONE"
       options.default_task_heartbeat_timeout.should == "NONE"
     end
+
+    it "should not override non default values when non default values are set" do
+      options = AWS::Flow::ActivityOptions.new
+      options.schedule_to_start_timeout = 20
+      options.schedule_to_close_timeout = 50
+      options.start_to_close_timeout = 30
+      options.heartbeat_timeout = 5
+
+      options.schedule_to_start_timeout.should == "20"
+      options.schedule_to_close_timeout.should == "50"
+      options.start_to_close_timeout.should == "30"
+      options.heartbeat_timeout.should == "5"
+    end
+
 
   end
 
@@ -170,6 +184,18 @@ describe AWS::Flow::WorkflowOptions do
       options.default_execution_start_to_close_timeout.nil?.should == true
       options.default_child_policy.should == "TERMINATE"
     end
+
+    it "should not override non default values when non default values are set" do
+      options = AWS::Flow::WorkflowOptions.new
+      options.task_start_to_close_timeout = 20
+      options.execution_start_to_close_timeout = 120
+      options.child_policy = "ABANDON"
+
+      options.task_start_to_close_timeout.should == "20"
+      options.execution_start_to_close_timeout.should == "120"
+      options.child_policy.should == "ABANDON"
+    end
+
   end
 
   context "#default_keys" do
