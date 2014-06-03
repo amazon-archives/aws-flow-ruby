@@ -44,26 +44,30 @@ module AWS
         @domain = domain
         @task_list = task_list
         @logger = options.logger if options
-        @logger ||= Utilities::LogFactory.make_logger(self, "debug")
+        @logger ||= Utilities::LogFactory.make_logger(self)
       end
 
 
 
+      # @api private
       # Retrieves any decision tasks that are ready.
-      def get_decision_tasks
+      def get_decision_task
         @domain.decision_tasks.poll_for_single_task(@task_list)
       end
 
       def poll_and_process_single_task
         # TODO waitIfSuspended
         begin
-          @logger.debug "Starting a new task...\n\n\n"
-          tasks = get_decision_tasks
-          return false if tasks.nil?
-          @logger.debug "We have this many tasks #{tasks}"
-          @logger.debug "debugging on #{tasks}\n"
-          task_completed_request = @handler.handle_decision_task(tasks)
-          @logger.debug "task to be responded to with #{task_completed_request}\n"
+          @logger.debug "Polling for a new decision task of type #{@handler.workflow_definition_map.keys.map{ |x| "#{x.name} #{x.version}"} } on task_list: #{@task_list}"
+          task = get_decision_task
+          if task.nil?
+            @logger.debug "Didn't get a task on task_list: #{@task_list}"
+            return false
+          end
+          @logger.info Utilities.workflow_task_to_debug_string("Got decision task", task)
+
+          task_completed_request = @handler.handle_decision_task(task)
+          @logger.debug "Response to the task will be #{task_completed_request}"
           if !task_completed_request[:decisions].empty? && (task_completed_request[:decisions].first.keys.include?(:fail_workflow_execution_decision_attributes))
             fail_hash = task_completed_request[:decisions].first[:fail_workflow_execution_decision_attributes]
             reason = fail_hash[:reason]
@@ -71,11 +75,11 @@ module AWS
             @logger.debug "#{reason}, #{details}"
           end
           @service.respond_decision_task_completed(task_completed_request)
+          @logger.info Utilities.workflow_task_to_debug_string("Finished executing task", task)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
-          @logger.error "Error in the poller, #{e}"
-          @logger.error "The error class in #{e.class}"
+          @logger.error "Error in the poller, #{e.class}, #{e}"
         rescue Exception => e
-          @logger.error "Error in the poller, #{e}"
+          @logger.error "Error in the poller, #{e.class}, #{e}"
         end
       end
     end
@@ -118,7 +122,7 @@ module AWS
         @task_list = task_list
         @activity_definition_map = activity_definition_map
         @logger = options.logger if options
-        @logger ||= Utilities::LogFactory.make_logger(self, "debug")
+        @logger ||= Utilities::LogFactory.make_logger(self)
         @executor = executor
       end
 
@@ -133,20 +137,35 @@ module AWS
         activity_type = task.activity_type
         begin
           context = ActivityExecutionContext.new(@service, @domain, task)
-          activity_implementation = @activity_definition_map[activity_type]
-          raise "This activity worker was told to work on activity type #{activity_type.name}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}" unless activity_implementation
+          unless activity_implementation = @activity_definition_map[activity_type]
+            raise "This activity worker was told to work on activity type #{activity_type.name}.#{activity_type.version}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}"
+          end
+
           output, original_result, too_large = activity_implementation.execute(task.input, context)
-          @logger.debug "Responding on task_token #{task.task_token} for task #{task}"
+
+           @logger.debug "Responding on task_token #{task.task_token} for task #{task}."
           if too_large
-            @logger.warn "The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{original_result}"
-            respond_activity_task_failed_with_retry(task.task_token, "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.", output)
+            @logger.error "Activity #{activity_type.name}.#{activity_type.version} failed: The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{original_result}"
+
+            respond_activity_task_failed_with_retry(
+              task.task_token,
+              "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.",
+              output
+            )
           elsif ! activity_implementation.execution_options.manual_completion
-            @service.respond_activity_task_completed(:task_token => task.task_token, :result => output)
+            @service.respond_activity_task_completed(
+              :task_token => task.task_token,
+              :result => output
+            )
           end
         rescue ActivityFailureException => e
-          @logger.error "The activity failed, with original output of #{original_result} and dataconverted result of #{output}. aws-flow will now attempt to fail it."
-          respond_activity_task_failed_with_retry(task.task_token, e.message, e.details)
+          @logger.error "Activity #{activity_type.name}.#{activity_type.version} with input #{task.input} failed with exception #{e}."
 
+          respond_activity_task_failed_with_retry(
+            task.task_token,
+            e.message,
+            e.details
+          )
         end
         #TODO all the completion stuffs
       end
@@ -267,10 +286,10 @@ module AWS
           begin
             execute(task)
           rescue CancellationException => e
+            @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}."
             respond_activity_task_canceled_with_retry(task.task_token, e.message)
           rescue Exception => e
-            @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}"
-            @logger.error "Full stack trace: #{e.backtrace}"
+            @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}. Full stack trace: #{e.backtrace}"
             respond_activity_task_failed_with_retry(task.task_token, e.message, e.backtrace)
             #Do rescue stuff
           ensure
@@ -278,7 +297,7 @@ module AWS
           end
         rescue Exception => e
           semaphore_needs_release = true
-          @logger.error "Got into the other error mode"
+          @logger.error "Got into the other error mode: #{e}"
           raise e
         ensure
           @poll_semaphore.release if semaphore_needs_release
@@ -300,26 +319,23 @@ module AWS
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
-        @logger.debug "before the poll\n\n"
-        # This is to warm the lazily loaded clients in the @service, so we don't
-        # pay for their loading in every forked client
+        @logger.debug "Before the poll"
         begin
           if use_forking
             @executor.block_on_max_workers
           end
+          @logger.debug "Polling for a new activity task of type #{@activity_definition_map.keys.map{ |x| "#{x.name} #{x.version}"} } on task_list: #{@task_list}"
           task = @domain.activity_tasks.poll_for_single_task(@task_list)
           if task
-            @logger.info "got a task, #{task.activity_type.name}"
-            @logger.info "The task token I got was: #{task.task_token}"
+            @logger.info Utilities.activity_task_to_debug_string("Got activity task", task)
           end
         rescue Exception => e
-          @logger.error "I have not been able to poll successfully, and am now bailing out, with error #{e}"
+          @logger.error "Error in the poller, #{e.class}, #{e}"
           @poll_semaphore.release
           return false
         end
         if task.nil?
-          "Still polling at #{Time.now}, but didn't get anything"
-          @logger.debug "Still polling at #{Time.now}, but didn't get anything"
+          @logger.debug "Didn't get a task on task_list: #{@task_list}"
           @poll_semaphore.release
           return false
         end
@@ -329,8 +345,7 @@ module AWS
         else
           process_single_task(task)
         end
-        # process_single_task(task)
-        @logger.debug "finished executing the task"
+        @logger.info Utilities.activity_task_to_debug_string("Finished executing task", task)
         return true
       end
     end

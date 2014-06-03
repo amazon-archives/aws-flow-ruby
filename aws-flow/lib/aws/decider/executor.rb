@@ -50,9 +50,7 @@ module AWS
 
       def initialize(options = {})
         unless @log = options[:logger]
-          @log = Logger.new("#{Dir.tmpdir}/forking_log")
-          @log.level = options[:log_level] || Logger::ERROR
-          @log.info("LOG INITIALIZED")
+          @log = Utilities::LogFactory.make_logger(self)
         end
         @semaphore = Mutex.new
         @max_workers = options[:max_workers] || 1
@@ -63,38 +61,38 @@ module AWS
       end
 
       def execute(&block)
-        @log.info "Here are the pids that are currently running #{@pids}"
+        @log.debug "Currently running pids: #{@pids}"
         raise RejectedExecutionException if @is_shutdown
         block_on_max_workers
-        @log.debug "PARENT BEFORE FORK #{Process.pid}"
+        @log.debug "Creating a new child process: parent=#{Process.pid}"
         child_pid = fork do
           begin
-            @log.debug "CHILD #{Process.pid}"
+            @log.debug "Inside the new child process: parent=#{Process.ppid}, child_pid=#{Process.pid}"
             # TODO: which signals to ignore?
             # ignore signals in the child
             %w{ TERM INT HUP SIGUSR2 }.each { |signal| Signal.trap(signal, 'SIG_IGN') }
+            @log.debug "Executing block from child process: parent=#{Process.ppid}, child_pid=#{Process.pid}"
             block.call
-            @log.debug "CHILD #{Process.pid} AFTER block.call"
+            @log.debug "Exiting from child process: parent=#{Process.ppid}, child_pid=#{Process.pid}"
             Process.exit!(0)
           rescue => e
-            @log.error e
-            @log.error "Definitely dying off right here"
+            @log.error "child_pid=#{Process.pid} failed while executing the task: #{e}. Exiting: parent=#{Process.ppid}, child_pid=#{Process.pid}"
             Process.exit!(1)
           end
         end
-        @log.debug "PARENT AFTER FORK #{Process.pid}, child_pid=#{child_pid}"
+        @log.debug "Created a new child process: parent=#{Process.pid}, child_pid=#{child_pid}"
         @pids << child_pid
       end
 
       def shutdown(timeout_seconds)
+        @log.debug "Shutdown requested. Currently running pids: #{@pids}"
         @is_shutdown = true
         remove_completed_pids
 
         unless @pids.empty?
-          @log.info "Exit requested, waiting up to #{timeout_seconds} seconds for child processes to finish"
-
-          # If the timeout_seconds value is set to Float::INFINITY, it will wait indefinitely till all workers finish
-          # their work. This allows us to handle graceful shutdown of workers.
+          # If the timeout_seconds value is set to Float::INFINITY, it will wait
+          # indefinitely till all workers finish their work. This allows us to
+          # handle graceful shutdown of workers.
           if timeout_seconds == Float::INFINITY
             @log.info "Exit requested, waiting indefinitely till all child processes finish"
             remove_completed_pids true while !@pids.empty?
@@ -110,7 +108,7 @@ module AWS
 
           # forcibly kill all remaining children
           unless @pids.empty?
-            @log.warn "Child processes still running, sending KILL signal: #{@pids.join(',')}"
+            @log.warn "Child processes #{@pids} still running, sending KILL signal: #{@pids.join(',')}"
             @pids.each { |pid| Process.kill('KILL', pid) }
           end
         end
@@ -120,30 +118,33 @@ module AWS
       def block_on_max_workers
         @log.debug "block_on_max_workers workers=#{@pids.size}, max_workers=#{@max_workers}"
         if @pids.size >= @max_workers
-          @log.info "Reached maximum number of workers (#{@max_workers}), \
-                     waiting for some to finish"
+          @log.info "Reached maximum number of workers (#{@max_workers}), waiting for some to finish"
           begin
             remove_completed_pids(true)
           end while @pids.size >= @max_workers
         end
+        @log.info "Available workers: #{@max_workers - @pids.size} out of #{@max_workers}"
       end
 
       private
 
       # Removes all child processes from @pids list that have finished.
-      # Block for at least one child to finish if block argument is set to `true`.
+      # Block for at least one child to finish if block argument is set to
+      # `true`.
       # @api private
       def remove_completed_pids(block=false)
+        @log.debug "Removing completed processes"
         loop do
           # waitpid2 throws an Errno::ECHILD if there are no child processes,
           # so we don't even call it if there aren't any pids to wait on.
           break if @pids.empty?
+          @log.debug "Current processes: #{@pids}"
           # Non-blocking wait only returns a non-null pid
           # if the child process has exited.
           pid, status = Process.waitpid2(-1, block ? 0 : Process::WNOHANG)
-          @log.debug "#{pid}"
           # No more children have finished.
           break unless pid
+          @log.debug "Reaping process=#{pid}"
 
           if status.success?
             @log.debug "Worker #{pid} exited successfully"
@@ -155,9 +156,6 @@ module AWS
         end
       end
 
-
-
     end
-
   end
 end

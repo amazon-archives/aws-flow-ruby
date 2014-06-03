@@ -21,13 +21,23 @@ module AWS
     module Utilities
       # @api private
       class LogFactory
-        def self.make_logger(klass, name)
-          logname = "#{Dir.tmpdir}/#{klass.class.to_s}_#{name}"
+        def self.make_logger(klass)
+          make_logger_with_level(klass, Logger::INFO)
+        end
+        def self.make_logger_with_level(klass, level)
+          logname = "#{Dir.tmpdir}/#{klass.class.to_s}"
           logname.gsub!(/::/, '-')
           log = Logger.new(logname)
-          log.level = Logger::DEBUG
+          log.level = level
           log
         end
+      end
+
+      def self.workflow_task_to_debug_string(string, task)
+        return "#{string} #{task.workflow_type.name}.#{task.workflow_type.version} for execution with workflow_id: #{task.workflow_execution.workflow_id}, run_id: #{task.workflow_execution.run_id}, task_list: #{task.workflow_execution.task_list} with task_token: #{task.task_token}"
+      end
+      def self.activity_task_to_debug_string(string, task)
+        return "#{string} #{task.activity_type.name}.#{task.activity_type.version} with input: #{task.input} and task_token: #{task.task_token}"
       end
 
 
