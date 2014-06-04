@@ -152,7 +152,6 @@ module AWS
             @log.error "Worker #{pid} exited with non-zero status code"
           end
           @pids.delete(pid)
-          break if pid
         end
       end
 
