@@ -17,16 +17,33 @@ require 'aws/decider'
 
 describe AWS::Flow::ForkingExecutor do
   context "#remove_completed_pids" do
-    it "should reap all completed child processes" do
-      executor = AWS::Flow::ForkingExecutor.new(max_workers: 3)
+    context "with block=false" do
+      it "should reap all completed child processes" do
+        executor = AWS::Flow::ForkingExecutor.new(max_workers: 3)
 
-      executor.execute { sleep 1 }
-      executor.execute { sleep 1 }
-      executor.execute { sleep 5 }
-      executor.pids.size.should == 3
-      sleep 2
-      executor.send(:remove_completed_pids, false)
-      executor.pids.size.should == 1
+        executor.execute { sleep 1 }
+        executor.execute { sleep 1 }
+        executor.execute { sleep 5 }
+        executor.pids.size.should == 3
+        sleep 2
+        executor.send(:remove_completed_pids, false)
+        # The two processes that are completed will be reaped.
+        executor.pids.size.should == 1
+      end
+    end
+    context "with block=true" do
+      it "should wait for and reap the first child process available" do
+        executor = AWS::Flow::ForkingExecutor.new(max_workers: 3)
+
+        executor.execute { sleep 1 }
+        executor.execute { sleep 1 }
+        executor.execute { sleep 5 }
+        executor.pids.size.should == 3
+        sleep 2
+        executor.send(:remove_completed_pids, true)
+        # One of the two processes that are completed will be reaped
+        executor.pids.size.should == 2
+      end
     end
   end
 end

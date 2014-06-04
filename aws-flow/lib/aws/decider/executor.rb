@@ -123,7 +123,7 @@ module AWS
             remove_completed_pids(true)
           end while @pids.size >= @max_workers
         end
-        @log.info "Available workers: #{@max_workers - @pids.size} out of #{@max_workers}"
+        @log.debug "Available workers: #{@max_workers - @pids.size} out of #{@max_workers}"
       end
 
       private
@@ -133,25 +133,34 @@ module AWS
       # `true`.
       # @api private
       def remove_completed_pids(block=false)
-        @log.debug "Removing completed processes"
+        @log.debug "Removing completed child processes"
         loop do
           # waitpid2 throws an Errno::ECHILD if there are no child processes,
           # so we don't even call it if there aren't any pids to wait on.
           break if @pids.empty?
-          @log.debug "Current processes: #{@pids}"
+          @log.debug "Current child processes: #{@pids}"
           # Non-blocking wait only returns a non-null pid
           # if the child process has exited.
           pid, status = Process.waitpid2(-1, block ? 0 : Process::WNOHANG)
-          # No more children have finished.
-          break unless pid
-          @log.debug "Reaping process=#{pid}"
-
-          if status.success?
-            @log.debug "Worker #{pid} exited successfully"
+          
+          if pid
+            # We have something to reap
+            @log.debug "Reaping child process=#{pid}"
+            if status.success?
+              @log.debug "Child process #{pid} exited successfully"
+            else
+              @log.error "Child process #{pid} exited with non-zero status code"
+            end
+            # Delete the pid from the list
+            @pids.delete(pid)
+            # Contract is to block only once if block=true. If we are in this code branch and if block=true, it
+            # means we have already blocked once above, hence it is safe to exit now
+            break if block
           else
-            @log.error "Worker #{pid} exited with non-zero status code"
+            # Nothing to reap, exit
+            break
           end
-          @pids.delete(pid)
+
         end
       end
 

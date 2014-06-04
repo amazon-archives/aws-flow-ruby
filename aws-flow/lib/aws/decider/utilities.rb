@@ -33,11 +33,11 @@ module AWS
         end
       end
 
-      def self.workflow_task_to_debug_string(string, task)
-        return "#{string} #{task.workflow_type.name}.#{task.workflow_type.version} for execution with workflow_id: #{task.workflow_execution.workflow_id}, run_id: #{task.workflow_execution.run_id}, task_list: #{task.workflow_execution.task_list} with task_token: #{task.task_token}"
+      def self.workflow_task_to_debug_string(message, task)
+        return "#{message} #{task.workflow_type.name}.#{task.workflow_type.version} for execution with workflow_id: #{task.workflow_execution.workflow_id}, run_id: #{task.workflow_execution.run_id}, task_list: #{task.workflow_execution.task_list} with task_token: #{task.task_token}"
       end
-      def self.activity_task_to_debug_string(string, task)
-        return "#{string} #{task.activity_type.name}.#{task.activity_type.version} with input: #{task.input} and task_token: #{task.task_token}"
+      def self.activity_task_to_debug_string(message, task)
+        return "#{message} #{task.activity_type.name}.#{task.activity_type.version} with input: #{task.input} and task_token: #{task.task_token}"
       end
 
 

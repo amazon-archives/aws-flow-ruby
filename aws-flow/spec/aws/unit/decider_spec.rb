@@ -1488,6 +1488,11 @@ describe "Misc tests" do
     workflow = client.start_external_workflow
     workflow.workflow_id.should match(regex)
   end
+  it "makes sure complete method is present on the completion handle and not open request" do
+    ( OpenRequestInfo.new.respond_to? :complete ).should == false
+    task = ExternalTask.new({}) { |t| puts t }
+    ( ExternalTaskCompletionHandle.new(task).respond_to? :complete ).should == true
+  end
 end
 
 
