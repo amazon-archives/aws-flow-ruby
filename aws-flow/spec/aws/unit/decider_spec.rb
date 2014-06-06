@@ -105,7 +105,7 @@ class FakeWorkflowExecution
     @run_id = run_id
     @workflow_id = workflow_id
   end
-  attr_accessor :run_id, :workflow_id
+  attr_accessor :run_id, :workflow_id, :task_list
 end
 
 class FakeWorkflowExecutionCollecton
@@ -507,7 +507,7 @@ describe "FakeHistory" do
 
 
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [TestHistoryEvent.new("WorkflowExecutionStarted", 1, {:parent_initiated_event_id=>0, :child_policy=>:request_cancel, :execution_start_to_close_timeout=>3600, :task_start_to_close_timeout=>5, :workflow_type=> fake_workflow_type, :task_list=>"BadWorkflow"}),
@@ -521,7 +521,6 @@ describe "FakeHistory" do
     worker.start
     # @forking_executor.execute { activity_worker.start }
 
-    # debugger
     # worker.start
     swf_client.trace.first[:decisions].first[:decision_type].should ==
       "CompleteWorkflowExecution"
@@ -529,7 +528,7 @@ describe "FakeHistory" do
 
   it "reproduces the ActivityTaskTimedOut problem" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -567,7 +566,6 @@ describe "FakeHistory" do
     workflow_type_object = double("workflow_type", :name => "BadWorkflow.entry_point", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
 
-
     swf_client = FakeServiceClient.new
     task_list = "BadWorkflow_tasklist"
     worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
@@ -592,7 +590,7 @@ describe "FakeHistory" do
 
   it "makes sure that exponential retry can take arguments" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -646,7 +644,7 @@ describe "FakeHistory" do
 
   it "makes sure that overriding works correctly" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -699,7 +697,7 @@ describe "FakeHistory" do
 
   it "makes sure that exponential_retry blocks correctly" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -761,7 +759,7 @@ describe "FakeHistory" do
 
   it "makes sure that exponential_retry blocks correctly when done through configure" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -829,7 +827,7 @@ describe "FakeHistory" do
 
   it "makes sure that exponential_retry blocks correctly when done through the activity_client" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -897,7 +895,7 @@ describe "FakeHistory" do
 
   it "makes sure that multiple schedules followed by a timeout work" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -974,7 +972,7 @@ describe "FakeHistory" do
 
   it "makes sure that timeout followed by success is handled correctly" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -1053,7 +1051,7 @@ describe "FakeHistory" do
 
   it "makes sure that signal works correctly" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -1119,7 +1117,7 @@ describe "FakeHistory" do
 
   it "makes sure that raising an error properly fails a workflow" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -1162,7 +1160,7 @@ describe "FakeHistory" do
   it "makes sure that you can do retry with the easier Fixnum semantic"do
 
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "FixnumWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -1211,7 +1209,7 @@ describe "FakeHistory" do
   it "ensures that CompleteWorkflowExecutionFailed is correctly handled" do
 
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "CompleteWorkflowExecutionFailedWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                [
@@ -1278,7 +1276,7 @@ describe "FakeHistory" do
 
   it "ensures that time outs do not cause problems" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "TimeOutWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                FakeEvents.new(["WorkflowExecutionStarted",
@@ -1343,7 +1341,7 @@ describe "FakeHistory" do
 
   it "ensures that the other timeout issue is not a problem" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "OtherTimeOutWorkflow.entry_point", "1")
         TestHistoryWrapper.new(fake_workflow_type,
                                FakeEvents.new(["WorkflowExecutionStarted",
@@ -1490,6 +1488,11 @@ describe "Misc tests" do
     workflow = client.start_external_workflow
     workflow.workflow_id.should match(regex)
   end
+  it "makes sure complete method is present on the completion handle and not open request" do
+    ( OpenRequestInfo.new.respond_to? :complete ).should == false
+    task = ExternalTask.new({}) { |t| puts t }
+    ( ExternalTaskCompletionHandle.new(task).respond_to? :complete ).should == true
+  end
 end
 
 
@@ -1564,7 +1567,7 @@ class TestActivityWorker < ActivityWorker
 end
 
 class FakeTaskPoller < WorkflowTaskPoller
-  def get_decision_tasks
+  def get_decision_task
     nil
   end
 end

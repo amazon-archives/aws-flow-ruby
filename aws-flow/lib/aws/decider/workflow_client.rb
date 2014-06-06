@@ -306,7 +306,7 @@ module AWS
                 state_machine = @decision_helper[workflow_id.to_s]
                 if state_machine.current_state == :created
                   open_request = @decision_helper.scheduled_external_workflows.delete(workflow_id)
-                  open_request.complete
+                  open_request.completion_handle.complete
                 end
                 state_machine.consume(:cancel)
               end

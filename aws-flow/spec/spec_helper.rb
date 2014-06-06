@@ -14,6 +14,7 @@
 ##
 
 require 'aws/flow'
+require 'aws/decider'
 
 include AWS::Flow::Core
 

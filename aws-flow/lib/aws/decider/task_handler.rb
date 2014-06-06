@@ -17,9 +17,11 @@ module AWS
   module Flow
 
 
-    # A decision task handler to work with a {WorkflowTaskPoller}. Create a `DecisionTaskHandler` and pass it to
-    # {WorkflowTaskPoller} on {WorkflowTaskPoller#initialize construction}.
+    # A decision task handler to work with a {WorkflowTaskPoller}. Create a
+    # `DecisionTaskHandler` and pass it to {WorkflowTaskPoller} on
+    # {WorkflowTaskPoller#initialize construction}.
     class DecisionTaskHandler
+      attr_reader :workflow_definition_map
 
       # Creates a new `DecisionTaskHandler`.
       #
@@ -31,7 +33,7 @@ module AWS
       def initialize(workflow_definition_map, options=nil)
         @workflow_definition_map = workflow_definition_map
         @logger = options.logger if options
-        @logger ||= Utilities::LogFactory.make_logger(self, "debug")
+        @logger ||= Utilities::LogFactory.make_logger(self)
       end
 
 
@@ -41,11 +43,8 @@ module AWS
       #
       def handle_decision_task(decision_task_iterator)
         history_helper = HistoryHelper.new(decision_task_iterator)
-        @logger.debug "made history_helper"
         decider = create_async_decider(history_helper)
-        @logger.debug "made async_decider"
         decider.decide
-        @logger.debug "decided"
         decisions = decider.get_decisions
         response = {:task_token => decider.task_token}
         context_data = decider.decision_helper.workflow_context_data
@@ -72,5 +71,4 @@ module AWS
     end
 
   end
-
 end

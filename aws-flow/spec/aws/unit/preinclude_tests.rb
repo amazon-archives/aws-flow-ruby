@@ -64,6 +64,7 @@ describe "will test a patch that makes sure with_retry and decision_context can 
     end
 
     class FakeWorkflowExecution
+      attr_accessor :run_id, :workflow_id, :task_list
       def run_id
         "1"
       end
@@ -79,7 +80,7 @@ describe "will test a patch that makes sure with_retry and decision_context can 
     end
 
     class SynchronousWorkflowTaskPoller < AWS::Flow::WorkflowTaskPoller
-      def get_decision_tasks
+      def get_decision_task
         workflow_type = FakeWorkflowType.new(nil, "TestWorkflow.entry_point", "1")
         TestHistoryWrapper.new(workflow_type,
                                [TestHistoryEvent.new("WorkflowExecutionStarted", 1, {:parent_initiated_event_id=>0, :child_policy=>:request_cancel, :execution_start_to_close_timeout=>3600, :task_start_to_close_timeout=>5, :workflow_type=> workflow_type, :task_list=>"TestWorkflow_tasklist"}),
