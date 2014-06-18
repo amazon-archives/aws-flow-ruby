@@ -140,18 +140,11 @@ describe Activity do
 
         swf_client = FakeServiceClient.new
         task_list = "default"
-        my_workflow_factory = workflow_factory(swf_client, domain) do |options|
-          options.workflow_name = "GithubIssue57Workflow"
-          options.execution_start_to_close_timeout = 120
-          options.task_list = task_list
-          options.task_start_to_close_timeout = 30
-        end
 
         worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, GithubIssue57Workflow)
-        workflow_client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: GithubIssue57Workflow } }
-        #my_workflow = my_workflow_factory.get_client
+        client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: GithubIssue57Workflow } }
         expect_any_instance_of(AWS::Flow::GenericClient).to_not receive(:_retry_with_options)
-        workflow_execution = workflow_client.start_execution
+        workflow_execution = client.start_execution
         worker.start
         
 
@@ -188,17 +181,11 @@ describe Activity do
 
         swf_client = FakeServiceClient.new
         task_list = "default"
-        my_workflow_factory = workflow_factory(swf_client, domain) do |options|
-          options.workflow_name = "GithubIssue57Workflow"
-          options.execution_start_to_close_timeout = 120
-          options.task_list = "default"
-          options.task_start_to_close_timeout = 30
-        end
+        client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "GithubIssue57Workflow" } }
 
         worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, GithubIssue57Workflow)
-        my_workflow = my_workflow_factory.get_client
-        #expect_any_instance_of(AWS::Flow::GenericClient).to receive(:_retry_with_options)
-        workflow_execution = my_workflow.start_execution
+
+        workflow_execution = client.start_execution
         worker.start
 
         swf_client.trace.first[:decisions].first[:decision_type].should == "ScheduleActivityTask"
@@ -234,17 +221,11 @@ describe Activity do
 
         swf_client = FakeServiceClient.new
         task_list = "default"
-        my_workflow_factory = workflow_factory(swf_client, domain) do |options|
-          options.workflow_name = "GithubIssue57Workflow"
-          options.execution_start_to_close_timeout = 120
-          options.task_list = "default"
-          options.task_start_to_close_timeout = 30
-        end
+        client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "GithubIssue57Workflow" } }
 
         worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, GithubIssue57Workflow)
-        my_workflow = my_workflow_factory.get_client
         expect_any_instance_of(AWS::Flow::GenericClient).to receive(:_retry_with_options)
-        workflow_execution = my_workflow.start_execution
+        workflow_execution = client.start_execution
         worker.start
       end
     end

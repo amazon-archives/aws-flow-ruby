@@ -196,24 +196,6 @@ describe Workflows do
 
     end
   end
-#  context "#entry_point" do
-    #it "makes sure we are backwards compatible to use entry_point" do
-      #class TestEntryPointWorkflow
-        #extend AWS::Flow::Workflows
-        #entry_point :start
-        #entry_point :temp
-        #version "1.0"
-        #def start; end
-      #end
-
-    #end
-  #end
-  #context "#version" do
-    #it "makes sure we are backwards compatible to use version" do
-
-    #end
-  #end
-
 end
 
 describe WorkflowFactory do
@@ -1178,6 +1160,76 @@ describe "FakeHistory" do
     my_workflow = my_workflow_factory.get_client
     workflow_execution = my_workflow.start_execution
     worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
+  end
+
+  it "replicates the error seen in github issue #37" do
+
+    class TimeOutFailuresWorkflow
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          execution_start_to_close_timeout: 600,
+          task_list: "TimeOutFailuresWorkflow_tasklist",
+          version: "1.0",
+        }
+      end
+
+      def entry_point
+        error_handler do |t|
+          t.begin do
+            $client.send_async(:start_execution) { {task_list: "nonsense_task_list", workflow_id: "child_workflow_test"}}
+            create_timer(5)
+          end
+          t.rescue AWS::Flow::ChildWorkflowException do |ex|
+            # noop because we don't want the parent execution to die
+          end
+        end
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["TimerStarted", {:decision_task_completed_event_id => 4, :timer_id => "Timer1", :start_to_fire_timeout => 10}],
+                                               ["StartChildWorkflowExecutionInitiated", {:workflow_id => "child_workflow_test"}],
+                                               ["ChildWorkflowExecutionStarted", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test"}],
+
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ChildWorkflowExecutionTerminated", :workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test")],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               ["TimerFired", {:timer_id => "Timer1"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskCompleted",
+                                               ["CancelTimerFailed", {:timer_id => "Timer1"}],
+                                               "CompleteWorkflowExecutionFailed",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted"
+                                              ]))
+      end
+    end
+    
+    $workflow_type = FakeWorkflowType.new(nil, "TimeOutFailuresWorkflow.entry_point", "1.0")
+    swf_client = FakeServiceClient.new
+    domain = FakeDomain.new($workflow_type)
+    $client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "TimeOutFailuresWorkflow" } }
+    
+    task_list = "TimeOutFailuresWorkflow_tasklist"
+    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
+          end
+    
+    $client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, TimeOutFailuresWorkflow)
+    worker.start
+    #my_workflow = my_workflow_factory.get_client
+    #workflow_execution = my_workflow.start_execution
     swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
   end
 end
