@@ -404,6 +404,7 @@ module AWS
         @decision_helper[timer_id].consume(:handle_completion_event)
         if @decision_helper[timer_id].done?
           open_request = @decision_helper.scheduled_timers.delete(timer_id)
+          return if open_request.nil?
           open_request.blocking_promise.set(nil)
           open_request.completion_handle.complete
         end
