@@ -1501,15 +1501,16 @@ describe FlowConstants do
     :initial_retry_interval => 1,
     :backoff_coefficient => 2,
     :should_jitter => false,
-    :maximum_retry_interval_seconds => 100
+    :maximum_retry_interval_seconds => 100,
+    :retry_expiration_interval_seconds => 300
   }
   options = ExponentialRetryOptions.new(options)
 
   it "will test the default retry function with regular cases" do
-    test_first = [Time.now, Time.now, Time.now]
-    test_time_of_failure = [0, 10, 100]
-    test_attempts = [{Exception=>2}, {Exception=>4}, {ActivityTaskTimedOutException=>5, Exception=>2}]
-    test_output = [1, 4, 32]
+    test_first = [Time.now, Time.now, Time.now, Time.now, Time.now]
+    test_time_of_failure = [0, 10, 100, 199, 200]
+    test_attempts = [{Exception=>2}, {Exception=>4}, {ActivityTaskTimedOutException=>5, Exception=>2}, {Exception=>9}, {Exception=>9}]
+    test_output = [1, 4, 32, 100, -1]
     arr = test_first.zip(test_time_of_failure, test_attempts, test_output)
     arr.each do |first, time_of_failure, attempts, output|
       result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
