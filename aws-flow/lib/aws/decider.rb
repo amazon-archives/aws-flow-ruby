@@ -20,7 +20,7 @@ require 'aws-sdk'
 require 'securerandom'
 
 # Setting the user-agent as ruby-flow for all calls to the service
-AWS.config(:user_agent_prefix => "ruby-flow")
+AWS.config(:user_agent_prefix => "ruby-flow") unless AWS.config.user_agent_prefix
 
 require "aws/decider/utilities"
 require "aws/decider/worker"
