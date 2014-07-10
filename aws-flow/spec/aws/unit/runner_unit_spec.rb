@@ -431,8 +431,6 @@ describe "Runner" do
     end
 
     before(:each) do
-#      # let's pretend the files exist, so that loading proceeds
-#      allow(File).to receive(:exists?).and_return(true)
       # stubs to avoid running code that should not be run/covered in these tests
       AWS::Flow::Runner.stub(:spawn_and_start_workers)
     end
@@ -478,10 +476,15 @@ describe "Runner" do
         JSON.parse(document)
       end
 
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation).with(MyActivity2)
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation).with(MyActivity1)
+      impls = []
+      AWS::Flow::ActivityWorker.any_instance.stub(:add_implementation) do |impl|
+        impls << impl
+      end
 
       AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, ".", activity_js)
+
+      expect(impls).to include(MyActivity2)
+      expect(impls).to include(MyActivity1)
     end
 
     it "finds the workflow implementations when they are in the environment" do
@@ -498,18 +501,15 @@ describe "Runner" do
         JSON.parse(document)
       end
 
-      expect_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation).with(MyWorkflow2)
-      expect_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation).with(MyWorkflow1)
+      impls = []
+      AWS::Flow::WorkflowWorker.any_instance.stub(:add_implementation) do |impl|
+        impls << impl
+      end
 
       AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, ".", workflow_js)
-    end
 
-    # PLEASE KEEP AS THE LAST TEST OF THIS SERIES
-    # it verifies we are not starting to add new workflows and activities in the
-    # tests without considering the impact this could have on the other tests
-    it "validates test environment is remaining sane" do
-      expect(AWS::Flow::Runner.all_subclasses(AWS::Flow::Activities).size).to equal(2)
-      expect(AWS::Flow::Runner.all_subclasses(AWS::Flow::Workflows).size).to equal(2)
+      expect(impls).to include(MyWorkflow2)
+      expect(impls).to include(MyWorkflow1)
     end
 
   end

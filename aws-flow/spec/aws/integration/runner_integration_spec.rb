@@ -174,7 +174,7 @@ describe "Runner" do
                     ].include? workflow_execution.events.to_a.last.event_type
 
       # kill the workers
-      workers.each { |w| Process.kill("INT", w) }
+      workers.each { |w| Process.kill("KILL", w) }
     end
   end
   
