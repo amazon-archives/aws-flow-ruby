@@ -93,7 +93,7 @@ module AWS
         retry_expiration_interval_seconds = options.retry_expiration_interval_seconds
         result = initial_retry_interval * (backoff_coefficient ** (attempts.values.reduce(0, :+) - 2))
         result = maximum_retry_interval_seconds if (! maximum_retry_interval_seconds.nil? && maximum_retry_interval_seconds != INFINITY && result > maximum_retry_interval_seconds)
-        seconds_since_first_attempt = time_of_failure.zero? ? 0 : -(first - time_of_failure).to_i
+        seconds_since_first_attempt = time_of_failure.zero? ? 0 : time_of_failure.to_i
         result = -1 if (! retry_expiration_interval_seconds.nil? &&
                         retry_expiration_interval_seconds != INFINITY &&
                         (result + seconds_since_first_attempt) >= retry_expiration_interval_seconds)
