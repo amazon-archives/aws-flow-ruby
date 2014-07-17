@@ -94,7 +94,9 @@ module AWS
       #
       def method_missing(method_name, *args, &block)
         options = Utilities::interpret_block_for_options(ActivityOptions, block)
-        options = Utilities::merge_all_options(@options,
+        client_options = Utilities::client_options_from_method_name(method_name, @options)
+
+        options = Utilities::merge_all_options(client_options,
                                     @activity_option_map[method_name.to_sym],
                                     @option_map[method_name.to_sym],
                                     options
@@ -392,7 +394,7 @@ module AWS
       property(:activities, [])
 
       # @api private
-      def _options; @activities.map(&:options); end
+      def _options; @activities; end
 
       # Defines one or more activities with {ActivityOptions} provided in the
       # supplied block.

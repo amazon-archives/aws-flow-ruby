@@ -58,6 +58,14 @@ module AWS
         youngest.get_full_options
       end
 
+      # @api private
+      def self.client_options_from_method_name(method_name, options)
+        client_options = options.dup
+        client_options.precursors = options.precursors.select { |x| x.name.split(".").last.to_sym == method_name }
+        client_options.precursors.map!(&:options)
+        client_options
+      end
+
 
       # @api private
       def self.interpret_block_for_options(option_class, block, use_defaults = false)

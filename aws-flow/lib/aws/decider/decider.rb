@@ -245,7 +245,7 @@ module AWS
     module Workflows
       attr_accessor :version
       extend Utilities::UpwardLookups
-      @precursors = []
+      @precursors ||= []
       def look_upwards(variable)
         precursors = self.ancestors.dup
         precursors.delete(self)
@@ -328,6 +328,7 @@ module AWS
 
       # @api private
       def _options; self.workflows.map(&:options); end
+      #def _options; self.workflows; end
 
       # Defines a new workflow.
       #
