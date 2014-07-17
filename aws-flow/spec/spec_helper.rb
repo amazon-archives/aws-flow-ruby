@@ -16,8 +16,7 @@
 require 'aws/flow'
 require 'aws/decider'
 
-include AWS::Flow::Core
-
+include AWS::Flow
 
 def constantize(camel_case_word)
   names = camel_case_word.split('::')

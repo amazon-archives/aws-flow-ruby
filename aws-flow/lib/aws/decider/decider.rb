@@ -328,7 +328,6 @@ module AWS
 
       # @api private
       def _options; self.workflows.map(&:options); end
-      #def _options; self.workflows; end
 
       # Defines a new workflow.
       #

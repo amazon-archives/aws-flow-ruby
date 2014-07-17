@@ -14,12 +14,40 @@
 ##
 
 require 'aws/decider'
+include AWS::Flow
 
-describe AWS::Flow::ForkingExecutor do
+describe ForkingExecutor do
+
+  it "makes sure that forking executors basic execute works" do
+    test_file_name = "ForkingExecutorTestFile"
+    begin
+      forking_executor = ForkingExecutor.new
+      File.exists?(test_file_name).should == false
+      forking_executor.execute do
+        File.new(test_file_name, 'w')
+      end
+      sleep 3
+      File.exists?(test_file_name).should == true
+    ensure
+      File.unlink(test_file_name)
+    end
+  end
+
+  it "ensures that you cannot execute more tasks on a shutdown executor" do
+    forking_executor = ForkingExecutor.new
+    forking_executor.execute do
+    end
+    forking_executor.execute do
+    end
+    forking_executor.shutdown(1)
+    expect { forking_executor.execute { "yay" } }.to raise_error
+    RejectedExecutionException
+  end
+
   context "#remove_completed_pids" do
     context "with block=false" do
       it "should reap all completed child processes" do
-        executor = AWS::Flow::ForkingExecutor.new(max_workers: 3)
+        executor = ForkingExecutor.new(max_workers: 3)
 
         executor.execute { sleep 1 }
         executor.execute { sleep 1 }
@@ -33,7 +61,7 @@ describe AWS::Flow::ForkingExecutor do
     end
     context "with block=true" do
       it "should wait for and reap the first child process available" do
-        executor = AWS::Flow::ForkingExecutor.new(max_workers: 3)
+        executor = ForkingExecutor.new(max_workers: 3)
 
         executor.execute { sleep 1 }
         executor.execute { sleep 1 }
