@@ -60,17 +60,17 @@ describe ForkingExecutor do
       end
     end
     context "with block=true" do
-      it "should wait for and reap the first child process available" do
+      it "should wait for atleast one child process to become available and then reap as many as possible" do
         executor = ForkingExecutor.new(max_workers: 3)
 
-        executor.execute { sleep 1 }
-        executor.execute { sleep 1 }
+        executor.execute { sleep 2 }
+        executor.execute { sleep 2 }
         executor.execute { sleep 5 }
         executor.pids.size.should == 3
-        sleep 2
         executor.send(:remove_completed_pids, true)
-        # One of the two processes that are completed will be reaped
-        executor.pids.size.should == 2
+        # It will wait for one of the processes to become available and then
+        # reap as many as possible
+        executor.pids.size.should == 1
       end
     end
   end
