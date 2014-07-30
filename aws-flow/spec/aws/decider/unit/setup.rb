@@ -1,5 +1,4 @@
-require_relative '../../spec_helper'
-require_relative 'factories'
+require_relative '../../../spec_helper'
 
 class FakeConfig
   def to_h

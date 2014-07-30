@@ -13,7 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-require_relative 'setup'
+require_relative 'factories'
 
 def change_test(options = {})
   subject { this_bre }

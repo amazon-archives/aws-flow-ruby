@@ -1,4 +1,4 @@
-require 'spec_helper'
+require_relative 'setup'
 
 describe AWS::Flow::OptionsMethods do
 

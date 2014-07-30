@@ -24,7 +24,8 @@ def setup_swf
   File.open(file_name, 'w+') {|f| f.write(last_run)}
   current_date = Time.now.strftime("%d-%m-%Y")
   swf = AWS::SimpleWorkflow.new
-  $rubyflow_decider_domain = "rubyflow_#{current_date}-#{last_run}"
+  #$rubyflow_decider_domain = "rubyflow_#{current_date}-#{last_run}"
+  $rubyflow_decider_domain = "0000004"
   begin
     domain = swf.domains.create($rubyflow_decider_domain, "10")
   rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
@@ -40,6 +41,12 @@ def wait_for_execution(execution)
       "WorkflowExecutionTimedOut",
       "WorkflowExecutionFailed"
     ].include? execution.events.to_a.last.event_type
+end
+
+def wait_for_decision(execution, decision="DecisionTaskScheduled")
+  sleep 1 until [
+    decision
+  ].flatten.include? execution.events.to_a.last.event_type
 end
 
 def get_test_domain

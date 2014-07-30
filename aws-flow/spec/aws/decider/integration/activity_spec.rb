@@ -271,7 +271,7 @@ describe Activities do
 
   context "Github issue 57" do
     before(:all) do
-      class TestActivity
+      class GithubIssue57TestActivity
         extend AWS::Flow::Activities
         activity :not_retryable do
           {
@@ -302,7 +302,7 @@ describe Activities do
         end
       end
 
-      class TestWorkflow
+      class GithubIssue57TestWorkflow
         extend AWS::Flow::Workflows
 
         workflow :test do
@@ -314,7 +314,7 @@ describe Activities do
           }
         end
 
-        activity_client(:client) { { from_class: "TestActivity" } }
+        activity_client(:client) { { from_class: "GithubIssue57TestActivity" } }
 
         def test
           client.not_retryable
@@ -324,24 +324,25 @@ describe Activities do
 
 
     it "ensures _options method returns an array of type ActivityType" do
-      TestActivity._options.size == 2
-      TestActivity._options.each { |x| x.should be_an ActivityType }
+      GithubIssue57TestActivity._options.size == 2
+      GithubIssue57TestActivity._options.each { |x| x.should be_an ActivityType }
     end
 
     it "ensures the activity gets set with the right options" do
       worker = WorkflowWorker.new(@swf.client, @domain, "github_57_workflow_tasklist")
-      worker.add_workflow_implementation(TestWorkflow)
+      worker.add_workflow_implementation(GithubIssue57TestWorkflow)
       activity_worker = ActivityWorker.new(@swf.client, @domain, "github_57_activity_tasklist")
-      activity_worker.add_activities_implementation(TestActivity)
+      activity_worker.add_activities_implementation(GithubIssue57TestActivity)
       worker.register
       activity_worker.register
-      client = workflow_client(@swf.client, @domain) { { :from_class => TestWorkflow } }
-      execution = client.start_execution
+      client = workflow_client(@swf.client, @domain) { { :from_class => GithubIssue57TestWorkflow } }
+      workflow_execution = client.start_execution
       worker.run_once
       activity_worker.run_once
       worker.run_once
+      wait_for_execution(workflow_execution)
 
-      history_events = execution.events.map(&:event_type)
+      history_events = workflow_execution.events.map(&:event_type)
       history_events.last.should == "WorkflowExecutionFailed"
       history_events.count("ActivityTaskFailed").should == 1
     end
