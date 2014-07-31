@@ -13,8 +13,7 @@
 # permissions and limitations under the License.
 ##
 
-require 'aws/decider'
-include AWS::Flow
+require_relative 'setup'
 
 describe ForkingExecutor do
 
@@ -35,38 +34,63 @@ describe ForkingExecutor do
 
   it "ensures that you cannot execute more tasks on a shutdown executor" do
     forking_executor = ForkingExecutor.new
-    forking_executor.execute do
-    end
-    forking_executor.execute do
-    end
+    forking_executor.execute {}
+    forking_executor.execute {}
     forking_executor.shutdown(1)
-    expect { forking_executor.execute { "yay" } }.to raise_error
-    RejectedExecutionException
+    expect { forking_executor.execute { "yay" } }.to raise_error RejectedExecutionException
   end
 
   context "#remove_completed_pids" do
+    class Status
+      def success?; true; end
+    end
+
     context "with block=false" do
-      it "should reap all completed child processes" do
+      it "should not block if not child process available" do
+
+        # stub out Process.waitpid2 to return only 2 processes
+        allow(Process).to receive(:waitpid2).and_return(nil)
+        allow_any_instance_of(AWS::Flow::ForkingExecutor).to receive(:fork).and_return(1, 2, 3)
         executor = ForkingExecutor.new(max_workers: 3)
 
         executor.execute { sleep 1 }
         executor.execute { sleep 1 }
-        executor.execute { sleep 5 }
+        executor.execute { sleep 1 }
         executor.pids.size.should == 3
-        sleep 2
         executor.send(:remove_completed_pids, false)
         # The two processes that are completed will be reaped.
-        executor.pids.size.should == 1
+        executor.pids.size.should == 3
+      end
+
+      it "should reap all completed child processes" do
+
+        allow(Process).to receive(:waitpid2).and_return([1, Status.new], [2, Status.new], [3, Status.new] )
+        allow_any_instance_of(AWS::Flow::ForkingExecutor).to receive(:fork).and_return(1, 2, 3)
+        executor = ForkingExecutor.new(max_workers: 3)
+
+        executor.execute { sleep 1 }
+        executor.execute { sleep 1 }
+        executor.execute { sleep 1 }
+        executor.pids.size.should == 3
+        executor.send(:remove_completed_pids, false)
+        # The two processes that are completed will be reaped.
+        executor.pids.size.should == 0
       end
     end
     context "with block=true" do
       it "should wait for atleast one child process to become available and then reap as many as possible" do
+
+        # stub out Process.waitpid2 to return only 2 processes
+        allow(Process).to receive(:waitpid2).and_return([1, Status.new], [2, Status.new], nil)
+        allow_any_instance_of(AWS::Flow::ForkingExecutor).to receive(:fork).and_return(1, 2, 3)
         executor = ForkingExecutor.new(max_workers: 3)
 
-        executor.execute { sleep 2 }
-        executor.execute { sleep 2 }
+        executor.execute { sleep 1 }
+        executor.execute { sleep 1 }
         executor.execute { sleep 5 }
+
         executor.pids.size.should == 3
+
         executor.send(:remove_completed_pids, true)
         # It will wait for one of the processes to become available and then
         # reap as many as possible

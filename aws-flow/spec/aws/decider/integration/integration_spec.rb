@@ -190,16 +190,13 @@ describe "RubyFlowDecider" do
       activity :run_activity1, :run_activity2 do |options|
         options.default_task_heartbeat_timeout = "600"
         options.default_task_list = task_list
-        # options.default_task_schedule_to_close_timeout = "20"
-        options.default_task_schedule_to_start_timeout = "30"
-        options.default_task_start_to_close_timeout = "30"
+        options.default_task_schedule_to_start_timeout = "60"
+        options.default_task_start_to_close_timeout = "60"
         options.version = "1"
         options.prefix_name = "#{class_name}Activity"
       end
-      def run_activity1
-      end
-      def run_activity2
-      end
+      def run_activity1; end
+      def run_activity2; end
     end
     @activity_class = Object.const_set("#{class_name}Activity", new_activity_class)
     new_workflow_class = Class.new(ParentWorkflow) do
@@ -369,6 +366,8 @@ describe "RubyFlowDecider" do
       end
     end
     workflow_execution = @my_workflow_client.start_execution
+    require "pry"
+    require "pry-debugger"
     @worker.run_once
     @activity_worker.run_once
     wait_for_decision(workflow_execution)
@@ -734,10 +733,14 @@ describe "RubyFlowDecider" do
 
         end
       end
+
       workflow_execution = @my_workflow_client.start_execution
+
       @worker.run_once
       @activity_worker.run_once
+      wait_for_decision(workflow_execution)
       @worker.run_once
+      wait_for_decision(workflow_execution)
       @worker.run_once
       wait_for_execution(workflow_execution)
       history = workflow_execution.events.map(&:event_type)
@@ -1587,10 +1590,12 @@ describe "RubyFlowDecider" do
       worker_signaler.run_once
       worker_signalee.run_once
       activity_worker.run_once
+      wait_for_decision(workflow_execution, "ActivityTaskCompleted")
       # Sleep a bit so that the activity execution completes before we decide, so we don't decide on the ChildWorkflowExecutionInitiated before the ActivityTaskCompleted schedules anothe DecisionTaskScheduled
-      sleep 10
       worker_signaler.run_once
+      wait_for_decision(workflow_execution)
       worker_signalee.run_once
+      wait_for_decision(workflow_execution, "ChildWorkflowExecutionCompleted")
       worker_signaler.run_once
       wait_for_execution(workflow_execution)
       workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
