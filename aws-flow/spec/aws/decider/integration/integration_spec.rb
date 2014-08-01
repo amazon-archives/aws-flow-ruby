@@ -366,8 +366,6 @@ describe "RubyFlowDecider" do
       end
     end
     workflow_execution = @my_workflow_client.start_execution
-    require "pry"
-    require "pry-debugger"
     @worker.run_once
     @activity_worker.run_once
     wait_for_decision(workflow_execution)
@@ -486,8 +484,12 @@ describe "RubyFlowDecider" do
 
       worker.run_once
       worker2.run_once
+      wait_for_decision(workflow_execution)
       @swf.client.terminate_workflow_execution({:workflow_id => $workflow_id, :domain => @domain.name})
+      wait_for_decision(workflow_execution, "ChildWorkflowExecutionTerminated")
       worker.run_once
+      wait_for_execution(workflow_execution)
+      validate_execution_failed(workflow_execution)
       workflow_execution.events.to_a.last.attributes.details.should =~ /AWS::Flow::ChildWorkflowTerminatedException/
     end
 
