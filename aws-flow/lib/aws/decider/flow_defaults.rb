@@ -67,7 +67,7 @@ module AWS
     class FlowConstants
 
       class << self
-        attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval
+        attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval, :use_worker_task_list
       end
 
       INFINITY = -1
@@ -118,6 +118,7 @@ module AWS
       end
 
       @default_data_converter = YAMLDataConverter.new
+      @use_worker_task_list = "USE_WORKER_TASK_LIST"
     end
   end
 end

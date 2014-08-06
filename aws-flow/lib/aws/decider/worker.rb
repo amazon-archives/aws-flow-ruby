@@ -65,6 +65,10 @@ module AWS
           downcase
       end
 
+      def resolve_default_task_list(name)
+        name == FlowConstants.use_worker_task_list ? @task_list : name
+      end
+
     end
 
     module GenericTypeModule
@@ -137,7 +141,7 @@ module AWS
       end
 
       def set_workflow_implementation_types(workflow_implementation_types)
-        workflow_implementation_types.each {|type| add_workflow_implementation_type(type)}
+        workflow_implementation_types.each {|type| add_workflow_implementation(type)}
       end
 
       def add_implementation(workflow_class)
@@ -183,7 +187,7 @@ module AWS
           )
           if options.default_task_list
             workflow_hash.merge!(
-              {:default_task_list => {:name => options.default_task_list} }
+              :default_task_list => {:name => resolve_default_task_list(options.default_task_list)}
             )
           end
           @workflow_type_options << workflow_hash
@@ -380,9 +384,11 @@ module AWS
 
           option_hash.merge!(options.get_default_options)
 
-          option_hash.merge!(
-            :default_task_list => {:name => options.default_task_list}
-          ) if options.default_task_list
+          if options.default_task_list
+            option_hash.merge!(
+              :default_task_list => {:name => resolve_default_task_list(options.default_task_list)}
+            )
+          end
 
           @activity_type_options << option_hash
         end

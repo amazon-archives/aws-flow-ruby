@@ -391,6 +391,8 @@ module AWS
 
       # The default data converter. By default, this is {YAMLDataConverter}.
       def data_converter; FlowConstants.default_data_converter; end
+
+      def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
     # Options for workflows.
@@ -586,6 +588,8 @@ module AWS
       def default_task_heartbeat_timeout; Float::INFINITY; end
 
       def data_converter; FlowConstants.default_data_converter; end
+
+      def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
 

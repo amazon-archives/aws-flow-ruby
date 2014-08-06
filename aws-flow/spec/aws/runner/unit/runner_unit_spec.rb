@@ -1,8 +1,7 @@
-require 'runner'
+require 'spec_helper'
 require 'tempfile'
 require 'socket'
 require 'fileutils'
-require_relative '../../spec_helper.rb'
 
 describe "Runner" do
   

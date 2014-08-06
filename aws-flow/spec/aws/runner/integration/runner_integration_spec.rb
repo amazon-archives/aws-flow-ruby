@@ -1,42 +1,11 @@
-require 'runner'
-require 'bundler/setup'
-require 'aws/decider'
+require 'spec_helper'
 require 'logger'
 require 'socket'
+include Test::Integ
 
 describe "Runner" do
 
-  # Copied from the utilities for the samples and recipes
-  module SharedUtils
-
-    def setup_domain(domain_name)
-      swf = AWS::SimpleWorkflow.new
-      domain = swf.domains[domain_name]
-      unless domain.exists?
-        swf.domains.create(domain_name, 10)
-      end
-      domain
-    end
-
-    def build_workflow_worker(domain, klass, task_list)
-      AWS::Flow::WorkflowWorker.new(domain.client, domain, task_list, klass)
-    end
-
-    def build_generic_activity_worker(domain, task_list)
-      AWS::Flow::ActivityWorker.new(domain.client, domain, task_list)
-    end
-
-    def build_activity_worker(domain, klass, task_list)
-      AWS::Flow::ActivityWorker.new(domain.client, domain, task_list, klass)
-    end
-
-    def build_workflow_client(domain, options_hash)
-      AWS::Flow::workflow_client(domain.client, domain) { options_hash }
-    end
-  end
-
   class PingUtils
-    include SharedUtils
 
     WF_VERSION = "1.0"
     ACTIVITY_VERSION = "1.0"
@@ -167,11 +136,7 @@ describe "Runner" do
       
       workflow_execution = wf_client.ping()
 
-      sleep 3 until [
-                     "WorkflowExecutionCompleted",
-                     "WorkflowExecutionTimedOut",
-                     "WorkflowExecutionFailed"
-                    ].include? workflow_execution.events.to_a.last.event_type
+      wait_for_execution(workflow_execution, 3)
 
       # kill the workers
       workers.each { |w| Process.kill("KILL", w) }

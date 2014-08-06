@@ -365,19 +365,27 @@ describe "RubyFlowDecider" do
         raise "Error!"
       end
     end
+
+    @forking_executor = ForkingExecutor.new(:max_workers => 3)
+    @forking_executor.execute { @worker.start }
+    @forking_executor.execute { @activity_worker.start }
+
     workflow_execution = @my_workflow_client.start_execution
-    @worker.run_once
-    @activity_worker.run_once
-    wait_for_decision(workflow_execution)
-    @worker.run_once
-    wait_for_decision(workflow_execution)
-    @worker.run_once
-    @activity_worker.run_once
-    wait_for_decision(workflow_execution)
-    @worker.run_once
+
     wait_for_execution(workflow_execution)
     workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
     workflow_execution.events.to_a[-1].attributes.result.should =~ /Error!/
+
+    #@worker.run_once
+    #@activity_worker.run_once
+    #wait_for_decision(workflow_execution)
+    #@worker.run_once
+    #wait_for_decision(workflow_execution)
+    #@worker.run_once
+    #@activity_worker.run_once
+    #wait_for_decision(workflow_execution)
+    #@worker.run_once
+    #wait_for_execution(workflow_execution)
   end
 
   it "ensures that backtraces are set correctly with yaml" do
@@ -736,25 +744,36 @@ describe "RubyFlowDecider" do
         end
       end
 
+      @forking_executor = ForkingExecutor.new(:max_workers => 3)
+      @forking_executor.execute { @worker.start }
+      @forking_executor.execute { @activity_worker.start }
+
       workflow_execution = @my_workflow_client.start_execution
 
-      @worker.run_once
-      @activity_worker.run_once
-      wait_for_decision(workflow_execution)
-      @worker.run_once
-      wait_for_decision(workflow_execution)
-      @worker.run_once
       wait_for_execution(workflow_execution)
+
       history = workflow_execution.events.map(&:event_type)
       history.last.should == "WorkflowExecutionFailed"
-      # Should look something like: ["WorkflowExecutionStarted",
+
+      history.should include "ActivityTaskCancelRequested"
+      #@worker.run_once
+      #@activity_worker.run_once
+      #wait_for_decision(workflow_execution)
+      #@worker.run_once
+      #wait_for_decision(workflow_execution)
+      #@worker.run_once
+      
+      #wait_for_execution(workflow_execution)
+      #history = workflow_execution.events.map(&:event_type)
+      #history.last.should == "WorkflowExecutionFailed"
+      ## Should look something like: ["WorkflowExecutionStarted",
       # "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted",
       # "ActivityTaskScheduled", "ActivityTaskScheduled", "ActivityTaskStarted",
       # "ActivityTaskFailed", "DecisionTaskScheduled", "DecisionTaskStarted",
       # "DecisionTaskCompleted", "ActivityTaskCancelRequested",
       # "ActivityTaskCanceled", "DecisionTaskScheduled", "DecisionTaskStarted",
       # "DecisionTaskCompleted", "WorkflowExecutionFailed"]
-      history.should include "ActivityTaskCancelRequested"
+      #history.should include "ActivityTaskCancelRequested"
     end
 
     it "makes sure that you can use the :exponential_retry key" do
@@ -2072,8 +2091,10 @@ describe "RubyFlowDecider" do
       my_workflow_client = my_workflow_factory.get_client
       num_tests = 15
       workflow_executions = []
-      forking_executor  = ForkingExecutor.new(:max_workers => 3)
+      forking_executor  = ForkingExecutor.new(:max_workers => 4)
       forking_executor.execute { worker.start }
+      forking_executor.execute { activity_worker.start }
+      forking_executor.execute { activity_worker.start }
       forking_executor.execute { activity_worker.start }
       1.upto(num_tests)  { |i| workflow_executions << my_workflow_client.entry_point }
       workflow_executions.each { |x| wait_for_execution(x) }

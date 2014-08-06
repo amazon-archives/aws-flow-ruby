@@ -75,8 +75,8 @@ describe AWS::Flow::ActivityOptions do
       options.default_task_schedule_to_close_timeout.should == "NONE"
       options.default_task_start_to_close_timeout.should == "NONE"
       options.default_task_heartbeat_timeout.should == "NONE"
-      options.data_converter.should ==
-        AWS::Flow::FlowConstants.default_data_converter
+      options.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
+      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
 
     it "should change to the value passed in" do
@@ -85,11 +85,13 @@ describe AWS::Flow::ActivityOptions do
         default_task_schedule_to_close_timeout: 50,
         default_task_start_to_close_timeout: 30,
         default_task_heartbeat_timeout: 5,
+        default_task_list: "test_tasklist",
       })
       options.default_task_schedule_to_start_timeout.should == "20"
       options.default_task_schedule_to_close_timeout.should == "50"
       options.default_task_start_to_close_timeout.should == "30"
       options.default_task_heartbeat_timeout.should == "5"
+      options.default_task_list.should == "test_tasklist"
     end
 
     it "should remain the same when a non default value is set" do
@@ -98,11 +100,13 @@ describe AWS::Flow::ActivityOptions do
       options.schedule_to_close_timeout = 50
       options.start_to_close_timeout = 30
       options.heartbeat_timeout = 5
+      options.task_list = "test_tasklist"
 
       options.default_task_schedule_to_start_timeout.should == "NONE"
       options.default_task_schedule_to_close_timeout.should == "NONE"
       options.default_task_start_to_close_timeout.should == "NONE"
       options.default_task_heartbeat_timeout.should == "NONE"
+      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
 
     it "should not override non default values when non default values are set" do
@@ -111,11 +115,13 @@ describe AWS::Flow::ActivityOptions do
       options.schedule_to_close_timeout = 50
       options.start_to_close_timeout = 30
       options.heartbeat_timeout = 5
+      options.task_list = "test_tasklist"
 
       options.schedule_to_start_timeout.should == "20"
       options.schedule_to_close_timeout.should == "50"
       options.start_to_close_timeout.should == "30"
       options.heartbeat_timeout.should == "5"
+      options.task_list.should == "test_tasklist"
     end
 
 
@@ -161,6 +167,7 @@ describe AWS::Flow::WorkflowOptions do
       options.tag_list.should == []
       options.data_converter.should ==
         AWS::Flow::FlowConstants.default_data_converter
+      options.default_task_list == AWS::Flow::FlowConstants.use_worker_task_list
     end
 
     it "should change to the value passed in" do
@@ -168,10 +175,12 @@ describe AWS::Flow::WorkflowOptions do
         default_task_start_to_close_timeout: 20,
         default_execution_start_to_close_timeout: 120,
         default_child_policy: "ABANDON",
+        default_task_list: "test_tasklist",
       })
       options.default_task_start_to_close_timeout.should == "20"
       options.default_execution_start_to_close_timeout.should == "120"
       options.default_child_policy.should == "ABANDON"
+      options.default_task_list.should == "test_tasklist"
     end
 
     it "should remain the same when a non default value is set" do
@@ -179,10 +188,12 @@ describe AWS::Flow::WorkflowOptions do
       options.task_start_to_close_timeout = 20
       options.execution_start_to_close_timeout = 120
       options.child_policy = "ABANDON"
+      options.task_list = "test_tastlist"
 
       options.default_task_start_to_close_timeout.should == "30"
       options.default_execution_start_to_close_timeout.nil?.should == true
       options.default_child_policy.should == "TERMINATE"
+      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
 
     it "should not override non default values when non default values are set" do
@@ -190,10 +201,12 @@ describe AWS::Flow::WorkflowOptions do
       options.task_start_to_close_timeout = 20
       options.execution_start_to_close_timeout = 120
       options.child_policy = "ABANDON"
+      options.task_list = "test_tasklist"
 
       options.task_start_to_close_timeout.should == "20"
       options.execution_start_to_close_timeout.should == "120"
       options.child_policy.should == "ABANDON"
+      options.task_list.should == "test_tasklist"
     end
 
   end
@@ -255,6 +268,13 @@ describe AWS::Flow::WorkflowDefaults do
       .should == AWS::Flow::FlowConstants.default_data_converter
     end
   end
+  context "#default_task_list" do
+    it "should return the default task list" do
+      AWS::Flow::WorkflowDefaults.new.default_task_list
+      .should == AWS::Flow::FlowConstants.use_worker_task_list
+    end
+  end
+
 end
 
 describe AWS::Flow::ActivityDefaults do
@@ -289,5 +309,12 @@ describe AWS::Flow::ActivityDefaults do
       .should == AWS::Flow::FlowConstants.default_data_converter
     end
   end
+  context "#default_task_list" do
+    it "should return the default task list" do
+      AWS::Flow::ActivityDefaults.new.default_task_list
+      .should == AWS::Flow::FlowConstants.use_worker_task_list
+    end
+  end
+
 end
 
