@@ -22,7 +22,7 @@ module AWS
       # @api private
       class LogFactory
         def self.make_logger(klass)
-          make_logger_with_level(klass, Logger::INFO)
+          make_logger_with_level(klass, Logger::DEBUG)
         end
         def self.make_logger_with_level(klass, level)
           logname = "#{Dir.tmpdir}/#{klass.class.to_s}"

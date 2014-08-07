@@ -33,7 +33,7 @@ end
 describe "RubyFlowDecider" do
   before(:all) do
     class MyWorkflow
-      extend Decider
+      extend AWS::Flow::Workflows
       version "1"
       # TODO more of the stuff from the proposal
     end
@@ -95,7 +95,7 @@ describe "RubyFlowDecider" do
   describe "interface" do
   end
 
-  
+
   describe WorkflowFactory do
     it "makes sure that you can use the basic workflow_factory" do
       task_list = "workflow_factory_task_list"
@@ -116,7 +116,7 @@ describe "RubyFlowDecider" do
 
       class WorkflowFactoryWorkflow
 
-        extend Decider
+        extend AWS::Flow::Workflows
         version "1"
         entry_point :entry_point
         activity_client :activity do |options|
@@ -572,111 +572,111 @@ describe "RubyFlowDecider" do
     end
 
     it "ensures that handle_timer_canceled is fine" do
-        general_test(:task_list => "handle_timer_canceled", :class_name => "HandleTimerCanceled")
-        @workflow_class.class_eval do
-          def entry_point
-            bre = error_handler do |t|
-              t.begin do
-                create_timer(100)
-              end
-              t.rescue(CancellationException) {}
+      general_test(:task_list => "handle_timer_canceled", :class_name => "HandleTimerCanceled")
+      @workflow_class.class_eval do
+        def entry_point
+          bre = error_handler do |t|
+            t.begin do
+              create_timer(100)
             end
-            create_timer(1)
-            bre.cancel(CancellationException.new)
+            t.rescue(CancellationException) {}
           end
-        end
-        workflow_execution = @my_workflow_client.start_execution
-        @worker.run_once
-        @worker.run_once
-        wait_for_execution(workflow_execution)
-        workflow_history = workflow_execution.events.map(&:event_type)
-        workflow_history.count("TimerCanceled").should == 1
-        workflow_history.count("WorkflowExecutionCompleted").should == 1
-      end
-
-      it "ensures that activities under a bre get cancelled" do
-        general_test(:task_list => "activite under bre", :class_name => "ActivitiesUnderBRE")
-        @workflow_class.class_eval do
-          def entry_point
-            bre = error_handler do |t|
-              t.begin { activity.send_async(:run_activity1) }
-            end
-            create_timer(1)
-            bre.cancel(CancellationException.new)
-          end
-        end
-        workflow_execution = @my_workflow_client.start_execution
-        @worker.run_once
-        @worker.run_once
-        workflow_execution.events.map(&:event_type).count("ActivityTaskCancelRequested").should == 1
-        @worker.run_once
-        wait_for_execution(workflow_execution)
-        workflow_execution.events.to_a.last.attributes.reason.should == "AWS::Flow::Core::CancellationException"
-      end
-
-      it "ensures that start_timer_failed is handled correctly" do
-        general_test(:task_list => "start_timer_failed", :class_name => "StartTimerFailed")
-      end
-
-      it "ensures that get_state_method works fine" do
-        general_test(:task_list => "get_state_method", :class_name => "GetStateTest")
-        @workflow_class.class_eval do
-          get_state_method :get_state_test
-          def get_state_test
-            "This is the workflow state!"
-          end
-        end
-        workflow_execution = @my_workflow_client.start_execution
-        worker = WorkflowWorker.new(@swf.client, @domain, "get_state_method", @workflow_class)
-        worker.run_once
-        workflow_execution.events.to_a[3].attributes.execution_context.should =~ /This is the workflow state!/
-      end
-
-      it "ensures that handle_request_cancel_activity_task_failed works" do
-        general_test(:task_list => "handle_request_cancel_activity_task_failed", :class_name => "HandleRCActivityTaskFailed")
-        class AsyncDecider
-          alias_method :old_handle_request_cancel_activity_task_failed, :handle_request_cancel_activity_task_failed
-          # We have to replace this method, otherwise we'd fail on handling the
-          # error because we can't find the decision in the decision_map. There
-          # is similar behavior in javaflow
-          def handle_request_cancel_activity_task_failed(event)
-            event_double = SimpleTestHistoryEvent.new("Activity1")
-            self.send(:old_handle_request_cancel_activity_task_failed, event_double)
-          end
-        end
-
-        class ActivityDecisionStateMachine
-          alias_method :old_create_request_cancel_activity_task_decision, :create_request_cancel_activity_task_decision
-          def create_request_cancel_activity_task_decision
-            { :decision_type => "RequestCancelActivityTask",
-              :request_cancel_activity_task_decision_attributes => {:activity_id => "bad_id"} }
-          end
-        end
-
-        @workflow_class.class_eval do
-          def entry_point
-            future = activity.send_async(:run_activity1)
-            create_timer(1)
-            activity.request_cancel_activity_task(future)
-          end
-        end
-
-
-        workflow_execution = @my_workflow_client.start_execution
-        @worker.run_once
-        @worker.run_once
-        @worker.run_once
-
-        # In the future, we might want to verify that it transitions the state
-        # machine properly, but at a base, it should not fail the workflow.
-        workflow_execution.events.map(&:event_type).last.should == "DecisionTaskCompleted"
-        class AsyncDecider
-          alias_method :handle_request_cancel_activity_task_failed, :old_handle_request_cancel_activity_task_failed
-        end
-        class ActivityDecisionStateMachine
-          alias_method  :create_request_cancel_activity_task_decision,:old_create_request_cancel_activity_task_decision
+          create_timer(1)
+          bre.cancel(CancellationException.new)
         end
       end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      workflow_history = workflow_execution.events.map(&:event_type)
+      workflow_history.count("TimerCanceled").should == 1
+      workflow_history.count("WorkflowExecutionCompleted").should == 1
+    end
+
+    it "ensures that activities under a bre get cancelled" do
+      general_test(:task_list => "activite under bre", :class_name => "ActivitiesUnderBRE")
+      @workflow_class.class_eval do
+        def entry_point
+          bre = error_handler do |t|
+            t.begin { activity.send_async(:run_activity1) }
+          end
+          create_timer(1)
+          bre.cancel(CancellationException.new)
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @worker.run_once
+      workflow_execution.events.map(&:event_type).count("ActivityTaskCancelRequested").should == 1
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      workflow_execution.events.to_a.last.attributes.reason.should == "AWS::Flow::Core::CancellationException"
+    end
+
+    it "ensures that start_timer_failed is handled correctly" do
+      general_test(:task_list => "start_timer_failed", :class_name => "StartTimerFailed")
+    end
+
+    it "ensures that get_state_method works fine" do
+      general_test(:task_list => "get_state_method", :class_name => "GetStateTest")
+      @workflow_class.class_eval do
+        get_state_method :get_state_test
+        def get_state_test
+          "This is the workflow state!"
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      worker = WorkflowWorker.new(@swf.client, @domain, "get_state_method", @workflow_class)
+      worker.run_once
+      workflow_execution.events.to_a[3].attributes.execution_context.should =~ /This is the workflow state!/
+    end
+
+    it "ensures that handle_request_cancel_activity_task_failed works" do
+      general_test(:task_list => "handle_request_cancel_activity_task_failed", :class_name => "HandleRCActivityTaskFailed")
+      class AsyncDecider
+        alias_method :old_handle_request_cancel_activity_task_failed, :handle_request_cancel_activity_task_failed
+        # We have to replace this method, otherwise we'd fail on handling the
+        # error because we can't find the decision in the decision_map. There
+        # is similar behavior in javaflow
+        def handle_request_cancel_activity_task_failed(event)
+          event_double = SimpleTestHistoryEvent.new("Activity1")
+          self.send(:old_handle_request_cancel_activity_task_failed, event_double)
+        end
+      end
+
+      class ActivityDecisionStateMachine
+        alias_method :old_create_request_cancel_activity_task_decision, :create_request_cancel_activity_task_decision
+        def create_request_cancel_activity_task_decision
+          { :decision_type => "RequestCancelActivityTask",
+            :request_cancel_activity_task_decision_attributes => {:activity_id => "bad_id"} }
+        end
+      end
+
+      @workflow_class.class_eval do
+        def entry_point
+          future = activity.send_async(:run_activity1)
+          create_timer(1)
+          activity.request_cancel_activity_task(future)
+        end
+      end
+
+
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @worker.run_once
+      @worker.run_once
+
+      # In the future, we might want to verify that it transitions the state
+      # machine properly, but at a base, it should not fail the workflow.
+      workflow_execution.events.map(&:event_type).last.should == "DecisionTaskCompleted"
+      class AsyncDecider
+        alias_method :handle_request_cancel_activity_task_failed, :old_handle_request_cancel_activity_task_failed
+      end
+      class ActivityDecisionStateMachine
+        alias_method  :create_request_cancel_activity_task_decision,:old_create_request_cancel_activity_task_decision
+      end
+    end
   end
 
 
@@ -762,7 +762,7 @@ describe "RubyFlowDecider" do
       #@worker.run_once
       #wait_for_decision(workflow_execution)
       #@worker.run_once
-      
+
       #wait_for_execution(workflow_execution)
       #history = workflow_execution.events.map(&:event_type)
       #history.last.should == "WorkflowExecutionFailed"
@@ -887,7 +887,7 @@ describe "RubyFlowDecider" do
         class << self
           attr_accessor :task_list, :entry_point_to_call
         end
-        extend Decider
+        extend AWS::Flow::Workflows
         version "1"
         entry_point :entry_point
         activity_client :activity do |options|
@@ -1071,7 +1071,7 @@ describe "RubyFlowDecider" do
       @forking_executor.execute { @activity_worker.start }
 
       wait_for_execution(workflow_execution)
-      
+
       @forking_executor.shutdown(1)
       after_first_decision = workflow_execution.events.to_a.slice(4, 2).map(&:event_type)
       after_first_decision.should include "TimerStarted"
@@ -1103,217 +1103,201 @@ describe "RubyFlowDecider" do
 
     describe "Child Workflows" do
 
-    it "is a basic child workflow test" do
-        class OtherChildWorkflow
-        extend Decider
-        version "1"
-        entry_point :entry_point
-        def entry_point(arg)
-          sleep 1
-        end
+      it "is a basic child workflow test" do
 
-      end
-      class BadChildWorkflow
-        extend Decider
-        version "1"
-        def other_entry_point
-        end
-        entry_point :entry_point
-        def entry_point(arg)
-          client = workflow_client do |options|
-            options.workflow_name = "OtherChildWorkflow"
-            options.execution_method = "entry_point"
-            options.execution_start_to_close_timeout = 600
-            options.task_start_to_close_timeout = 10
-            options.version = "1"
-            options.task_list = "test2"
+        class ChildWorkflowsTestChildWorkflow
+          extend AWS::Flow::Workflows
+          workflow :child do
+            {
+              version: "1.0",
+              default_execution_start_to_close_timeout: 600,
+              default_task_start_to_close_timeout: 10,
+            }
           end
-
-          client.send_async(:start_execution, 5)
-          client.send_async(:start_execution, 5)
+          def child; sleep 1; end
         end
-      end
-      my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "BadChildWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_list = "test"
-        options.version = "1"
-      end
-      worker2 = WorkflowWorker.new(@swf.client, @domain, "test2")
-      worker2.add_workflow_implementation(OtherChildWorkflow)
-      worker2.register
-      worker = WorkflowWorker.new(@swf.client, @domain, "test")
-      worker.add_workflow_implementation(BadChildWorkflow)
-      worker.register
-      sleep 5
-      my_workflow_client = my_workflow_factory.get_client
-      workflow_execution = my_workflow_client.entry_point(5)
 
-      # Start, start off the child workflow
-      worker.run_once
-
-      # Run Both child workflows
-      worker2.run_once
-      worker2.run_once
-      worker.run_once
-      # Appears to a case that happens sometimes where the history looks like
-      # ["WorkflowExecutionStarted", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "StartChildWorkflowExecutionInitiated", "StartChildWorkflowExecutionInitiated", "ChildWorkflowExecutionStarted", "DecisionTaskScheduled", "ChildWorkflowExecutionStarted", "ChildWorkflowExecutionCompleted", "DecisionTaskStarted", "ChildWorkflowExecutionCompleted", "DecisionTaskScheduled", "DecisionTaskCompleted"]
-      # In order to deal with this, we have the following line below
-      worker.run_once if workflow_execution.events.map(&:event_type).last == "DecisionTaskCompleted"
-      events = workflow_execution.events.map(&:event_type)
-      workflow_execution.events.to_a.last.attributes.result.should_not =~ /secret_access_key/
-      events.should include "ChildWorkflowExecutionStarted"
-      events.should include "ChildWorkflowExecutionCompleted"
-      events.should include "WorkflowExecutionCompleted"
-    end
-
-    it "ensures that workflow clock provides at least basic support for current_time_millis" do
-      general_test(:task_list => "workflow_clock_basic", :class_name => "WorkflowClockBasic")
-
-      @workflow_class.class_eval do
-        class << self
-          attr_accessor :time_hash, :replaying_hash
-        end
-        def entry_point
-          def record_point(name)
-            self.class.replaying_hash[name] << decision_context.workflow_clock.replaying
-            self.class.time_hash[name] << decision_context.workflow_clock.current_time
+        class ChildWorkflowsTestParentWorkflow
+          extend AWS::Flow::Workflows
+          workflow :parent do
+            {
+              version: "1.0",
+              default_execution_start_to_close_timeout: 600,
+              default_task_list: "test"
+            }
           end
-          record_point(:first)
-          create_timer(5)
-          record_point(:second)
-          create_timer(3)
-          record_point(:third)
-        end
-      end
-      @workflow_class.time_hash = Hash.new {|hash, key| hash[key] = []}
-      @workflow_class.replaying_hash =  Hash.new {|hash, key| hash[key] = []}
-      workflow_execution = @my_workflow_client.start_execution
-      3.times { @worker.run_once }
-      # Maintain the invariant that you should *not* be replaying only once
-      @workflow_class.replaying_hash.values.each {|x| x.count(false).should be 1}
-      # Maintain the invariant that at the same point in the code,
-      # replay_current_time_millis will return the same value
-      @workflow_class.time_hash.values.each do |array|
-        array.reduce {|first, second| first if first.should == second}
-      end
-    end
-
-    it "ensures that a child workflow failing raises a ChildWorkflowExecutionFailed" do
-      class FailingChildChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "failing_child_workflow", :execution_start_to_close_timeout => 600} }
-        def entry_point(arg)
-          raise "simulated error"
-        end
-      end
-      class FailingHostChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "failing_parent_workflow", :execution_start_to_close_timeout => 600} }
-        def other_entry_point
-        end
-
-        def entry_point(arg)
-          domain = get_test_domain
-          client = workflow_client(domain.client, domain) { {:from_class => "FailingChildChildWorkflow"} }
-          begin
-            client.start_execution(5)
-          rescue Exception => e
-            #pass
+          def parent
+            domain = get_test_domain
+            client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "ChildWorkflowsTestChildWorkflow", task_list: "test2" } } 
+            client.send_async(:start_execution)
+            client.send_async(:start_execution)
           end
         end
+
+        parent_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "ChildWorkflowsTestParentWorkflow" } }
+        @child_worker = WorkflowWorker.new(@domain.client, @domain, "test2", ChildWorkflowsTestChildWorkflow)
+        @parent_worker = WorkflowWorker.new(@domain.client, @domain, "test", ChildWorkflowsTestParentWorkflow)
+
+        @forking_executor = ForkingExecutor.new(:max_workers => 3)
+        @forking_executor.execute { @parent_worker.start }
+        @forking_executor.execute { @child_worker.start }
+        @forking_executor.execute { @child_worker.start }
+
+        workflow_execution = parent_client.start_execution
+        wait_for_execution(workflow_execution)
+        
+        events = workflow_execution.events.map(&:event_type)
+        workflow_execution.events.to_a.last.attributes.result.should_not =~ /secret_access_key/
+        events.should include("ChildWorkflowExecutionStarted", "ChildWorkflowExecutionCompleted", "WorkflowExecutionCompleted")
       end
-      worker2 = WorkflowWorker.new(@swf.client, @domain, "failing_child_workflow", FailingChildChildWorkflow)
-      worker2.register
-      worker = WorkflowWorker.new(@swf.client, @domain, "failing_parent_workflow", FailingHostChildWorkflow)
-      worker.register
-      client = workflow_client(@swf.client, @domain) { {:from_class => "FailingHostChildWorkflow"} }
-      workflow_execution = client.entry_point(5)
-      worker.run_once
-      worker2.run_once
-      worker2.run_once
-      worker.run_once
-      events = workflow_execution.events.map(&:event_type)
-      events.should include "ChildWorkflowExecutionFailed"
-      events.should include "WorkflowExecutionCompleted"
+
+      it "ensures that workflow clock provides at least basic support for current_time_millis" do
+        general_test(:task_list => "workflow_clock_basic", :class_name => "WorkflowClockBasic")
+
+        @workflow_class.class_eval do
+          class << self
+            attr_accessor :time_hash, :replaying_hash
+          end
+          def entry_point
+            def record_point(name)
+              self.class.replaying_hash[name] << decision_context.workflow_clock.replaying
+              self.class.time_hash[name] << decision_context.workflow_clock.current_time
+            end
+            record_point(:first)
+            create_timer(5)
+            record_point(:second)
+            create_timer(3)
+            record_point(:third)
+          end
+        end
+        @workflow_class.time_hash = Hash.new {|hash, key| hash[key] = []}
+        @workflow_class.replaying_hash =  Hash.new {|hash, key| hash[key] = []}
+        workflow_execution = @my_workflow_client.start_execution
+        3.times { @worker.run_once }
+        # Maintain the invariant that you should *not* be replaying only once
+        @workflow_class.replaying_hash.values.each {|x| x.count(false).should be 1}
+        # Maintain the invariant that at the same point in the code,
+        # replay_current_time_millis will return the same value
+        @workflow_class.time_hash.values.each do |array|
+          array.reduce {|first, second| first if first.should == second}
+        end
+      end
+
+      it "ensures that a child workflow failing raises a ChildWorkflowExecutionFailed" do
+        class FailingChildChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "failing_child_workflow", :execution_start_to_close_timeout => 600} }
+          def entry_point(arg)
+            raise "simulated error"
+          end
+        end
+        class FailingHostChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "failing_parent_workflow", :execution_start_to_close_timeout => 600} }
+          def other_entry_point
+          end
+
+          def entry_point(arg)
+            domain = get_test_domain
+            client = workflow_client(domain.client, domain) { {:from_class => "FailingChildChildWorkflow"} }
+            begin
+              client.start_execution(5)
+            rescue Exception => e
+              #pass
+            end
+          end
+        end
+        worker2 = WorkflowWorker.new(@swf.client, @domain, "failing_child_workflow", FailingChildChildWorkflow)
+        worker2.register
+        worker = WorkflowWorker.new(@swf.client, @domain, "failing_parent_workflow", FailingHostChildWorkflow)
+        worker.register
+        client = workflow_client(@swf.client, @domain) { {:from_class => "FailingHostChildWorkflow"} }
+        workflow_execution = client.entry_point(5)
+        worker.run_once
+        worker2.run_once
+        worker2.run_once
+        worker.run_once
+        events = workflow_execution.events.map(&:event_type)
+        events.should include "ChildWorkflowExecutionFailed"
+        events.should include "WorkflowExecutionCompleted"
+      end
+
+      it "ensures that a child workflow can use data_converter correctly" do
+        class DataConverterChildChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "data_converter_child_workflow", :execution_start_to_close_timeout => 600, :data_converter => YAMLPlusOne.new} }
+          def entry_point(arg)
+            return arg + 1
+          end
+        end
+        class DataConverterHostChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "data_converter_parent_workflow", :execution_start_to_close_timeout => 600} }
+          def other_entry_point
+          end
+
+          def entry_point(arg)
+            domain = get_test_domain
+            client = workflow_client(domain.client, domain) { {:from_class => "DataConverterChildChildWorkflow"} }
+            task { client.start_execution(5) }
+          end
+        end
+        worker2 = WorkflowWorker.new(@swf.client, @domain, "data_converter_child_workflow", DataConverterChildChildWorkflow)
+        worker2.register
+        worker = WorkflowWorker.new(@swf.client, @domain, "data_converter_parent_workflow", DataConverterHostChildWorkflow)
+        worker.register
+
+        client = workflow_client(@swf.client, @domain) { {:from_class => "DataConverterHostChildWorkflow"} }
+        workflow_execution = client.entry_point(5)
+        worker.run_once
+        worker2.run_once
+        worker.run_once
+        # We have to find the index dynamically, because due to how scheduled/starts work, it isn't necessarily in the same place in our history.
+        child_execution_completed_index = workflow_execution.events.map(&:event_type).index("ChildWorkflowExecutionCompleted")
+
+        workflow_execution.events.to_a[child_execution_completed_index].attributes.result.should =~ /1\z/
+      end
+
+      it "makes sure that the new way of doing child workflows works" do
+        class OtherNewChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "new_child_workflow", :execution_start_to_close_timeout => 600} }
+          def entry_point(arg)
+            sleep 2
+          end
+
+        end
+        class BadNewChildWorkflow
+          extend Workflows
+          workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_workflow", :execution_start_to_close_timeout => 600} }
+          def other_entry_point
+          end
+
+          def entry_point(arg)
+            domain = get_test_domain
+            client = workflow_client(domain.client, domain) { {:from_class => "OtherNewChildWorkflow"} }
+            task { client.start_execution(5) }
+            task { client.start_execution(5) }
+          end
+        end
+        worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_workflow", OtherNewChildWorkflow)
+        worker2.register
+        worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_workflow", BadNewChildWorkflow)
+        worker.register
+        client = workflow_client(@swf.client, @domain) { {:from_class => "BadNewChildWorkflow"} }
+        workflow_execution = client.entry_point(5)
+        worker.run_once
+        worker2.run_once
+        worker2.run_once
+        worker.run_once
+        worker.run_once if workflow_execution.events.map(&:event_type).last == "DecisionTaskCompleted"
+        events = workflow_execution.events.map(&:event_type)
+        events.should include "ChildWorkflowExecutionStarted"
+        events.should include "ChildWorkflowExecutionCompleted"
+        events.should include "WorkflowExecutionCompleted"
+      end
     end
-
-    it "ensures that a child workflow can use data_converter correctly" do
-      class DataConverterChildChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "data_converter_child_workflow", :execution_start_to_close_timeout => 600, :data_converter => YAMLPlusOne.new} }
-        def entry_point(arg)
-          return arg + 1
-        end
-      end
-      class DataConverterHostChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "data_converter_parent_workflow", :execution_start_to_close_timeout => 600} }
-        def other_entry_point
-        end
-
-        def entry_point(arg)
-          domain = get_test_domain
-          client = workflow_client(domain.client, domain) { {:from_class => "DataConverterChildChildWorkflow"} }
-          task { client.start_execution(5) }
-        end
-      end
-      worker2 = WorkflowWorker.new(@swf.client, @domain, "data_converter_child_workflow", DataConverterChildChildWorkflow)
-      worker2.register
-      worker = WorkflowWorker.new(@swf.client, @domain, "data_converter_parent_workflow", DataConverterHostChildWorkflow)
-      worker.register
-
-      client = workflow_client(@swf.client, @domain) { {:from_class => "DataConverterHostChildWorkflow"} }
-      workflow_execution = client.entry_point(5)
-      worker.run_once
-      worker2.run_once
-      worker.run_once
-      # We have to find the index dynamically, because due to how scheduled/starts work, it isn't necessarily in the same place in our history.
-      child_execution_completed_index = workflow_execution.events.map(&:event_type).index("ChildWorkflowExecutionCompleted")
-
-      workflow_execution.events.to_a[child_execution_completed_index].attributes.result.should =~ /1\z/
-    end
-
-    it "makes sure that the new way of doing child workflows works" do
-      class OtherNewChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "new_child_workflow", :execution_start_to_close_timeout => 600} }
-        def entry_point(arg)
-          sleep 2
-        end
-
-      end
-      class BadNewChildWorkflow
-        extend Workflows
-        workflow(:entry_point) { {:version =>  1, :task_list => "new_parent_workflow", :execution_start_to_close_timeout => 600} }
-        def other_entry_point
-        end
-
-        def entry_point(arg)
-          domain = get_test_domain
-          client = workflow_client(domain.client, domain) { {:from_class => "OtherNewChildWorkflow"} }
-          task { client.start_execution(5) }
-          task { client.start_execution(5) }
-        end
-      end
-      worker2 = WorkflowWorker.new(@swf.client, @domain, "new_child_workflow", OtherNewChildWorkflow)
-      worker2.register
-      worker = WorkflowWorker.new(@swf.client, @domain, "new_parent_workflow", BadNewChildWorkflow)
-      worker.register
-      client = workflow_client(@swf.client, @domain) { {:from_class => "BadNewChildWorkflow"} }
-      workflow_execution = client.entry_point(5)
-      worker.run_once
-      worker2.run_once
-      worker2.run_once
-      worker.run_once
-      worker.run_once if workflow_execution.events.map(&:event_type).last == "DecisionTaskCompleted"
-      events = workflow_execution.events.map(&:event_type)
-      events.should include "ChildWorkflowExecutionStarted"
-      events.should include "ChildWorkflowExecutionCompleted"
-      events.should include "WorkflowExecutionCompleted"
-    end
-  end
-  it "makes sure that you can use retries_per_exception" do
+    it "makes sure that you can use retries_per_exception" do
       general_test(:task_list => "retries_per_exception", :class_name => "RetriesPerException")
       @activity_class.class_eval do
         def run_activity1
@@ -1437,7 +1421,7 @@ describe "RubyFlowDecider" do
       end
 
       class ExponentialWorkflow
-        extend Decider
+        extend AWS::Flow::Workflows
         version "1"
 
         activity_client :activity do |options|
@@ -1546,7 +1530,7 @@ describe "RubyFlowDecider" do
       end
 
       class SignalInternalWorkflow
-        extend Decider
+        extend AWS::Flow::Workflows
         version "1"
         activity_client :activity do |options|
           options.prefix_name = "SignallingActivity"
@@ -1578,7 +1562,7 @@ describe "RubyFlowDecider" do
           attr_accessor :task_list, :trace
         end
         @trace = []
-        extend Decider
+        extend AWS::Flow::Workflows
         version "1"
         def this_signal
           @wait.broadcast
@@ -1646,7 +1630,7 @@ describe "RubyFlowDecider" do
       class << self
         attr_accessor :task_list
       end
-      extend Decider
+      extend AWS::Flow::Workflows
       version "1"
       activity_client :activity do |options|
         options.prefix_name = "GeneralActivity"
@@ -1705,7 +1689,7 @@ describe "RubyFlowDecider" do
     end
     # Definition of the workflow logic
     class MyWorkflow
-      extend Decider
+      extend AWS::Flow::Workflows
       version "1"
       activity_client :activity do |options|
         options.prefix_name = "AddOneActivity"
@@ -1796,7 +1780,7 @@ describe "RubyFlowDecider" do
     end
     # Definition of the workflow logic
     class ParallelWorkflow
-      extend Decider
+      extend AWS::Flow::Workflows
       version "1"
       activity_client :activity do |options|
         options.prefix_name = "ParallelSplitActivity"
@@ -1882,7 +1866,7 @@ describe "RubyFlowDecider" do
     end
     # Definition of the workflow logic
     class MyWorkflow
-      extend Decider
+      extend AWS::Flow::Workflows
       version "1"
       activity_client :activity do |options|
         options.prefix_name = "ErrorHandlingActivity"
@@ -1930,7 +1914,7 @@ describe "RubyFlowDecider" do
             error_seen.should == ActivityTaskFailedException
             # Do something to clean up after
           end
-        end
+          end
         5
       end
     end
@@ -2021,30 +2005,33 @@ describe "RubyFlowDecider" do
 
   describe "ensures that you can specify the {workflow_id,execution_method} to be used for an external client" do
     {:workflow_id => ["blah", "workflow_id"] ,
-      :execution_method => ["entry_point", "workflow_type.name.split('.').last" ]
+     :execution_method => ["start", "workflow_type.name.split('.').last" ]
     }.each_pair do |method, value_and_method_to_check|
       value, method_to_check = value_and_method_to_check
-      swf, domain, _ = setup_swf
+
       it "makes sure that #{method} can be specified correctly" do
         class WorkflowIDWorkflow
-          extend Decider
-          version "1"
-          entry_point :entry_point
-          def entry_point
+          extend Workflows
+          workflow :start do
+            {
+              version: "1.0",
+              default_execution_start_to_close_timeout: 600,
+              default_task_list: "timeout_test"
+            }
           end
+          def start; end
         end
-        worker = WorkflowWorker.new(swf.client, domain, "timeout_test", WorkflowIDWorkflow)
+
+        worker = WorkflowWorker.new(@domain.client, @domain, "timeout_test", WorkflowIDWorkflow)
         worker.register
-        my_workflow_factory = workflow_factory swf.client, domain do |options|
-          options.workflow_name = "WorkflowIDWorkflow"
-          options.execution_start_to_close_timeout = 600
-          options.task_list = "timeout_test"
+        client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "WorkflowIDWorkflow" } }
+
+        workflow_execution = client.start do {
+          method.to_sym => value,
+          tag_list: ["stuff"]
+        }
         end
-        my_workflow_client = my_workflow_factory.get_client
-        workflow_execution = my_workflow_client.entry_point do |opt|
-          opt.send("#{method}=", value)
-          opt.tag_list = ["stuff"]
-        end
+
         return_value = eval "workflow_execution.#{method_to_check}"
         return_value.should == value
         workflow_execution.tags.should == ["stuff"]
@@ -2054,26 +2041,30 @@ describe "RubyFlowDecider" do
   describe "making sure that timeouts are infrequent" do
     it "is a basic repro case" do
       class TimeoutActivity
-        extend Activity
-        activity :run_activity1 do |options|
-          options.default_task_list = "timeout_test"
-          options.version = "1"
-          options.default_task_heartbeat_timeout = "600"
-          options.default_task_schedule_to_close_timeout = "120"
-          options.default_task_schedule_to_start_timeout = "60"
-          options.default_task_start_to_close_timeout = "60"
+        extend Activities
+        activity :run_activity1 do
+          {
+            default_task_list: "timeout_test",
+            version: "1",
+            default_task_heartbeat_timeout: "600",
+            default_task_schedule_to_close_timeout: "120",
+            default_task_schedule_to_start_timeout: "60",
+            default_task_start_to_close_timeout: "60",
+          }
         end
         def run_activity1
           "did some work in run_activity1"
         end
       end
       class TimeoutWorkflow
-        extend Decider
-        version "1"
-        activity_client :activity do |options|
-          options.prefix_name = "TimeoutActivity"
+        extend Workflows
+        workflow :entry_point do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 600
+          }
         end
-        entry_point :entry_point
+        activity_client (:activity) { { from_class: "TimeoutActivity" } }
         def entry_point
           activity.run_activity1
         end
@@ -2082,13 +2073,8 @@ describe "RubyFlowDecider" do
       activity_worker = ActivityWorker.new(@swf.client, @domain, "timeout_test", TimeoutActivity)
       worker.register
       activity_worker.register
-      my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "TimeoutWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_start_to_close_timeout = 30
-        options.task_list = "timeout_test"
-      end
-      my_workflow_client = my_workflow_factory.get_client
+      my_workflow_client = AWS::Flow::workflow_client(@swf.client, @domain) { { from_class: "TimeoutWorkflow" } }
+
       num_tests = 15
       workflow_executions = []
       forking_executor  = ForkingExecutor.new(:max_workers => 4)
@@ -2105,53 +2091,42 @@ describe "RubyFlowDecider" do
 
   describe "makes sure that workflow clients expose the same client api and do the right thing" do
     it "makes sure that send_async works" do
-      class SendAsyncWorkflow
-        extend Decider
-        version "1"
-        entry_point :entry_point
-        def entry_point(arg)
-        end
-      end
-      class SendAsyncBadWorkflow
-        class << self
-          attr_accessor :task_list, :trace
-        end
-        @trace = []
-        extend Decider
-        version "1"
-        entry_point :entry_point
-        def entry_point(arg)
-          client = workflow_client(@swf_client, @domain) do |options|
-            options.workflow_name = "SendAsyncWorkflow"
-            options.execution_method = "entry_point"
-            options.execution_start_to_close_timeout = 600
-            options.task_start_to_close_timeout = 10
-            options.version = "1"
-            options.task_list = "client_test_async2"
-          end
-          client.send_async(:start_execution, arg) {
-            { :task_start_to_close_timeout => 35 }
+      class SendAsyncChildWorkflow
+        extend AWS::Flow::Workflows
+        workflow :start do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: "600"
           }
-          client.send_async(:start_execution, arg)
+        end
+        def start; end
+      end
+      class SendAsyncParentWorkflow
+        extend AWS::Flow::Workflows
+        workflow :start do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: "600",
+          }
+        end
+        def start
+          domain = get_test_domain
+          client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "SendAsyncChildWorkflow" } }
+          client.send_async(:start_execution) { { task_list: "client_test_async2" } }
+          client.send_async(:start_execution) { { task_list: "client_test_async2" } }
         end
       end
-      worker = WorkflowWorker.new(@swf.client, @domain, "client_test_async", SendAsyncBadWorkflow)
-      internal_worker = WorkflowWorker.new(@swf.client, @domain, "client_test_async2", SendAsyncWorkflow)
-      worker.register
-      internal_worker.register
-      my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "SendAsyncBadWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_list = "client_test_async"
-      end
-      my_workflow_client = my_workflow_factory.get_client
-      workflow_execution = my_workflow_client.entry_point(5)
-      worker.run_once
+      @parent_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_async", SendAsyncParentWorkflow)
+      @child_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_async2", SendAsyncChildWorkflow)
+      @forking_executor = ForkingExecutor.new(:max_workers => 3)
+      @forking_executor.execute { @parent_worker.start }
+      @forking_executor.execute { @child_worker.start }
 
-      internal_worker.run_once
-      internal_worker.run_once
-      worker.run_once
-      worker.run_once if workflow_execution.events.map(&:event_type).last == "DecisionTaskCompleted"
+      my_workflow_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "SendAsyncParentWorkflow" } }
+      workflow_execution = my_workflow_client.start_execution
+
+      wait_for_execution(workflow_execution)
+
       history_events = workflow_execution.events.map(&:event_type)
       history_events.count("ChildWorkflowExecutionCompleted").should == 2
       history_events.count("WorkflowExecutionCompleted").should == 1
@@ -2163,9 +2138,8 @@ describe "RubyFlowDecider" do
         workflow :other_workflow do
           {
             version: "1.0",
-            task_list: "client_test_retry2",
-            execution_start_to_close_timeout: 120,
-            task_start_to_close_timeout: 10
+            default_execution_start_to_close_timeout: 120,
+            default_task_start_to_close_timeout: 10
           }
 
         end
@@ -2178,37 +2152,27 @@ describe "RubyFlowDecider" do
         workflow :bad_workflow do
           {
             version: "1.1",
-            task_list: "client_test_retry",
-            execution_start_to_close_timeout: 600,
-            task_start_to_close_timeout: 60
+            default_execution_start_to_close_timeout: 600,
+            default_task_start_to_close_timeout: 60
           }
         end
 
         def bad_workflow
           domain = get_test_domain
-          child_client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "OtherWorkflow" } }
-          child_client.exponential_retry(:start_execution) do |opt|
-            opt.maximum_attempts = 1
-          end
+          child_client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "OtherWorkflow" } } 
+          child_client.exponential_retry(:start_execution) { { maximum_attempts: 1 }}
         end
       end
-      parent_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry", BadWorkflow)
-      child_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry2", OtherWorkflow)
-      parent_worker.register
-      child_worker.register
+      @parent_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry", BadWorkflow)
+      @child_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry2", OtherWorkflow)
+
+      forking_executor = ForkingExecutor.new(:max_workers => 3)
+      forking_executor.execute { @parent_worker.start }
+      forking_executor.execute { @child_worker.start }
+
       parent_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "BadWorkflow" } }
       workflow_execution = parent_client.start_execution
 
-      parent_worker.run_once
-      child_worker.run_once
-
-      # Make sure that we finish the execution and fail before reporting ack
-      sleep 10
-      parent_worker.run_once
-      parent_worker.run_once
-      child_worker.run_once
-      sleep 10
-      parent_worker.run_once
       wait_for_execution(workflow_execution)
       history_events = workflow_execution.events.map(&:event_type)
       history_events.count("ChildWorkflowExecutionFailed").should == 2
@@ -2296,23 +2260,23 @@ describe "RubyFlowDecider" do
     it "makes sure that option inheritance gives you defaults" do
       class OptionsWorkflow
         extend Workflows
-        version "1"
-        entry_point :entry_point
+        workflow :entry_point do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 600,
+            default_task_list: "client_test_inheritance"
+          }
+        end
         def entry_point
         end
       end
       worker = WorkflowWorker.new(@swf.client, @domain, "client_test_inheritance", OptionsWorkflow)
       worker.register
-      my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "OptionsWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.child_policy = :REQUEST_CANCEL
-        options.task_list = "client_test_inheritance"
-      end
 
-      workflow_execution = my_workflow_factory.get_client.entry_point
+      client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "OptionsWorkflow", child_policy: "REQUEST_CANCEL" } }
+
+      workflow_execution = client.start_execution
       workflow_execution.terminate
-
       workflow_execution.child_policy.should == :request_cancel
     end
 
@@ -2321,11 +2285,11 @@ describe "RubyFlowDecider" do
         extend Activity
         activity :run_activity1 do
           {
-          :default_task_list => "options_test", :version => "1",
-          :default_task_heartbeat_timeout => "600",
-          :default_task_schedule_to_close_timeout => "60",
-          :default_task_schedule_to_start_timeout => "60",
-          :default_task_start_to_close_timeout => "60",
+            :default_task_list => "options_test", :version => "1",
+            :default_task_heartbeat_timeout => "600",
+            :default_task_schedule_to_close_timeout => "60",
+            :default_task_schedule_to_start_timeout => "60",
+            :default_task_start_to_close_timeout => "60",
           }
         end
         def run_activity1
@@ -2630,11 +2594,11 @@ describe "RubyFlowDecider" do
     activity_worker = ActivityWorker.new(@swf.client, @domain, "arbitrary_test", ArbitraryActivity)
     activity_worker.register
     my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "ArbitraryWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_start_to_close_timeout = 10
-        options.child_policy = :REQUEST_CANCEL
-        options.task_list = "arbitrary_test"
+      options.workflow_name = "ArbitraryWorkflow"
+      options.execution_start_to_close_timeout = 600
+      options.task_start_to_close_timeout = 10
+      options.child_policy = :REQUEST_CANCEL
+      options.task_list = "arbitrary_test"
     end
     workflow_execution = my_workflow_factory.get_client.start_execution
     worker.run_once
@@ -2768,6 +2732,8 @@ describe "RubyFlowDecider" do
     end
     workflow_execution = @my_workflow_client.start_execution
     @worker.run_once
+    @activity_worker.run_once
+    @worker.run_once
     wait_for_execution(workflow_execution)
     # The default registered is 20, we want to make sure we overrode it
     workflow_execution.events.to_a[4].attributes[:start_to_close_timeout].should == 120
@@ -2854,7 +2820,7 @@ describe "RubyFlowDecider" do
     workflow_execution = @my_workflow_client.start_execution
     @worker.run_once
     activity_worker.run_once
-    workflow_execution.events.map(&:event_type).last.should == "ActivityTaskStarted"
+    workflow_execution.events.map(&:event_type).should include("ActivityTaskStarted")
   end
 
   it "makes sure that exponential_retry allows you to capture the error" do
@@ -2930,11 +2896,11 @@ describe "RubyFlowDecider" do
     activity_worker = ActivityWorker.new(@swf.client, @domain, "arbitrary_test", ActivitiesActivity)
     activity_worker.register
     my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "ActivitiesWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_start_to_close_timeout = 10
-        options.child_policy = :REQUEST_CANCEL
-        options.task_list = "arbitrary_test"
+      options.workflow_name = "ActivitiesWorkflow"
+      options.execution_start_to_close_timeout = 600
+      options.task_start_to_close_timeout = 10
+      options.child_policy = :REQUEST_CANCEL
+      options.task_list = "arbitrary_test"
     end
     workflow_execution = my_workflow_factory.get_client.start_execution
     worker.run_once
@@ -2956,11 +2922,11 @@ describe "RubyFlowDecider" do
     worker = WorkflowWorker.new(@swf.client, @domain, "arbitrary_test", ArbitraryWorkflow)
     worker.register
     my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "ArbitraryWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_start_to_close_timeout = 10
-        options.child_policy = :REQUEST_CANCEL
-        options.task_list = "arbitrary_test"
+      options.workflow_name = "ArbitraryWorkflow"
+      options.execution_start_to_close_timeout = 600
+      options.task_start_to_close_timeout = 10
+      options.child_policy = :REQUEST_CANCEL
+      options.task_list = "arbitrary_test"
     end
     workflow_execution = my_workflow_factory.get_client.start_execution
     worker.run_once
@@ -3018,11 +2984,11 @@ describe "RubyFlowDecider" do
     activity_worker = ActivityWorker.new(@swf.client, @domain, "arbitrary_test", ArbitraryActivity)
     activity_worker.register
     my_workflow_factory = workflow_factory @swf.client, @domain do |options|
-        options.workflow_name = "ArbitraryWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_start_to_close_timeout = 10
-        options.child_policy = :REQUEST_CANCEL
-        options.task_list = "arbitrary_test"
+      options.workflow_name = "ArbitraryWorkflow"
+      options.execution_start_to_close_timeout = 600
+      options.task_start_to_close_timeout = 10
+      options.child_policy = :REQUEST_CANCEL
+      options.task_list = "arbitrary_test"
     end
     workflow_execution = my_workflow_factory.get_client.start_execution
     worker.run_once

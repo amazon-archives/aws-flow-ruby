@@ -330,6 +330,7 @@ module AWS
             @logger.info Utilities.activity_task_to_debug_string("Got activity task", task)
           end
         rescue Exception => e
+          b.backtrace
           @logger.error "Error in the poller, #{e.class}, #{e}"
           @poll_semaphore.release
           return false

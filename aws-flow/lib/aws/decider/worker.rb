@@ -158,7 +158,7 @@ module AWS
           options = workflow_type.options
           execution_method = options.execution_method
           version = workflow_type.version
-          registration_options = nil
+          registration_options = options.get_registration_options
           implementation_options = nil
           get_state_method = workflow_class.get_state_method
           signals = workflow_class.signals
@@ -185,6 +185,7 @@ module AWS
               :version => version
             }
           )
+
           if options.default_task_list
             workflow_hash.merge!(
               :default_task_list => {:name => resolve_default_task_list(options.default_task_list)}
@@ -382,7 +383,7 @@ module AWS
             :version => activity_type.version
           }
 
-          option_hash.merge!(options.get_default_options)
+          option_hash.merge!(options.get_registration_options)
 
           if options.default_task_list
             option_hash.merge!(

@@ -83,19 +83,19 @@ describe Activity do
           activity :not_retryable do
             {
               :version => "1.0",
-              :default_task_list => 'not_retryable_activity',
-              :default_task_schedule_to_start_timeout => 10,
-              :default_task_start_to_close_timeout => 10,
-              :default_task_heartbeat_timeout => 2
+              :task_list => 'not_retryable_activity',
+              :schedule_to_start_timeout => 10,
+              :start_to_close_timeout => 10,
+              :heartbeat_timeout => 2
             }
           end
 
           activity :retryable do
             {
               :version => "2.0",
-              :default_task_list => 'retryable_activity',
-              :default_task_schedule_to_start_timeout => 20,
-              :default_task_start_to_close_timeout => 20,
+              :task_list => 'retryable_activity',
+              :schedule_to_start_timeout => 20,
+              :start_to_close_timeout => 20,
               :exponential_retry => {
                 :maximum_attempts => 3,
               },
@@ -150,7 +150,6 @@ describe Activity do
         attributes = swf_client.trace.first[:decisions].first[:schedule_activity_task_decision_attributes]
         attributes[:activity_type].should == { name: "GithubIssue57Activity.not_retryable", version: "1.0" }
         attributes[:heartbeat_timeout].should == "2"
-        attributes[:schedule_to_close_timeout].should == "NONE"
         attributes[:schedule_to_start_timeout].should == "10"
         attributes[:start_to_close_timeout].should == "10"
         attributes[:task_list].should == { name: "not_retryable_activity" }
@@ -192,12 +191,12 @@ describe Activity do
         #expect_any_instance_of(AWS::Flow::GenericClient).to receive(:_retry_with_options)
         workflow_execution = my_workflow.start_execution
         worker.start
+        binding.pry
 
         swf_client.trace.first[:decisions].first[:decision_type].should == "ScheduleActivityTask"
         attributes = swf_client.trace.first[:decisions].first[:schedule_activity_task_decision_attributes]
         attributes[:activity_type].should == { name: "GithubIssue57Activity.retryable", version: "2.0" }
-        attributes[:heartbeat_timeout].should == "NONE"
-        attributes[:schedule_to_close_timeout].should == "NONE"
+        attributes[:heartbeat_timeout].nil?.should == true
         attributes[:schedule_to_start_timeout].should == "20"
         attributes[:start_to_close_timeout].should == "20"
         attributes[:task_list].should == { name: "retryable_activity" }

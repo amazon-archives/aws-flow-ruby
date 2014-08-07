@@ -1,319 +1,288 @@
 require_relative 'setup'
 
-describe AWS::Flow::OptionsMethods do
+describe AWS::Flow::ActivityRegistrationOptions do
+  context "#get_registration_options" do
 
-  class FooDefaults < AWS::Flow::Defaults
-    def default_foo; 1; end
-    def default_baz; 2; end
-    def default_xyz; 3; end
-  end
-  class FooOptions < AWS::Flow::Options
-    include AWS::Flow::OptionsMethods
-    property(:default_foo)
-    property(:foo)
-    property(:bar)
-    property(:baz)
-    property(:xyz)
-    property(:default_baz)
-    default_classes << FooDefaults.new
-
-    def default_keys
-      [:default_foo, :default_baz, :default_xyz]
-    end
-    def make_runtime_key(key)
-      key.to_s.gsub(/default_/, "").to_sym
-    end
-  end
-
-  context "#get_full_options" do
-    it "should return merged default and regular options" do
-      options = FooOptions.new(
-        default_foo: 10,
-        bar: 10,
-        xyz: 10
-      )
-      options.get_full_options[:foo].should == "10"
-      options.get_full_options[:bar].should == "10"
-      options.get_full_options[:baz].should == "2"
-      options.get_full_options[:xyz].should == "10"
-
-    end
-  end
-
-  context "#get_runtime_options" do
-    it "should return the runtime values for the default options" do
-      options = FooOptions.new(
-        default_foo: 10,
-        bar: 10
-      )
-      options.get_runtime_options.has_key?(:foo).should == true
-      options.get_runtime_options.has_key?(:baz).should == true
-      options.get_runtime_options[:foo].should == "10"
-      options.get_runtime_options[:baz].should == "2"
-      options.get_runtime_options.has_key?(:bar).should == false
-    end
-  end
-  context "#get_default_options" do
-    it "should return the default values for the default options" do
-      options = FooOptions.new(
-        default_foo: 10,
-        baz: 10
-      )
-      options.get_default_options.has_key?(:default_foo).should == true
-      options.get_default_options.has_key?(:default_baz).should == true
-      options.get_default_options[:default_foo].should == "10"
-      options.get_default_options[:default_baz].should == "2"
-    end
-  end
-end
-
-describe AWS::Flow::ActivityOptions do
-  context "#defaults" do
-    it "should be initialized correctly" do
-      options = AWS::Flow::ActivityOptions.new
-      options.default_task_schedule_to_start_timeout.should == "NONE"
-      options.default_task_schedule_to_close_timeout.should == "NONE"
-      options.default_task_start_to_close_timeout.should == "NONE"
-      options.default_task_heartbeat_timeout.should == "NONE"
-      options.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
-      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
+    it "should return the default registration options if not value is passed in" do
+      options = AWS::Flow::ActivityRegistrationOptions.new
+      options.get_registration_options.should == { 
+        default_task_heartbeat_timeout: "NONE",
+        default_task_schedule_to_close_timeout: "NONE",
+        default_task_schedule_to_start_timeout: "NONE",
+        default_task_start_to_close_timeout: "NONE",
+        default_task_list: "USE_WORKER_TASK_LIST"
+      }
     end
 
-    it "should change to the value passed in" do
-      options = AWS::Flow::ActivityOptions.new({
+    it "should return the new registration options if values are passed in" do
+      options = AWS::Flow::ActivityRegistrationOptions.new({
         default_task_schedule_to_start_timeout: 20,
         default_task_schedule_to_close_timeout: 50,
         default_task_start_to_close_timeout: 30,
         default_task_heartbeat_timeout: 5,
         default_task_list: "test_tasklist",
       })
-      options.default_task_schedule_to_start_timeout.should == "20"
-      options.default_task_schedule_to_close_timeout.should == "50"
-      options.default_task_start_to_close_timeout.should == "30"
-      options.default_task_heartbeat_timeout.should == "5"
-      options.default_task_list.should == "test_tasklist"
-    end
-
-    it "should remain the same when a non default value is set" do
-      options = AWS::Flow::ActivityOptions.new
-      options.schedule_to_start_timeout = 20
-      options.schedule_to_close_timeout = 50
-      options.start_to_close_timeout = 30
-      options.heartbeat_timeout = 5
-      options.task_list = "test_tasklist"
-
-      options.default_task_schedule_to_start_timeout.should == "NONE"
-      options.default_task_schedule_to_close_timeout.should == "NONE"
-      options.default_task_start_to_close_timeout.should == "NONE"
-      options.default_task_heartbeat_timeout.should == "NONE"
-      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
-    end
-
-    it "should not override non default values when non default values are set" do
-      options = AWS::Flow::ActivityOptions.new
-      options.schedule_to_start_timeout = 20
-      options.schedule_to_close_timeout = 50
-      options.start_to_close_timeout = 30
-      options.heartbeat_timeout = 5
-      options.task_list = "test_tasklist"
-
-      options.schedule_to_start_timeout.should == "20"
-      options.schedule_to_close_timeout.should == "50"
-      options.start_to_close_timeout.should == "30"
-      options.heartbeat_timeout.should == "5"
-      options.task_list.should == "test_tasklist"
-    end
-
-
-  end
-
-  context "#default_keys" do
-    it "should return the correct set of default keys" do
-      AWS::Flow::ActivityOptions.new.default_keys.should == [
-        :default_task_heartbeat_timeout,
-        :default_task_schedule_to_close_timeout,
-        :default_task_schedule_to_start_timeout,
-        :default_task_start_to_close_timeout,
-        :default_task_list
-      ]
-    end
-
-  end
-  context "#make_runtime_key" do
-    it "should correctly convert default keys to runtime keys" do
-      AWS::Flow::ActivityOptions.new.make_runtime_key(
-        :default_task_foo
-      ).should == :foo
-    end
-
-    it "should do nothing if an option without leading default_ is passed in" do
-      AWS::Flow::ActivityOptions.new.make_runtime_key(:foo).should == :foo
-    end
-
-    it "should handle the special case of default_task_list properly" do
-      AWS::Flow::ActivityOptions.new.make_runtime_key(
-        :default_task_list
-      ).should == :task_list
+      options.get_registration_options.should == {
+        default_task_heartbeat_timeout: "5",
+        default_task_schedule_to_close_timeout: "50",
+        default_task_schedule_to_start_timeout: "20",
+        default_task_start_to_close_timeout: "30",
+        default_task_list: "test_tasklist"
+      }
     end
   end
-end
 
-describe AWS::Flow::WorkflowOptions do
-  context "#defaults" do
-    it "should be initialized correctly" do
-      options = AWS::Flow::WorkflowOptions.new
-      options.default_task_start_to_close_timeout.should == "30"
-      options.default_child_policy.should == "TERMINATE"
-      options.tag_list.should == []
-      options.data_converter.should ==
-        AWS::Flow::FlowConstants.default_data_converter
-      options.default_task_list == AWS::Flow::FlowConstants.use_worker_task_list
+  context "#get_full_options" do
+
+    it "should contain both registration and regular options" do
+      options = AWS::Flow::ActivityRegistrationOptions.new
+      full_options = options.get_full_options
+      expected = {
+        default_task_heartbeat_timeout: "NONE",
+        default_task_schedule_to_close_timeout: "NONE",
+        default_task_schedule_to_start_timeout: "NONE",
+        default_task_start_to_close_timeout: "NONE",
+        default_task_list: "USE_WORKER_TASK_LIST",
+        data_converter: FlowConstants.default_data_converter
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      full_options.delete(:data_converter) == expected.delete(:data_converter)
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
     end
 
-    it "should change to the value passed in" do
-      options = AWS::Flow::WorkflowOptions.new({
-        default_task_start_to_close_timeout: 20,
-        default_execution_start_to_close_timeout: 120,
-        default_child_policy: "ABANDON",
-        default_task_list: "test_tasklist",
+    it "should return the values passed in" do
+      options = AWS::Flow::ActivityRegistrationOptions.new({
+        default_task_schedule_to_start_timeout: 20,
+        default_task_start_to_close_timeout: 30,
+        default_task_heartbeat_timeout: 5,
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        manual_completion: true,
+        heartbeat_timeout: 10
       })
-      options.default_task_start_to_close_timeout.should == "20"
-      options.default_execution_start_to_close_timeout.should == "120"
-      options.default_child_policy.should == "ABANDON"
-      options.default_task_list.should == "test_tasklist"
+      full_options = options.get_full_options
+      expected = {
+        default_task_heartbeat_timeout: "5",
+        default_task_schedule_to_close_timeout: "NONE",
+        default_task_schedule_to_start_timeout: "20",
+        default_task_start_to_close_timeout: "30",
+        default_task_list: "USE_WORKER_TASK_LIST",
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        manual_completion: true,
+        heartbeat_timeout: "10",
+        data_converter: FlowConstants.default_data_converter
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      [:data_converter, :manual_completion].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
     end
 
-    it "should remain the same when a non default value is set" do
-      options = AWS::Flow::WorkflowOptions.new
-      options.task_start_to_close_timeout = 20
-      options.execution_start_to_close_timeout = 120
-      options.child_policy = "ABANDON"
-      options.task_list = "test_tastlist"
-
-      options.default_task_start_to_close_timeout.should == "30"
-      options.default_execution_start_to_close_timeout.nil?.should == true
-      options.default_child_policy.should == "TERMINATE"
-      options.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
-    end
-
-    it "should not override non default values when non default values are set" do
-      options = AWS::Flow::WorkflowOptions.new
-      options.task_start_to_close_timeout = 20
-      options.execution_start_to_close_timeout = 120
-      options.child_policy = "ABANDON"
-      options.task_list = "test_tasklist"
-
-      options.task_start_to_close_timeout.should == "20"
-      options.execution_start_to_close_timeout.should == "120"
-      options.child_policy.should == "ABANDON"
-      options.task_list.should == "test_tasklist"
-    end
-
-  end
-
-  context "#default_keys" do
-    it "should return the correct set of default keys" do
-      AWS::Flow::WorkflowOptions.new.default_keys.should == [
-        :default_task_start_to_close_timeout,
-        :default_execution_start_to_close_timeout,
-        :default_task_list,
-        :default_child_policy
-      ]
-    end
-
-  end
-  context "#make_runtime_key" do
-    it "should correctly convert default keys to runtime keys" do
-      AWS::Flow::WorkflowOptions.new.make_runtime_key(
-        :default_foo
-      ).should == :foo
-    end
-
-    it "should do nothing if an option without leading default_ is passed in" do
-      AWS::Flow::WorkflowOptions.new.make_runtime_key(:foo).should == :foo
-    end
-
-    it "should handle the special case of default_task_list properly" do
-      AWS::Flow::WorkflowOptions.new.make_runtime_key(
-        :default_task_list
-      ).should == :task_list
-    end
   end
 
 end
 
-describe AWS::Flow::WorkflowDefaults do
-  context "#default_task_start_to_close_timeout" do
-    it "should return a value of 30" do
-      AWS::Flow::WorkflowDefaults.new.default_task_start_to_close_timeout
-      .should == 30
+describe AWS::Flow::WorkflowRegistrationOptions do
+
+  context "#get_registration_options" do
+    
+    it "should return the default registration options if not value is passed in" do
+      options = AWS::Flow::WorkflowRegistrationOptions.new
+      options.get_registration_options.should == { 
+        default_task_start_to_close_timeout: "30",
+        default_child_policy: "TERMINATE",
+        default_task_list: "USE_WORKER_TASK_LIST"
+      }
     end
+
+    it "should return the new registration options if values are passed in" do
+      options = AWS::Flow::WorkflowRegistrationOptions.new({
+        default_task_schedule_to_close_timeout: 30,
+        default_execution_start_to_close_timeout: 600,
+        default_child_policy: "ABANDON",
+        default_task_list: "task_list"
+      })
+      options.get_registration_options.should == {
+        default_task_start_to_close_timeout: "30",
+        default_execution_start_to_close_timeout: "600",
+        default_child_policy: "ABANDON",
+        default_task_list: "task_list"
+      }
+    end
+
   end
 
-  context "#default_child_policy" do
-    it "should return TERMINATE" do
-      AWS::Flow::WorkflowDefaults.new.default_child_policy.should == "TERMINATE"
-    end
-  end
+  context "#get_full_options" do
 
-  context "#tag_list" do
-    it "should return an empty array" do
-      AWS::Flow::WorkflowDefaults.new.tag_list.should == []
+    it "should not contain any registration options" do
+      options = AWS::Flow::WorkflowRegistrationOptions.new
+      full_options = options.get_full_options
+      expected = {
+        default_task_start_to_close_timeout: "30",
+        default_child_policy: "TERMINATE",
+        default_task_list: "USE_WORKER_TASK_LIST",
+        tag_list: [],
+        data_converter: FlowConstants.default_data_converter
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
     end
-  end
 
-  context "#data_converter" do
-    it "should return the default data converter" do
-      AWS::Flow::WorkflowDefaults.new.data_converter
-      .should == AWS::Flow::FlowConstants.default_data_converter
+    it "should return the values passed in" do
+      options = AWS::Flow::WorkflowRegistrationOptions.new({
+        default_task_start_to_close_timeout: "30",
+        default_child_policy: "TERMINATE",
+        default_task_list: "USE_WORKER_TASK_LIST",
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        tag_list: ["tag1", "tag2"]
+      })
+      full_options = options.get_full_options
+      expected = {
+        default_task_start_to_close_timeout: "30",
+        default_child_policy: "TERMINATE",
+        default_task_list: "USE_WORKER_TASK_LIST",
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        data_converter: FlowConstants.default_data_converter,
+        tag_list: ["tag1", "tag2"]
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
     end
-  end
-  context "#default_task_list" do
-    it "should return the default task list" do
-      AWS::Flow::WorkflowDefaults.new.default_task_list
-      .should == AWS::Flow::FlowConstants.use_worker_task_list
-    end
+
   end
 
 end
 
-describe AWS::Flow::ActivityDefaults do
-  context "#default_task_schedule_to_start_timeout" do
-    it "should return Float::INFINITY" do
-      AWS::Flow::ActivityDefaults.new.default_task_schedule_to_start_timeout
-      .should == Float::INFINITY
+describe AWS::Flow::ActivityOptions do
+
+  context "#get_full_options" do
+
+    it "should only contain the non registration options" do
+      options = AWS::Flow::ActivityOptions.new
+      full_options = options.get_full_options
+      expected = {
+        data_converter: FlowConstants.default_data_converter
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      full_options.should == expected
     end
+
+    it "should return the values passed in" do
+      options = AWS::Flow::ActivityOptions.new({
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        manual_completion: true,
+        heartbeat_timeout: 10
+      })
+      full_options = options.get_full_options
+      expected = {
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooActivity",
+        manual_completion: true,
+        heartbeat_timeout: "10",
+        data_converter: FlowConstants.default_data_converter,
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      [:data_converter, :manual_completion].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
+    end
+
   end
 
-  context "#default_task_schedule_to_close_timeout" do
-    it "should return Float::INFINITY" do
-      AWS::Flow::ActivityDefaults.new.default_task_schedule_to_close_timeout
-      .should == Float::INFINITY
+end
+describe AWS::Flow::WorkflowOptions do
+
+  context "#get_full_options" do
+
+    it "should not contain any registration options" do
+      options = AWS::Flow::WorkflowOptions.new
+      full_options = options.get_full_options
+      expected = {
+        data_converter: FlowConstants.default_data_converter
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      full_options.should == expected
     end
+
+    it "should return the values passed in" do
+      options = AWS::Flow::WorkflowOptions.new({
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooWorkflow",
+        tag_list: ["tag1", "tag2"]
+      })
+      full_options = options.get_full_options
+      expected = {
+        task_list: "test_tasklist",
+        version: "1.0",
+        prefix_name: "FooWorkflow",
+        tag_list: ["tag1", "tag2"],
+        data_converter: FlowConstants.default_data_converter,
+      }
+      # We first compare and remove the following values because these objects have issues
+      # when we sort the values array below
+      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.keys.sort.should == expected.keys.sort
+      full_options.values.sort.should == expected.values.sort
+    end
+
   end
-  context "#default_task_start_to_close_timeout" do
-    it "should return Float::INFINITY" do
-      AWS::Flow::ActivityDefaults.new.default_task_start_to_close_timeout
-      .should == Float::INFINITY
+
+end
+
+describe AWS::Flow::WorkflowRegistrationDefaults do
+
+  context "#defaults" do
+
+    it "should return the correct default values" do
+      defaults = AWS::Flow::WorkflowRegistrationDefaults.new
+      defaults.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
+      defaults.default_task_start_to_close_timeout.should == 30
+      defaults.default_child_policy.should == "TERMINATE"
+      defaults.tag_list.should == []
+      defaults.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
+
   end
-  context "#default_task_heartbeat_timeout" do
-    it "should return Float::INFINITY" do
-      AWS::Flow::ActivityDefaults.new.default_task_heartbeat_timeout
-      .should == Float::INFINITY
+
+end
+
+describe AWS::Flow::ActivityRegistrationDefaults do
+
+  context "#defaults" do
+
+    it "should return the correct default values" do
+      defaults = AWS::Flow::ActivityRegistrationDefaults.new
+      defaults.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
+      defaults.default_task_schedule_to_start_timeout.should == Float::INFINITY
+      defaults.default_task_schedule_to_close_timeout.should == Float::INFINITY
+      defaults.default_task_start_to_close_timeout.should == Float::INFINITY
+      defaults.default_task_heartbeat_timeout.should == Float::INFINITY
+      defaults.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
-  end
-  context "#data_converter" do
-    it "should return the default data converter" do
-      AWS::Flow::ActivityDefaults.new.data_converter
-      .should == AWS::Flow::FlowConstants.default_data_converter
-    end
-  end
-  context "#default_task_list" do
-    it "should return the default task list" do
-      AWS::Flow::ActivityDefaults.new.default_task_list
-      .should == AWS::Flow::FlowConstants.use_worker_task_list
-    end
+
   end
 
 end
