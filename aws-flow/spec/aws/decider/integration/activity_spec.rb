@@ -8,112 +8,112 @@ describe Activities do
   it "ensures that a real activity will get scheduled" do
     task_list = "activity_task_list"
     class Blah
-      extend Activity
+      extend AWS::Flow::Activities
     end
     class BasicActivity
-      extend Activity
+      extend AWS::Flow::Activities
 
-      activity :run_activity1 do |o|
-        o.default_task_heartbeat_timeout = "3600"
-        o.default_task_list = "activity_task_list"
-        o.default_task_schedule_to_close_timeout = "3600"
-        o.default_task_schedule_to_start_timeout = "3600"
-        o.default_task_start_to_close_timeout = "3600"
-        o.version = "1"
+      activity :run_activity1 do
+        {
+          default_task_heartbeat_timeout: 60,
+          version: "1",
+          default_task_list: "activity_task_list",
+          default_task_schedule_to_close_timeout: 60,
+          default_task_schedule_to_start_timeout: 30,
+          default_task_start_to_close_timeout: 30,
+        }
       end
-      def run_activity1
-        "first regular activity"
-      end
+      def run_activity1; end
     end
     class BasicWorkflow
-      extend Decider
-
-      entry_point :entry_point
-      version "1"
-      activity_client :activity do |options|
-        options.prefix_name = "BasicActivity"
+      extend AWS::Flow::Workflows
+      workflow :start do
+        {
+          version: "1.0",
+          default_task_start_to_close_timeout: 30,
+          default_execution_start_to_close_timeout: 300,
+          default_child_policy: "REQUEST_CANCEL",
+          default_task_list: "activity_task_list"
+        }
       end
-      def entry_point
+      activity_client(:activity) { { from_class: "BasicActivity" } }
+      def start
         activity.run_activity1
       end
     end
-    worker = WorkflowWorker.new(@swf.client, @domain, task_list)
-    worker.add_workflow_implementation(BasicWorkflow)
-    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list)
-    activity_worker.add_activities_implementation(BasicActivity)
-    workflow_type_name = "BasicWorkflow.entry_point"
+
+    worker = WorkflowWorker.new(@domain.client, @domain, task_list, BasicWorkflow)
+    activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, BasicActivity)
+    workflow_type_name = "BasicWorkflow.start"
     worker.register
     activity_worker.register
-    sleep 3
     workflow_type, _ = @domain.workflow_types.page(:per_page => 1000).select {|x| x.name == workflow_type_name}
 
-    workflow_execution = workflow_type.start_execution(
-      :execution_start_to_close_timeout => 3600,
-      :task_list => task_list,
-      :task_start_to_close_timeout => 3600,
-      :child_policy => :request_cancel
-    )
+    workflow_execution = workflow_type.start_execution
+
     worker.run_once
     activity_worker.run_once
     worker.run_once
+    wait_for_execution(workflow_execution)
+
     workflow_execution.events.map(&:event_type).should ==
       ["WorkflowExecutionStarted", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "ActivityTaskScheduled", "ActivityTaskStarted", "ActivityTaskCompleted", "DecisionTaskScheduled", "DecisionTaskStarted", "DecisionTaskCompleted", "WorkflowExecutionCompleted"]
   end
 
   it "tests to see what two activities look like" do
-    task_list = "double_activity_task_list"
+
     class DoubleActivity
-      extend Activity
-      activity :run_activity1, :run_activity2 do |o|
-        o.version = "1"
-        o.default_task_heartbeat_timeout = "3600"
-        o.default_task_list = "double_activity_task_list"
-        o.default_task_schedule_to_close_timeout = "3600"
-        o.default_task_schedule_to_start_timeout = "10"
-        o.default_task_start_to_close_timeout = "10"
-        o.exponential_retry do |retry_options|
-          retry_options.retries_per_exception = {
-            ActivityTaskTimedOutException => Float::INFINITY,
+      extend AWS::Flow::Activities
+      activity :run_activity1, :run_activity2 do
+        {
+          default_task_heartbeat_timeout: 60,
+          version: "1.0",
+          default_task_list: "double_activity_task_list",
+          default_task_schedule_to_close_timeout: 60,
+          default_task_schedule_to_start_timeout: 30,
+          default_task_start_to_close_timeout: 30,
+          exponential_retry: { 
+            retries_per_exception: { 
+              ActivityTaskTimedOutException: Float::INFINITY 
+            }
           }
-        end
+        }
       end
-      def run_activity1
-        "first parallel activity"
-      end
-      def run_activity2
-        "second parallel activity"
-      end
+      def run_activity1; end
+      def run_activity2; end
     end
+
     class DoubleWorkflow
-      extend Decider
-      version "1"
-      activity_client :activity do |options|
-        options.prefix_name = "DoubleActivity"
+      extend AWS::Flow::Workflows
+      workflow(:start) do
+        {
+          version: "1.0",
+          default_task_start_to_close_timeout: 30,
+          default_execution_start_to_close_timeout: 300,
+          default_child_policy: "REQUEST_CANCEL",
+          default_task_list: "double_activity_task_list"
+        }
       end
-      entry_point :entry_point
-      def entry_point
+      activity_client(:activity) { { from_class: "DoubleActivity" } }
+      def start
         activity.send_async(:run_activity1)
         activity.run_activity2
       end
     end
 
-    worker = WorkflowWorker.new(@swf.client, @domain, task_list)
-    worker.add_workflow_implementation(DoubleWorkflow)
-    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list)
-    activity_worker.add_activities_implementation(DoubleActivity)
-    workflow_type_name = "DoubleWorkflow.entry_point"
+    task_list = "double_activity_task_list"
+
+    worker = WorkflowWorker.new(@domain.client, @domain, task_list, DoubleWorkflow)
+    activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, DoubleActivity)
+    workflow_type_name = "DoubleWorkflow.start"
     worker.register
     activity_worker.register
-    sleep 3
     workflow_id = "basic_activity_workflow"
+
     run_id = @swf.client.start_workflow_execution(
-      :execution_start_to_close_timeout => "3600",
-      :task_list => {:name => task_list},
-      :task_start_to_close_timeout => "3600",
-      :child_policy => "REQUEST_CANCEL",
       :workflow_type => {
         :name => workflow_type_name,
-        :version => "1"
+        :version => "1.0"
       },
       :workflow_id => workflow_id,
       :domain => @domain.name.to_s
@@ -121,10 +121,8 @@ describe Activities do
     workflow_execution = AWS::SimpleWorkflow::WorkflowExecution.new(@domain, workflow_id, run_id["runId"])
     @forking_executor = ForkingExecutor.new(:max_workers => 3)
     @forking_executor.execute { worker.start }
-    sleep 5
     @forking_executor.execute { activity_worker.start }
-    sleep 20
-    @forking_executor.shutdown(1)
+    wait_for_execution(workflow_execution)
 
     workflow_history = workflow_execution.events.map(&:event_type)
     workflow_history.count("ActivityTaskCompleted").should == 2
@@ -133,85 +131,77 @@ describe Activities do
 
   it "tests to see that two subsequent activities are supported" do
     task_list = "subsequent_activity_task_list"
+    workflow_tasklist = "subsequent_workflow_task_list"
     class SubsequentActivity
-      extend Activity
-      activity :run_activity1, :run_activity2 do |o|
-        o.default_task_heartbeat_timeout = "3600"
-        o.version = "1"
-        o.default_task_list = "subsequent_activity_task_list"
-        o.default_task_schedule_to_close_timeout = "3600"
-        o.default_task_schedule_to_start_timeout = "20"
-        o.default_task_start_to_close_timeout = "20"
-      end
-      def run_activity1
-        "First subsequent activity"
-      end
-      def run_activity2
-        "Second subsequent activity"
-      end
-    end
-    class SubsequentWorkflow
-      extend Workflows
-      workflow :entry_point do
+      extend AWS::Flow::Activities
+
+      activity :run_activity1, :run_activity2 do
         {
-          :version => "1",
+          default_task_heartbeat_timeout: 300,
+          version: "1.2",
+          default_task_list: "subsequent_activity_task_list",
+          default_task_schedule_to_close_timeout: 60,
+          default_task_schedule_to_start_timeout: 30,
+          default_task_start_to_close_timeout: 30,
         }
       end
-      version "1"
-      activity_client :activity do |options|
-        options.prefix_name = "SubsequentActivity"
+      def run_activity1; end
+      def run_activity2; end
+    end
+    class SubsequentWorkflow
+      extend AWS::Flow::Workflows
+      workflow :start do
+        {
+          version: "1.2",
+          default_task_start_to_close_timeout: 30,
+          default_execution_start_to_close_timeout: 300,
+          default_child_policy: "REQUEST_CANCEL",
+          default_task_list: "subsequent_workflow_task_list"
+        }
       end
-      def entry_point
+      activity_client(:activity) { { from_class: "SubsequentActivity" } }
+      def start
         activity.run_activity1
         activity.run_activity2
       end
     end
 
-    worker = WorkflowWorker.new(@swf.client, @domain, task_list)
-    worker.add_workflow_implementation(SubsequentWorkflow)
-    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list)
-    activity_worker.add_activities_implementation(SubsequentActivity)
-    workflow_type_name = "SubsequentWorkflow.entry_point"
+    worker = WorkflowWorker.new(@domain.client, @domain, workflow_tasklist, SubsequentWorkflow)
+    activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, SubsequentActivity)
     worker.register
     activity_worker.register
-    sleep 3
 
+    client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "SubsequentWorkflow" } }
 
-    my_workflow_client = workflow_client(@swf.client, @domain) do
-      {
-        :from_class => "SubsequentWorkflow",
-        :execution_start_to_close_timeout => "3600",
-        :task_list => task_list,
-        :task_start_to_close_timeout => "3600",
-        :child_policy => "REQUEST_CANCEL",
-      }
-    end
-    workflow_execution = my_workflow_client.start_execution
-    worker.run_once
-    activity_worker.run_once
-    worker.run_once
-    activity_worker.run_once
-    worker.run_once
+    workflow_execution = client.start_execution
+
+    @forking_executor = ForkingExecutor.new(:max_workers => 3)
+    @forking_executor.execute { worker.start }
+    @forking_executor.execute { activity_worker.start }
+
+    wait_for_execution(workflow_execution)
     workflow_execution.events.map(&:event_type).count("WorkflowExecutionCompleted").should == 1
   end
 
   it "tests a much larger workflow" do
-    task_list = "large_activity_task_list"
     class LargeActivity
-      extend Activity
-      activity :run_activity1, :run_activity2, :run_activity3, :run_activity4 do |o|
-        o.default_task_heartbeat_timeout = "3600"
-        o.default_task_list = "large_activity_task_list"
-        o.default_task_schedule_to_close_timeout = "3600"
-        o.default_task_schedule_to_start_timeout = "5"
-        o.default_task_start_to_close_timeout = "5"
-        o.version = "1"
-        o.exponential_retry do |retry_options|
-          retry_options.retries_per_exception = {
-            ActivityTaskTimedOutException => Float::INFINITY,
+      extend AWS::Flow::Activities
+
+      activity :run_activity1, :run_activity2, :run_activity3, :run_activity4 do
+        {
+          default_task_heartbeat_timeout: 60,
+          version: "1.0",
+          default_task_list: "large_activity_task_list",
+          default_task_schedule_to_close_timeout: 10,
+          default_task_schedule_to_start_timeout: 5,
+          default_task_start_to_close_timeout: 5,
+          exponential_retry: {
+            retries_per_exception: {
+              ActivityTaskTimedOutException => Float::INFINITY,
+            }
           }
-        end
-      end
+        }
+    end
       def run_activity1
         "My name is Ozymandias - 1"
       end
@@ -225,37 +215,38 @@ describe Activities do
         "And Despair! - 4"
       end
     end
+
     class LargeWorkflow
-      extend Decider
-      version "1"
-      activity_client :activity do |options|
-        options.prefix_name = "LargeActivity"
+      extend AWS::Flow::Workflows
+      workflow :start do
+        {
+          version: "1.0",
+          default_task_start_to_close_timeout: 30,
+          default_execution_start_to_close_timeout: 300,
+          default_child_policy: "REQUEST_CANCEL",
+          default_task_list: "large_activity_task_list"
+        }
       end
-      entry_point :entry_point
-      def entry_point
+      activity_client(:activity) { { from_class: "LargeActivity" } }
+      def start
         activity.send_async(:run_activity1)
         activity.send_async(:run_activity2)
         activity.send_async(:run_activity3)
-        activity.run_activity4()
+        activity.run_activity4
       end
     end
-    worker = WorkflowWorker.new(@swf.client, @domain, task_list)
-    worker.add_workflow_implementation(LargeWorkflow)
-    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list)
-    activity_worker.add_activities_implementation(LargeActivity)
+
+    task_list = "large_activity_task_list"
+    worker = WorkflowWorker.new(@swf.client, @domain, task_list, LargeWorkflow)
+    activity_worker = ActivityWorker.new(@swf.client, @domain, task_list, LargeActivity)
     worker.register
     activity_worker.register
-    sleep 3
 
-    workflow_type_name = "LargeWorkflow.entry_point"
+    workflow_type_name = "LargeWorkflow.start"
     workflow_type, _ = @domain.workflow_types.page(:per_page => 1000).select {|x| x.name == workflow_type_name}
 
-    workflow_execution = workflow_type.start_execution(
-      :execution_start_to_close_timeout => 3600,
-      :task_list => task_list,
-      :task_start_to_close_timeout => 15,
-      :child_policy => :request_cancel
-    )
+    workflow_execution = workflow_type.start_execution
+
     @forking_executor = ForkingExecutor.new(:max_workers => 5)
     @forking_executor.execute { activity_worker.start }
 
@@ -270,26 +261,28 @@ describe Activities do
   end
 
   context "Github issue 57" do
+
     before(:all) do
+
       class GithubIssue57TestActivity
         extend AWS::Flow::Activities
         activity :not_retryable do
           {
-            :version => 1.0,
-            :default_task_list => "github_57_activity_tasklist",
-            :default_task_schedule_to_start_timeout => 30,
-            :default_task_start_to_close_timeout => 30,
+            version: 1.0,
+            default_task_list: "github_57_activity_tasklist",
+            default_task_schedule_to_start_timeout: 30,
+            default_task_start_to_close_timeout: 30,
           }
         end
 
         activity :retryable do
           {
-            :version => 1.0,
-            :default_task_list => "github_57_activity_tasklist",
-            :default_task_schedule_to_start_timeout => 30,
-            :default_task_start_to_close_timeout => 30,
-            :exponential_retry => {
-              :maximum_attempts => 3,
+            version: 1.0,
+            default_task_list: "github_57_activity_tasklist",
+            default_task_schedule_to_start_timeout: 30,
+            default_task_start_to_close_timeout: 30,
+            exponential_retry: {
+              maximum_attempts: 3,
             },
           }
         end
@@ -309,7 +302,7 @@ describe Activities do
           {
             version: 1.0,
             default_task_list: "github_57_workflow_tasklist",
-            default_execution_start_to_close_timeout: 3600,
+            default_execution_start_to_close_timeout: 300,
             default_task_start_to_close_timeout: 30
           }
         end
@@ -329,17 +322,18 @@ describe Activities do
     end
 
     it "ensures the activity gets set with the right options" do
-      worker = WorkflowWorker.new(@swf.client, @domain, "github_57_workflow_tasklist")
-      worker.add_workflow_implementation(GithubIssue57TestWorkflow)
-      activity_worker = ActivityWorker.new(@swf.client, @domain, "github_57_activity_tasklist")
-      activity_worker.add_activities_implementation(GithubIssue57TestActivity)
+      worker = WorkflowWorker.new(@domain.client, @domain, "github_57_workflow_tasklist", GithubIssue57TestWorkflow)
+      activity_worker = ActivityWorker.new(@domain.client, @domain, "github_57_activity_tasklist", GithubIssue57TestActivity)
       worker.register
       activity_worker.register
-      client = workflow_client(@swf.client, @domain) { { :from_class => GithubIssue57TestWorkflow } }
+      client = workflow_client(@domain.client, @domain) { { from_class: GithubIssue57TestWorkflow } }
+
       workflow_execution = client.start_execution
-      worker.run_once
-      activity_worker.run_once
-      worker.run_once
+
+      @forking_executor = ForkingExecutor.new(:max_workers => 3)
+      @forking_executor.execute { worker.start }
+      @forking_executor.execute { activity_worker.start }
+
       wait_for_execution(workflow_execution)
 
       history_events = workflow_execution.events.map(&:event_type)

@@ -105,7 +105,14 @@ describe Activity do
 
         class GithubIssue57Workflow
           extend AWS::Flow::Workflows
-          workflow(:start) { { version: "1.0" } }
+          workflow :start do
+            { 
+              version: "1.0",
+              default_execution_start_to_close_timeout: 120,
+              default_task_list: "default",
+              detault_task_start_to_close_timeout: 30
+            }
+          end
           activity_client(:client) { { from_class: "GithubIssue57Activity" } }
           def start
             client.not_retryable
@@ -116,10 +123,10 @@ describe Activity do
       end
 
       it "tests first activity invocation options" do
+        $workflow_type = FakeWorkflowType.new(nil, "GithubIssue57Workflow.start", "1.0")
         class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
           def get_decision_task
-            fake_workflow_type =  FakeWorkflowType.new(nil, "GithubIssue57Workflow.start", "1.0")
-            TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
+            TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
                                    [
                                      TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                      TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -128,8 +135,8 @@ describe Activity do
           end
         end
 
-        workflow_type_object = double("workflow_type", :name => "GithubIssue57Workflow.start", :start_execution => "" )
-        domain = FakeDomain.new(workflow_type_object)
+        workflow_type_object = FakeWorkflowType.new(nil, "GithubIssue57Workflow.start", "1.0")
+        domain = FakeDomain.new($workflow_type)
 
         swf_client = FakeServiceClient.new
         task_list = "default"
@@ -141,10 +148,12 @@ describe Activity do
         end
 
         worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, GithubIssue57Workflow)
-        my_workflow = my_workflow_factory.get_client
+        workflow_client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: GithubIssue57Workflow } }
+        #my_workflow = my_workflow_factory.get_client
         expect_any_instance_of(AWS::Flow::GenericClient).to_not receive(:_retry_with_options)
-        workflow_execution = my_workflow.start_execution
+        workflow_execution = workflow_client.start_execution
         worker.start
+        
 
         swf_client.trace.first[:decisions].first[:decision_type].should == "ScheduleActivityTask"
         attributes = swf_client.trace.first[:decisions].first[:schedule_activity_task_decision_attributes]
@@ -191,7 +200,6 @@ describe Activity do
         #expect_any_instance_of(AWS::Flow::GenericClient).to receive(:_retry_with_options)
         workflow_execution = my_workflow.start_execution
         worker.start
-        binding.pry
 
         swf_client.trace.first[:decisions].first[:decision_type].should == "ScheduleActivityTask"
         attributes = swf_client.trace.first[:decisions].first[:schedule_activity_task_decision_attributes]

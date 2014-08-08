@@ -186,27 +186,28 @@ describe "RubyFlowDecider" do
     class_name = attributes[:class_name] || "General"
 
     new_activity_class = Class.new(ParentActivity) do
-      extend Activities
-      activity :run_activity1, :run_activity2 do |options|
-        options.default_task_heartbeat_timeout = "600"
-        options.default_task_list = task_list
-        options.default_task_schedule_to_start_timeout = "60"
-        options.default_task_start_to_close_timeout = "60"
-        options.version = "1"
-        options.prefix_name = "#{class_name}Activity"
+      extend AWS::Flow::Activities
+      activity :run_activity1, :run_activity2 do
+        {
+          default_task_list: task_list,
+          default_task_schedule_to_start_timeout: "60",
+          default_task_start_to_close_timeout: "60",
+          version: "1.0",
+          prefix_name: "#{class_name}Activity",
+        }
       end
       def run_activity1; end
       def run_activity2; end
     end
     @activity_class = Object.const_set("#{class_name}Activity", new_activity_class)
     new_workflow_class = Class.new(ParentWorkflow) do
-      extend Workflows
+      extend AWS::Flow::Workflows
       workflow(:entry_point) {
         {
-          :version => 1,
-          :execution_start_to_close_timeout => 600,
-          :task_list => task_list,
-          :prefix_name => "#{class_name}Workflow"
+          version: "1.0",
+          default_execution_start_to_close_timeout: 300,
+          default_task_list: task_list,
+          prefix_name: "#{class_name}Workflow"
         }
       }
       def entry_point
@@ -219,14 +220,14 @@ describe "RubyFlowDecider" do
     @workflow_class.task_list = task_list
     @activity_class.task_list = task_list
     @workflow_class.class_eval do
-      activity_client(:activity) { {:from_class => self.activity_class} }
+      activity_client(:activity) { { from_class: self.activity_class } }
     end
-    @worker = WorkflowWorker.new(@swf.client, @domain, task_list, @workflow_class)
-    @activity_worker = ActivityWorker.new(@swf.client, @domain, task_list, @activity_class)
+    @worker = WorkflowWorker.new(@domain.client, @domain, task_list, @workflow_class)
+    @activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, @activity_class)
 
     @worker.register
     @activity_worker.register
-    @my_workflow_client = workflow_client(@swf.client, @domain) { {:from_class => @workflow_class} }
+    @my_workflow_client = workflow_client(@domain.client, @domain) { { from_class: @workflow_class } }
   end
 
   it "ensures that an activity returning more than 32k data fails the activity" do
@@ -361,14 +362,13 @@ describe "RubyFlowDecider" do
       end
     end
     @activity_class.class_eval do
-      def run_activity1
-        raise "Error!"
-      end
+      def run_activity1; raise "Error!"; end
     end
 
     @forking_executor = ForkingExecutor.new(:max_workers => 3)
     @forking_executor.execute { @worker.start }
     @forking_executor.execute { @activity_worker.start }
+    sleep 5
 
     workflow_execution = @my_workflow_client.start_execution
 
@@ -376,16 +376,6 @@ describe "RubyFlowDecider" do
     workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
     workflow_execution.events.to_a[-1].attributes.result.should =~ /Error!/
 
-    #@worker.run_once
-    #@activity_worker.run_once
-    #wait_for_decision(workflow_execution)
-    #@worker.run_once
-    #wait_for_decision(workflow_execution)
-    #@worker.run_once
-    #@activity_worker.run_once
-    #wait_for_decision(workflow_execution)
-    #@worker.run_once
-    #wait_for_execution(workflow_execution)
   end
 
   it "ensures that backtraces are set correctly with yaml" do
@@ -958,7 +948,7 @@ describe "RubyFlowDecider" do
       general_test(:task_list => "exceptions_to_include", :class_name => "ExceptionsToInclude")
       @workflow_class.class_eval do
         def entry_point
-          activity.exponential_retry(:run_activity1) {  {:exceptions_to_exclude => [SecurityError] } }
+          activity.exponential_retry(:run_activity1) { {:exceptions_to_exclude => [SecurityError] } }
         end
       end
       @activity_class.class_eval do
@@ -1142,6 +1132,7 @@ describe "RubyFlowDecider" do
         @forking_executor.execute { @parent_worker.start }
         @forking_executor.execute { @child_worker.start }
         @forking_executor.execute { @child_worker.start }
+        sleep 2
 
         workflow_execution = parent_client.start_execution
         wait_for_execution(workflow_execution)
@@ -1406,14 +1397,15 @@ describe "RubyFlowDecider" do
 
     it "makes sure that exponential retry returns values correctly" do
       class ExponentialActivity
-        extend Activity
-        activity :run_activity1 do |options|
-          options.version = "1"
-          options.default_task_list = "exponential_test_return_task_list"
-          options.default_task_schedule_to_close_timeout = "15"
-          options.default_task_schedule_to_start_timeout = "15"
-          options.default_task_start_to_close_timeout = "15"
-          options.default_task_heartbeat_timeout = "600"
+        extend AWS::Flow::Activity
+        activity :run_activity1 do
+          {
+            version: "1.0",
+            default_task_list: "exponential_test_return_task_list",
+            default_task_schedule_to_close_timeout: "30",
+            default_task_schedule_to_start_timeout: "15",
+            default_task_start_to_close_timeout: "15",
+          }
         end
         def run_activity1
           return 5
@@ -1422,45 +1414,36 @@ describe "RubyFlowDecider" do
 
       class ExponentialWorkflow
         extend AWS::Flow::Workflows
-        version "1"
-
-        activity_client :activity do |options|
-          options.prefix_name = "ExponentialActivity"
-
-          options.default_task_list = "exponential_test_return_task_list"
-
-          options.version = "1"
+        workflow :start do
+          {
+            version: "1.0",
+            default_task_list: "exponential_test_return_task_list",
+            default_execution_start_to_close_timeout: 600,
+            default_task_start_to_close_timeout: 60,
+            default_child_policy: "REQUEST_CANCEL"
+          }
         end
-        entry_point :entry_point
-        def entry_point
-          x = activity.exponential_retry(:run_activity1) do |o|
-            o.retries_per_exception = {
-              ActivityTaskTimedOutException => Float::INFINITY,
-              ActivityTaskFailedException => 3
+        activity_client(:activity) { { from_class: "ExponentialActivity" } }
+        def start
+          x = activity.exponential_retry(:run_activity1) {
+            {
+              retries_per_exception: {
+                ActivityTaskTimedOutException => Float::INFINITY,
+                ActivityTaskFailedException => 3
+              }
             }
-          end
+          }
           x.should == 5
         end
       end
 
       task_list = "exponential_test_return_task_list"
-      # @swf and @domain are set beforehand with the aws ruby sdk
 
-      worker = WorkflowWorker.new(@swf.client, @domain, task_list, ExponentialWorkflow)
-      activity_worker = ActivityWorker.new(@swf.client, @domain, task_list, ExponentialActivity)
+      worker = WorkflowWorker.new(@domain.client, @domain, task_list, ExponentialWorkflow)
+      activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, ExponentialActivity)
       worker.register
-
       activity_worker.register
-      my_workflow_factory = workflow_factory(@swf.client, @domain) do |options|
-        options.workflow_name = "ExponentialWorkflow"
-        options.execution_start_to_close_timeout = 600
-        options.task_list = task_list
-        options.task_start_to_close_timeout = 120
-        options.child_policy = :request_cancel
-      end
-
-      sleep 5
-      client = my_workflow_factory.get_client
+      client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "ExponentialWorkflow" } }
       workflow_execution = client.start_execution
       worker.run_once
       activity_worker.run_once
@@ -2041,15 +2024,14 @@ describe "RubyFlowDecider" do
   describe "making sure that timeouts are infrequent" do
     it "is a basic repro case" do
       class TimeoutActivity
-        extend Activities
+        extend AWS::Flow::Activities
         activity :run_activity1 do
           {
-            default_task_list: "timeout_test",
-            version: "1",
-            default_task_heartbeat_timeout: "600",
-            default_task_schedule_to_close_timeout: "120",
-            default_task_schedule_to_start_timeout: "60",
-            default_task_start_to_close_timeout: "60",
+            default_task_list: "timeout_test_activity",
+            version: "1.0",
+            default_task_schedule_to_close_timeout: "60",
+            default_task_schedule_to_start_timeout: "30",
+            default_task_start_to_close_timeout: "30",
           }
         end
         def run_activity1
@@ -2057,11 +2039,12 @@ describe "RubyFlowDecider" do
         end
       end
       class TimeoutWorkflow
-        extend Workflows
+        extend AWS::Flow::Workflows
         workflow :entry_point do
           {
             version: "1.0",
-            default_execution_start_to_close_timeout: 600
+            default_execution_start_to_close_timeout: 600,
+            default_task_list: "timeout_test_workflow"
           }
         end
         activity_client (:activity) { { from_class: "TimeoutActivity" } }
@@ -2069,22 +2052,29 @@ describe "RubyFlowDecider" do
           activity.run_activity1
         end
       end
-      worker = WorkflowWorker.new(@swf.client, @domain, "timeout_test", TimeoutWorkflow)
-      activity_worker = ActivityWorker.new(@swf.client, @domain, "timeout_test", TimeoutActivity)
-      worker.register
-      activity_worker.register
-      my_workflow_client = AWS::Flow::workflow_client(@swf.client, @domain) { { from_class: "TimeoutWorkflow" } }
+      @worker = WorkflowWorker.new(@domain.client, @domain, "timeout_test_workflow", TimeoutWorkflow)
+      @activity_workers = []
 
       num_tests = 15
+      1.upto(num_tests) { @activity_workers << ActivityWorker.new(@domain.client, @domain, "timeout_test_activity", TimeoutActivity) }
+
+      @worker.register
+      @activity_workers.first.register
+
+      my_workflow_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "TimeoutWorkflow" } }
+
       workflow_executions = []
-      forking_executor  = ForkingExecutor.new(:max_workers => 4)
-      forking_executor.execute { worker.start }
-      forking_executor.execute { activity_worker.start }
-      forking_executor.execute { activity_worker.start }
-      forking_executor.execute { activity_worker.start }
+
+      @forking_executor  = ForkingExecutor.new(max_workers: 20)
+      @forking_executor.execute { @worker.start }
+      @activity_workers.each { |x| @forking_executor.execute { x.start } }
+      sleep 10
+
       1.upto(num_tests)  { |i| workflow_executions << my_workflow_client.entry_point }
+
       workflow_executions.each { |x| wait_for_execution(x) }
       workflow_executions.each{|x| x.events.to_a.last.event_type.should == "WorkflowExecutionCompleted" }
+      @forking_executor.shutdown(1)
 
     end
   end
@@ -2118,6 +2108,8 @@ describe "RubyFlowDecider" do
       end
       @parent_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_async", SendAsyncParentWorkflow)
       @child_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_async2", SendAsyncChildWorkflow)
+      @parent_worker.register
+      @child_worker.register
       @forking_executor = ForkingExecutor.new(:max_workers => 3)
       @forking_executor.execute { @parent_worker.start }
       @forking_executor.execute { @child_worker.start }
@@ -2151,9 +2143,9 @@ describe "RubyFlowDecider" do
         extend AWS::Flow::Workflows 
         workflow :bad_workflow do
           {
-            version: "1.1",
+            version: "1.0",
             default_execution_start_to_close_timeout: 600,
-            default_task_start_to_close_timeout: 60
+            default_task_start_to_close_timeout: 30
           }
         end
 
@@ -2165,6 +2157,8 @@ describe "RubyFlowDecider" do
       end
       @parent_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry", BadWorkflow)
       @child_worker = WorkflowWorker.new(@domain.client, @domain, "client_test_retry2", OtherWorkflow)
+      @parent_worker.register
+      @child_worker.register
 
       forking_executor = ForkingExecutor.new(:max_workers => 3)
       forking_executor.execute { @parent_worker.start }
@@ -2267,11 +2261,11 @@ describe "RubyFlowDecider" do
             default_task_list: "client_test_inheritance"
           }
         end
-        def entry_point
-        end
+        def entry_point; end
       end
-      worker = WorkflowWorker.new(@swf.client, @domain, "client_test_inheritance", OptionsWorkflow)
+      worker = WorkflowWorker.new(@domain.client, @domain, "client_test_inheritance", OptionsWorkflow)
       worker.register
+      sleep 10
 
       client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "OptionsWorkflow", child_policy: "REQUEST_CANCEL" } }
 

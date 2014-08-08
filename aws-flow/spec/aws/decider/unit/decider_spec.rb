@@ -16,27 +16,6 @@
 require 'yaml'
 require_relative 'setup'
 
-describe WorkflowClient do
-
-  class TestWorkflow
-    extend Decider
-
-    entry_point :entry_point
-    def entry_point
-      return "This is the entry point"
-    end
-  end
-  before(:each) do
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    @client = WorkflowClient.new(FakeServiceClient.new, FakeDomain.new(workflow_type_object), TestWorkflow, StartWorkflowOptions.new)
-  end
-  it "makes sure that configure works correctly" do
-    @client.reconfigure(:entry_point) {{ :task_list => "This nonsense" }}
-    @client.entry_point
-
-  end
-end
-
 describe ActivityDefinition do
   class MyActivity
     extend Activity
@@ -138,13 +117,6 @@ describe WorkflowDefinitionFactory do
   end
 end
 
-describe AsyncDecider do
-  before(:each) do
-    @decision_helper = DecisionHelper.new
-    @history_helper = double(HistoryHelper)
-  end
-
-end
 describe YAMLDataConverter do
   let(:converter) {YAMLDataConverter.new}
   %w{syck psych}.each do |engine|
@@ -179,6 +151,69 @@ describe YAMLDataConverter do
       end
     end
   end
+end
+
+describe Workflows do
+
+  context "#workflow" do
+
+    it "makes sure we can specify multiple workflows" do
+      class MultipleWorkflowsTest1_Workflow
+        extend AWS::Flow::Workflows
+        workflow :workflow_a do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 600,
+            default_task_list: "tasklist_a"
+          }
+        end
+        workflow :workflow_b do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 300,
+            default_task_list: "tasklist_b"
+          }
+        end
+      end
+      MultipleWorkflowsTest1_Workflow.workflows.count.should == 2
+      MultipleWorkflowsTest1_Workflow.workflows.map(&:name).should == ["MultipleWorkflowsTest1_Workflow.workflow_a", "MultipleWorkflowsTest1_Workflow.workflow_b"]
+      MultipleWorkflowsTest1_Workflow.workflows.map(&:options).map(&:default_task_list).should == ["tasklist_a", "tasklist_b"]
+    end
+
+    it "makes sure we can pass multiple workflow names with same options" do
+      class MultipleWorkflowsTest2_Workflow
+        extend AWS::Flow::Workflows
+        workflow :workflow_a, :workflow_b do
+          {
+            version: "1.0",
+            default_task_list: "tasklist_a"
+          }
+        end
+      end
+      MultipleWorkflowsTest2_Workflow.workflows.count.should == 2
+      MultipleWorkflowsTest2_Workflow.workflows.map(&:name).should == ["MultipleWorkflowsTest2_Workflow.workflow_a", "MultipleWorkflowsTest2_Workflow.workflow_b"]
+      MultipleWorkflowsTest2_Workflow.workflows.map(&:options).map(&:default_task_list).should == ["tasklist_a", "tasklist_a"]
+
+    end
+  end
+#  context "#entry_point" do
+    #it "makes sure we are backwards compatible to use entry_point" do
+      #class TestEntryPointWorkflow
+        #extend AWS::Flow::Workflows
+        #entry_point :start
+        #entry_point :temp
+        #version "1.0"
+        #def start; end
+      #end
+
+    #end
+  #end
+  #context "#version" do
+    #it "makes sure we are backwards compatible to use version" do
+
+    #end
+  #end
+
 end
 
 describe WorkflowFactory do
@@ -269,57 +304,57 @@ describe "FakeHistory" do
   it "reproduces the ActivityTaskTimedOut problem" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
-        fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
+        fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.start", "1")
         TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
-                                TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
-                                TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
-                                TestHistoryEvent.new("DecisionTaskStarted", 3, {}),
-                                TestHistoryEvent.new("DecisionTaskCompleted", 4, {}),
-                                TestHistoryEvent.new("ActivityTaskScheduled", 5, {:activity_id => "Activity1"}),
-                                TestHistoryEvent.new("ActivityTaskStarted", 6, {}),
-                                TestHistoryEvent.new("ActivityTaskTimedOut", 7, {:scheduled_event_id => 5, :timeout_type => "START_TO_CLOSE"}),
-                               ])
+                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
+                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
+                                 TestHistoryEvent.new("DecisionTaskStarted", 3, {}),
+                                 TestHistoryEvent.new("DecisionTaskCompleted", 4, {}),
+                                 TestHistoryEvent.new("ActivityTaskScheduled", 5, {:activity_id => "Activity1"}),
+                                 TestHistoryEvent.new("ActivityTaskStarted", 6, {}),
+                                 TestHistoryEvent.new("ActivityTaskTimedOut", 7, {:scheduled_event_id => 5, :timeout_type => "START_TO_CLOSE"}),
+        ])
       end
     end
+
     class BadWorkflow
-      class << self
-        attr_accessor :task_list
+      extend AWS::Flow::Workflows
+      workflow :start do
+        {
+          version: "1",
+          default_execution_start_to_close_timeout: 3600,
+          default_task_list: "BadWorkflow_tasklist",
+          default_task_start_to_close_timeout: 10,
+          default_child_policy: :request_cancel
+        }
       end
-      extend Decider
-      version "1"
-      entry_point :entry_point
-      activity_client :activity do |options|
-        options.prefix_name = "BadActivity"
-        options.version = "1"
-        options.default_task_heartbeat_timeout = "3600"
-        options.default_task_list = "BadWorkflow"
-        options.default_task_schedule_to_close_timeout = "30"
-        options.default_task_schedule_to_start_timeout = "30"
-        options.default_task_start_to_close_timeout = "10"
+      activity_client(:activity) do
+        {
+          prefix_name: "BadActivity",
+          version: "1",
+          default_task_heartbeat_timeout: "3600",
+          default_task_list: "BadWorkflow",
+          default_task_schedule_to_close_timeout: "30",
+          default_task_schedule_to_start_timeout: "30",
+          default_task_start_to_close_timeout: "10",
+        }
       end
-      def entry_point
+      def start
         activity.run_activity1
         activity.run_activity2
       end
     end
-    workflow_type_object = double("workflow_type", :name => "BadWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = FakeWorkflowType.new(nil, "BadWorkflow.start", "1.0")
     domain = FakeDomain.new(workflow_type_object)
 
     swf_client = FakeServiceClient.new
     task_list = "BadWorkflow_tasklist"
     worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
     worker.add_workflow_implementation(BadWorkflow)
-    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
-      options.workflow_name = "BadWorkflow"
-      options.execution_start_to_close_timeout = 3600
-      options.task_list = task_list
-      options.task_start_to_close_timeout = 10
-      options.child_policy = :request_cancel
-    end
+    client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "BadWorkflow" } }
 
-    my_workflow = my_workflow_factory.get_client
-    workflow_execution = my_workflow.start_execution(5)
+    workflow_execution = client.start_execution(5)
     worker.start
 
     swf_client.trace.first[:decisions].first[:decision_type].should ==
@@ -1161,28 +1196,6 @@ describe "Misc tests" do
     AWS.eager_autoload!
   end
 
-  it "ensures that one worker for forking executor will only allow one thing to be processed at a time" do
-    executor = ForkingExecutor.new(:max_workers => 1)
-
-    test_file_name = "ForkingExecutorRunOne"
-    File.new(test_file_name, "w")
-    start_time = Time.now
-    executor.execute do
-      File.open(test_file_name, "a+") { |f| f.write("First Execution\n")}
-      sleep 4
-    end
-    # Because execute will block if the worker queue is full, we will wait here
-    # if we have reached the max number of workers
-    executor.execute { 2 + 2 }
-    finish_time = Time.now
-    # If we waited for the first task to finish, then we will have waited at
-    # least 4 seconds; if we didn't, we should not have waited. Thus, if we have
-    # waited > 3 seconds, we have likely waited for the first task to finish
-    # before doing the second one
-    (finish_time - start_time).should > 3
-    File.unlink(test_file_name)
-  end
-
   it "ensures that using send_async doesn't mutate the original hash" do
     class GenericClientTest < GenericClient
       def call_options(*args, &options)
@@ -1211,18 +1224,6 @@ describe "Misc tests" do
     previous_hash.should == previous_hash_copy
   end
 
-  it "makes sure we can remove depedency on UUIDTools" do
-    require "securerandom"
-    # first check if SecureRandom.uuid returns uuid in the right format
-    regex = /[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/
-    SecureRandom.uuid.should match(regex)
-
-    # Now check if the uuid is correctly set in start_external_workflow method
-    workflow_type = WorkflowType.new(nil, "TestWorkflow.entry_point", "1")
-    client = AWS::Flow::WorkflowClient.new(FakeServiceClient.new, FakeDomain.new(workflow_type), TestWorkflow, WorkflowOptions.new)
-    workflow = client.start_external_workflow
-    workflow.workflow_id.should match(regex)
-  end
   it "makes sure complete method is present on the completion handle and not open request" do
     ( OpenRequestInfo.new.respond_to? :complete ).should == false
     task = ExternalTask.new({}) { |t| }

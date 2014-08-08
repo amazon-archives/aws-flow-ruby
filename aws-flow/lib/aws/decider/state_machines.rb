@@ -334,6 +334,7 @@ module AWS
             :tag_list => @attributes[:tag_list]
           }
         }
+        result[:start_child_workflow_execution_decision_attributes].delete(:task_list) if options.task_list.nil?
         #TODO Figure out what control is
         to_add = options.get_options([:execution_start_to_close_timeout, :task_start_to_close_timeout, :child_policy, :tag_list, :input])
         result[attribute_name].merge!(to_add)

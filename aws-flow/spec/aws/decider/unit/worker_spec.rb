@@ -2,16 +2,14 @@ require_relative 'setup'
 
 class TestWorkflow
   extend Workflows
-  workflow :entry_point do
+  workflow :start do
     {
       :execution_start_to_close_timeout => 30, :version => "1"
     }
   end
-  def entry_point
-
-  end
-
+  def start; end
 end
+
 class TestActivity
   extend Activity
 
@@ -128,7 +126,7 @@ describe WorkflowWorker do
   it "will test whether WorkflowWorker shuts down cleanly when an interrupt is received" do
     task_list = "TestWorkflow_tasklist"
     service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
     workflow_worker = WorkflowWorker.new(service, domain, task_list)
     workflow_worker.add_workflow_implementation(TestWorkflow)
@@ -156,7 +154,7 @@ describe WorkflowWorker do
     end
     task_list = "TestWorkflow_tasklist"
     service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
     workflow_worker = WorkflowWorker.new(service, domain, task_list)
     workflow_worker.add_workflow_implementation(TestWorkflow)
@@ -264,7 +262,7 @@ describe ActivityWorker do
 
     task_list = "TestWorkflow_tasklist"
     service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
     forking_executor = ForkingExecutor.new
     activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }
@@ -297,7 +295,7 @@ describe ActivityWorker do
   it "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
     task_list = "TestWorkflow_tasklist"
     service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )
     domain = FakeDomain.new(workflow_type_object)
     forking_executor = ForkingExecutor.new
     activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }

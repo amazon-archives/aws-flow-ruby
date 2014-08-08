@@ -61,8 +61,15 @@ module AWS
       # @api private
       def self.client_options_from_method_name(method_name, options)
         client_options = options.dup
-        client_options.precursors = options.precursors.select { |x| x.name.split(".").last.to_sym == method_name }
-        client_options.precursors.map!(&:options)
+        if method_name.nil?
+          client_options.precursors = options.precursors.empty? ? [] : [options.precursors.first]
+        else
+          client_options.precursors = options.precursors.select { |x| x.name.split(".").last.to_sym == method_name }
+        end
+
+        unless options.precursors.empty?
+          client_options.precursors.map!(&:options)
+        end
         client_options
       end
 

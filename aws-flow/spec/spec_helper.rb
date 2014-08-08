@@ -17,9 +17,6 @@ require 'bundler/setup'
 require 'aws/flow'
 require 'aws/decider'
 require 'runner'
-require 'pry'
-require 'pry-debugger'
-require 'debugger'
 
 include AWS::Flow
 
@@ -81,7 +78,7 @@ module Test
       current_date = Time.now.strftime("%d-%m-%Y")
       swf = AWS::SimpleWorkflow.new
       #$rubyflow_decider_domain = "rubyflow_#{current_date}-#{last_run}"
-      $rubyflow_decider_domain = "0000015"
+      $rubyflow_decider_domain = "0000035"
       begin
         domain = swf.domains.create($rubyflow_decider_domain, "10")
       rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e

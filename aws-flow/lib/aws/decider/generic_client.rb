@@ -34,11 +34,10 @@ module AWS
       #   The options to set.
       #
       def with_opts(opts = {})
-        klass = self.class.default_option_class
-        options = klass.new(opts)
         modified_instance = self.dup
-        options = klass.new(Utilities::merge_all_options(modified_instance.options, options))
-        modified_instance.options = options
+        opts.each_pair do |key, value|
+          modified_instance.options.send("#{key}=", value) if modified_instance.options.methods.map(&:to_sym).include? "#{key}=".to_sym
+        end
         modified_instance
       end
 
