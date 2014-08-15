@@ -204,7 +204,7 @@ module AWS
     #
     #   On Windows, this should be set to `false` unless you are running Ruby
     #   under Cygwin. For more information, see [Important
-    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/important-notes.html#forking-windows-note)
+    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/welcome.html#forking-windows-note)
     #   in the *AWS Flow Framework for Ruby Developer Guide*.
     #
     class WorkerOptions < Options
