@@ -40,7 +40,6 @@ module AWS
         @service = service
         @domain = domain
         @task_list = task_list_to_poll
-        @options = Utilities::interpret_block_for_options(WorkerOptions, block)
         if args
           args.each { |klass_or_instance| add_implementation(klass_or_instance) }
         end
