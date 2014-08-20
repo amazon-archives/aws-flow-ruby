@@ -71,6 +71,8 @@ module AWS
       end
 
       INFINITY = -1
+      RETENTION_DEFAULT = 7
+      NUM_OF_WORKERS_DEFAULT = 1
       @exponential_retry_maximum_attempts = Float::INFINITY
       @exponential_retry_maximum_retry_interval_seconds = -1
       @exponential_retry_retry_expiration_seconds = -1

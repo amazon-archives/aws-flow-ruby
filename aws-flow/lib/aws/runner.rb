@@ -58,12 +58,16 @@ module AWS
         swf = create_service_client(json_config)
 
         domain = json_config['domain']
+        # If retention period is not provided, default it to 7 days
+        retention = domain['retention_in_days'] || FlowConstants::RETENTION_DEFAULT
 
         begin
-          swf.client.describe_domain name: domain['name']
-        rescue
-          swf.client.register_domain( { name: domain['name'],
-                                        workflow_execution_retention_period_in_days: domain['retention_in_days'].to_s })
+          swf.client.register_domain({
+            name: domain['name'],
+            workflow_execution_retention_period_in_days: retention.to_s
+          })
+        rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
+          # possible log an INFO/WARN if the domain already exists.
         end
         return AWS::SimpleWorkflow::Domain.new( domain['name'] )
       end
@@ -103,7 +107,8 @@ module AWS
 
       def self.spawn_and_start_workers(json_fragment, process_name, worker)
         workers = []
-        json_fragment['number_of_workers'].times do
+        num_of_workers = json_fragment['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
+        num_of_workers.times do
           workers << fork do
             set_process_name(process_name)
             worker.start()
@@ -156,7 +161,9 @@ module AWS
         # TODO: logger
         # start the workers for each spec
         json_config['activity_workers'].each do |w|
-          fork_count = w['number_of_forks_per_worker'] || 1
+          # If number of forks is not provided, it will automatically default to 20
+          # within the ActivityWorker
+          fork_count = w['number_of_forks_per_worker']
           task_list = expand_task_list(w['task_list'])
 
           # create a worker
