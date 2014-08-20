@@ -60,8 +60,8 @@ describe "Runner" do
     workflow :ping do
       {
         version: PingUtils::WF_VERSION,
-        task_list: PingUtils::WF_TASKLIST,
-        execution_start_to_close_timeout: 30,
+        default_task_list: PingUtils::WF_TASKLIST,
+        default_execution_start_to_close_timeout: 600,
       }
     end
 
@@ -105,10 +105,14 @@ describe "Runner" do
     it "runs" do
 
       runner_config = JSON.parse('{
+        "domain":
+          {
+            "name": ' + "\"#{PingUtils::DOMAIN}\"" + ',
+            "retention_in_days": 10
+          },
         "workflow_paths": [],
         "workflow_workers": [
           {
-            "domain": ' + "\"#{PingUtils::DOMAIN}\"" + ',
             "task_list": ' + "\"#{PingUtils::WF_TASKLIST}\"" + ',
             "workflow_classes": [ ' + "\"PingWorkflow\""  + ' ],
             "number_of_workers": 1
@@ -117,7 +121,6 @@ describe "Runner" do
         "activity_paths": [],
         "activity_workers": [
           {
-            "domain": ' + "\"#{PingUtils::DOMAIN}\"" + ',
             "task_list": ' + "\"#{PingUtils::ACTIVITY_TASKLIST}\"" + ',
             "activity_classes": [ ' + "\"PingActivity\""  + ' ],
             "number_of_forks_per_worker": 1,
@@ -137,6 +140,8 @@ describe "Runner" do
       workflow_execution = wf_client.ping()
 
       wait_for_execution(workflow_execution, 3)
+
+      workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
 
       # kill the workers
       workers.each { |w| Process.kill("KILL", w) }

@@ -17,17 +17,14 @@ module AWS
 
       # Example of the format:
       # {
-      #     "domains": [
-      #        {
-      #            "name": <name_of_the_domain>,
-      #            "retention_in_days": <days>
-      #        }
-      #         //, ... can add more
-      #     ],
+      #     "domain":
+      #     {
+      #        "name": <name_of_the_domain>,
+      #        "retention_in_days": <days>
+      #     }
       #     "activity_workers": [
       #         
       #        {
-      #             "domain": <name_of_the_domain>,
       #             "task_list": <name_of_the_task_list>,
       #             "activity_classes": [ <name_of_class_containing_the_activities_to_be_worked_on> ],
       #             "number_of_workers": <number_of_activity_workers_to_spawn>,
@@ -37,7 +34,6 @@ module AWS
       #     ],
       #     "workflow_workers": [
       #         {
-      #             "domain": <name_of_the_domain>,
       #             "task_list": <name_of_the_task_list>,
       #             "workflow_classes": [ <name_of_class_containing_the_workflows_to_be_worked_on> ],
       #             "number_of_workers": <number_of_workflow_workers_to_spawn>
@@ -56,19 +52,20 @@ module AWS
       # }
 
 
-      # registers the domains if they are not
-      def self.setup_domains(json_config)
+      # registers the domain if it is not
+      def self.setup_domain(json_config)
 
         swf = create_service_client(json_config)
 
-        json_config['domains'].each do |d|
-          begin
-            swf.client.describe_domain :name => d['name']
-          rescue
-            swf.client.register_domain( { :name => d['name'], 
-                                          :workflow_execution_retention_period_in_days => d['retention_in_days'].to_s })
-          end
+        domain = json_config['domain']
+
+        begin
+          swf.client.describe_domain name: domain['name']
+        rescue
+          swf.client.register_domain( { name: domain['name'],
+                                        workflow_execution_retention_period_in_days: domain['retention_in_days'].to_s })
         end
+        return AWS::SimpleWorkflow::Domain.new( domain['name'] )
       end
 
       def self.set_process_name(name)
@@ -149,23 +146,23 @@ module AWS
         end
       end
 
-      def self.start_activity_workers(swf, config_path, json_config)
+      def self.start_activity_workers(swf, domain = nil, config_path, json_config)
         workers = []
         # load all classes for the activities
-        load_files(config_path, json_config, {:config_key => 'activity_paths',
-                     :default_file => File.join('flow', 'activities.rb')})
+        load_files(config_path, json_config, {config_key: 'activity_paths',
+                     default_file: File.join('flow', 'activities.rb')})
+        domain = setup_domain(json_config) if domain.nil?
 
         # TODO: logger
         # start the workers for each spec
         json_config['activity_workers'].each do |w|
           fork_count = w['number_of_forks_per_worker'] || 1
-          domain = AWS::SimpleWorkflow::Domain.new( w['domain'] )
           task_list = expand_task_list(w['task_list'])
 
           # create a worker
-          worker = ActivityWorker.new(swf.client, domain, task_list, *w['activities']) {{ :max_workers => fork_count }}
-          add_implementations(worker, w, {:config_key => 'activity_classes',
-                     :clazz => AWS::Flow::Activities})
+          worker = ActivityWorker.new(swf.client, domain, task_list, *w['activities']) {{ max_workers: fork_count }}
+          add_implementations(worker, w, {config_key: 'activity_classes',
+                     clazz: AWS::Flow::Activities})
 
           # start as many workers as desired in child processes
           workers << spawn_and_start_workers(w, "activity-worker", worker)
@@ -174,22 +171,22 @@ module AWS
         return workers
       end
 
-      def self.start_workflow_workers(swf, config_path, json_config)
+      def self.start_workflow_workers(swf, domain = nil, config_path, json_config)
         workers = []
         # load all the classes for the workflows
-        load_files(config_path, json_config, {:config_key => 'workflow_paths',
-                     :default_file => File.join('flow', 'workflows.rb')})
+        load_files(config_path, json_config, {config_key: 'workflow_paths',
+                     default_file: File.join('flow', 'workflows.rb')})
+        domain = setup_domain(json_config) if domain.nil?
 
         # TODO: logger
         # start the workers for each spec
         json_config['workflow_workers'].each do |w|
-          domain = AWS::SimpleWorkflow::Domain.new( w['domain'] )
           task_list = expand_task_list(w['task_list'])
 
           # create a worker
           worker = WorkflowWorker.new(swf.client, domain, task_list, *w['workflows'])
-          add_implementations(worker, w, {:config_key => 'workflow_classes',
-                     :clazz => AWS::Flow::Workflows})
+          add_implementations(worker, w, {config_key: 'workflow_classes',
+                     clazz: AWS::Flow::Workflows})
 
           # start as many workers as desired in child processes
           workers << spawn_and_start_workers(w, "workflow-worker", worker)
@@ -201,7 +198,7 @@ module AWS
       def self.create_service_client(json_config)
         # set the UserAgent prefix for all clients
         if json_config['user_agent_prefix'] then
-          AWS.config(:user_agent_prefix => json_config['user_agent_prefix'])
+          AWS.config(user_agent_prefix: json_config['user_agent_prefix'])
         end
         
         swf = AWS::SimpleWorkflow.new
@@ -211,14 +208,14 @@ module AWS
       # this will start all the workers and return an array of pids for the worker
       # processes
       # 
-      def self.start_workers(config_path, json_config)
+      def self.start_workers(domain = nil, config_path, json_config)
         
         workers = []
         
         swf = create_service_client(json_config)
 
-        workers << start_activity_workers(swf, config_path, json_config)
-        workers << start_workflow_workers(swf, config_path, json_config)
+        workers << start_activity_workers(swf, domain, config_path, json_config)
+        workers << start_workflow_workers(swf, domain, config_path, json_config)
 
         # needed to avoid returning nested arrays based on the calls above
         workers.flatten!
@@ -279,8 +276,8 @@ module AWS
         config_path =  options[:file]
         config = load_config_json( config_path )
         add_dir_to_load_path( Pathname.new(config_path).dirname )
-        setup_domains(config)
-        workers = start_workers(config_path, config)
+        domain = setup_domain(config)
+        workers = start_workers(domain, config_path, config)
         setup_signal_handling(workers)
 
         # hang there until killed: this process is used to relay signals to children
