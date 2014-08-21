@@ -243,8 +243,6 @@ module AWS
         workflow_execution = workflow_execution.workflow_execution if workflow_execution.respond_to? :workflow_execution
         options.signal_name ||= signal_name.to_s
         options.workflow_id ||= workflow_execution.workflow_id.get.to_s
-        execution_method = options.execution_method || @options.execution_method
-        raise "You haven't specified an execution method!" if execution_method.nil?
         Utilities::merge_all_options(options)
         open_request = OpenRequestInfo.new
         decision_id = @decision_helper.get_next_id(:Signal)

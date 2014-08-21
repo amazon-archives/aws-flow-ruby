@@ -4,6 +4,9 @@ require 'socket'
 include Test::Integ
 
 describe "Runner" do
+  before(:all) do
+    @swf, @domain = setup_swf
+  end
 
   class PingUtils
 
@@ -11,10 +14,9 @@ describe "Runner" do
     ACTIVITY_VERSION = "1.0"
     WF_TASKLIST = "workflow_tasklist"
     ACTIVITY_TASKLIST = "activity_tasklist"
-    DOMAIN = "PingTest"
 
     def initialize
-      @domain = setup_domain(DOMAIN)
+      @domain = Test::Integ::get_test_domain
     end
 
     def activity_worker
@@ -107,7 +109,7 @@ describe "Runner" do
       runner_config = JSON.parse('{
         "domain":
           {
-            "name": ' + "\"#{PingUtils::DOMAIN}\"" + ',
+            "name": ' + "\"#{get_test_domain.name}\"" + ',
             "retention_in_days": 10
           },
         "workflow_paths": [],
@@ -134,6 +136,7 @@ describe "Runner" do
 
       workers = AWS::Flow::Runner.start_workers("", runner_config)
 
+      sleep 2
       utils  = PingUtils.new
       wf_client = utils.workflow_client
       

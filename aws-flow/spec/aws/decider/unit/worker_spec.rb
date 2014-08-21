@@ -4,7 +4,7 @@ class TestWorkflow
   extend Workflows
   workflow :start do
     {
-      :execution_start_to_close_timeout => 30, :version => "1"
+      :default_execution_start_to_close_timeout => 30, :version => "1"
     }
   end
   def start; end

@@ -41,6 +41,18 @@ module Test
       domain
     end
 
+    def build_client(from_class)
+      domain = get_test_domain
+      build_workflow_client(domain, from_class)
+    end
+
+    def build_worker(klass, task_list)
+      domain = get_test_domain
+      return build_workflow_worker(domain, klass, task_list) if klass.is_a? AWS::Flow::Workflows
+      return build_activity_worker(domain, klass, task_list) if klass.is_a? AWS::Flow::Activities
+      raise "the class needs to extend AWS::Flow::Workflows or AWS::Flow::Activities"
+    end
+
     def build_workflow_worker(domain, klass, task_list)
       AWS::Flow::WorkflowWorker.new(domain.client, domain, task_list, klass)
     end
