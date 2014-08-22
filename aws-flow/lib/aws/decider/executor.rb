@@ -134,36 +134,49 @@ module AWS
       # @api private
       def remove_completed_pids(block=false)
         @log.debug "Removing completed child processes"
+
+        # waitpid2 throws an Errno::ECHILD if there are no child processes,
+        # so we don't even call it if there aren't any pids to wait on.
+        if @pids.empty?
+          @log.debug "No child processes. Returning."
+          return
+        end
+
+        @log.debug "Current child processes: #{@pids}"
+
+        # Non-blocking wait only returns a non-null pid if the child process has exited.
+        # This is the only part where we block if block=true.
+        pid, status = Process.waitpid2(-1, block ? 0 : Process::WNOHANG)
+
         loop do
+
+          # If nothing to reap, then exit
+          break unless pid
+
+          # We have something to reap
+          @log.debug "Reaping child process=#{pid}"
+          if status.success?
+            @log.debug "Child process #{pid} exited successfully"
+          else
+            @log.error "Child process #{pid} exited with non-zero status code"
+          end
+
+          # Reap
+          @pids.delete(pid)
+
           # waitpid2 throws an Errno::ECHILD if there are no child processes,
           # so we don't even call it if there aren't any pids to wait on.
           break if @pids.empty?
-          @log.debug "Current child processes: #{@pids}"
-          # Non-blocking wait only returns a non-null pid
-          # if the child process has exited.
-          pid, status = Process.waitpid2(-1, block ? 0 : Process::WNOHANG)
-          
-          if pid
-            # We have something to reap
-            @log.debug "Reaping child process=#{pid}"
-            if status.success?
-              @log.debug "Child process #{pid} exited successfully"
-            else
-              @log.error "Child process #{pid} exited with non-zero status code"
-            end
-            # Delete the pid from the list
-            @pids.delete(pid)
-            # Contract is to block only once if block=true. If we are in this code branch and if block=true, it
-            # means we have already blocked once above, hence it is safe to exit now
-            break if block
-          else
-            # Nothing to reap, exit
-            break
-          end
 
+          @log.debug "Current child processes: #{@pids}"
+          
+          # Contract is to block only once if block=true. Since we have potentially already
+          # blocked once above, we only need to do a non blocking call to waitpid2 to see if
+          # any other process is available to reap.
+          pid, status = Process.waitpid2(-1, Process::WNOHANG)
         end
       end
-
     end
+
   end
 end

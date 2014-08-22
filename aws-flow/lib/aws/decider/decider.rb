@@ -245,7 +245,7 @@ module AWS
     module Workflows
       attr_accessor :version
       extend Utilities::UpwardLookups
-      @precursors = []
+      @precursors ||= []
       def look_upwards(variable)
         precursors = self.ancestors.dup
         precursors.delete(self)
@@ -263,10 +263,10 @@ module AWS
       def entry_point(input=nil)
         if input
           @entry_point = input
-          workflow_type = WorkflowType.new(self.to_s + "." + input.to_s, nil, WorkflowOptions.new(:execution_method => input))
+          workflow_type = WorkflowType.new(self.to_s + "." + input.to_s, nil, WorkflowRegistrationOptions.new(:execution_method => input))
           self.workflows.each { |workflow| workflow.name = self.to_s + "." + input.to_s }
           self.workflows.each do |workflow|
-            workflow.options = WorkflowOptions.new(:execution_method => input)
+            workflow.options = WorkflowRegistrationOptions.new(:execution_method => input)
           end
           self.workflows = self.workflows << workflow_type
         end
@@ -327,22 +327,24 @@ module AWS
 
 
       # @api private
-      def _options; self.workflows.map(&:options); end
+      def _options; self.workflows; end
 
       # Defines a new workflow.
       #
-      # @param entry_point
-      #   The entry point (method) that starts the workflow.
+      # @param workflow_names
+      #   The entry points (methods) that starts the workflow.
       #
       # @param block
-      #   A block of {WorkflowOptions} for the workflow.
+      #   A block of {WorflowRegistrationOptions} for the workflow.
       #
-      def workflow(entry_point, &block)
-        options = Utilities::interpret_block_for_options(WorkflowOptions, block)
-        options.execution_method = entry_point
-        workflow_name = options.prefix_name || self.to_s
-        workflow_type = WorkflowType.new(workflow_name.to_s + "." + entry_point.to_s, options.version, options)
-        self.workflows = self.workflows << workflow_type
+      def workflow(*workflow_names, &block)
+        workflow_names.each do |workflow_name| 
+          options = Utilities::interpret_block_for_options(WorkflowRegistrationOptions, block)
+          options.execution_method = workflow_name
+          prefix_name = options.prefix_name || self.to_s
+          workflow_type = WorkflowType.new(prefix_name.to_s + "." + workflow_name.to_s, options.version, options)
+          self.workflows = self.workflows << workflow_type
+        end
       end
 
       # @return [MethodPair]

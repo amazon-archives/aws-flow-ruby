@@ -1,8 +1,7 @@
-require 'runner'
+require 'spec_helper'
 require 'tempfile'
 require 'socket'
 require 'fileutils'
-require_relative '../../spec_helper.rb'
 
 describe "Runner" do
   
@@ -55,7 +54,6 @@ describe "Runner" do
         "activity_paths": [],
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "activity_classes": [],
             "number_of_workers": 3
@@ -79,7 +77,6 @@ describe "Runner" do
         "activity_paths": [],
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "number_of_workers": 3
           }
@@ -102,7 +99,6 @@ describe "Runner" do
         "workflow_paths": [],
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "workflow_classes": [],
             "number_of_workers": 3
@@ -126,7 +122,6 @@ describe "Runner" do
         "workflow_paths": [],
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "number_of_workers": 3
           }
@@ -153,7 +148,6 @@ describe "Runner" do
         "workflow_paths": [],
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "workflow_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -168,7 +162,6 @@ describe "Runner" do
         "activity_paths": [],
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "activity_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -182,6 +175,8 @@ describe "Runner" do
       # mock out a few methods to focus on the fact that the workers were created
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation).and_return(nil)
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
+
+      AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
 
       # what we are testing:
@@ -197,6 +192,7 @@ describe "Runner" do
       # mock out a few methods to focus on the fact that the workers were created
       allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation).and_return(nil)
       allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:start).and_return(nil)
+      AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
 
       # what we are testing:
@@ -211,6 +207,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:fork)
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Runner.stub(:setup_domain)
       
       # stub that we can query later
       implems = []
@@ -230,6 +227,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:fork)
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Runner.stub(:setup_domain)
       
       # stub that we can query later
       implems = []
@@ -249,6 +247,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation).and_return(nil)
       AWS::Flow::Runner.stub(:fork).and_yield
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Runner.stub(:setup_domain)
       
       # stub that we can query later
       starts = 0
@@ -268,6 +267,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation).and_return(nil)
       AWS::Flow::Runner.stub(:fork).and_yield
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Runner.stub(:setup_domain)
       
       # stub that we can query later
       starts = 0
@@ -303,8 +303,8 @@ describe "Runner" do
       expect(AWS::Flow::Runner).to receive(:require).with(File.join(base, relative))
 
       AWS::Flow::Runner.load_files( File.join(base, "blahconfig"), "", 
-                                   {:config_key => "any_key_name",
-                                    :default_file => relative})
+                                   {config_key: "any_key_name",
+                                    default_file: relative})
     end
 
     it "loads the default only if needed" do
@@ -317,8 +317,8 @@ describe "Runner" do
 
       AWS::Flow::Runner.load_files( File.join(base, "blahconfig"), 
                                     JSON.parse('{ "activity_paths": [ "foo", "bar"] }'), 
-                                   {:config_key => "activity_paths",
-                                    :default_file => relative})
+                                   {config_key: "activity_paths",
+                                    default_file: relative})
     end
 
     it "loads the \"flow/activities.rb\" by default for activity worker" do
@@ -326,7 +326,6 @@ describe "Runner" do
         document = '{
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "activity_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -336,6 +335,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to receive(:require).with(File.join(".", "flow", "activities.rb"))
 
       AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, ".", activity_js)
@@ -346,7 +346,6 @@ describe "Runner" do
         document = '{
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "workflow_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -356,6 +355,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to receive(:require).with(File.join(".", "flow", "workflows.rb"))
 
       AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, ".", workflow_js)
@@ -367,7 +367,6 @@ describe "Runner" do
         "activity_paths": [ "foo", "bar"],
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "activity_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -377,6 +376,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to_not receive(:require).with(File.join(".", "flow", "activities.rb"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("foo"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("bar"))
@@ -390,7 +390,6 @@ describe "Runner" do
         "workflow_paths": [ "foo", "bar"],
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "workflow_classes": [ "Object", "String" ],
             "number_of_workers": 3
@@ -400,6 +399,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to_not receive(:require).with(File.join(".", "flow", "workflows.rb"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("foo"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("bar"))
@@ -467,7 +467,6 @@ describe "Runner" do
         document = '{
         "activity_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "number_of_workers": 3
           }
@@ -476,6 +475,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       impls = []
       AWS::Flow::ActivityWorker.any_instance.stub(:add_implementation) do |impl|
         impls << impl
@@ -492,7 +492,6 @@ describe "Runner" do
         document = '{
         "workflow_workers": [
           {
-            "domain": "foo",
             "task_list": "bar",
             "number_of_workers": 3
           }
@@ -501,6 +500,7 @@ describe "Runner" do
         JSON.parse(document)
       end
 
+      AWS::Flow::Runner.stub(:setup_domain)
       impls = []
       AWS::Flow::WorkflowWorker.any_instance.stub(:add_implementation) do |impl|
         impls << impl

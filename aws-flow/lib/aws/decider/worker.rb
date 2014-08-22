@@ -40,7 +40,6 @@ module AWS
         @service = service
         @domain = domain
         @task_list = task_list_to_poll
-        @options = Utilities::interpret_block_for_options(WorkerOptions, block)
         if args
           args.each { |klass_or_instance| add_implementation(klass_or_instance) }
         end
@@ -63,6 +62,10 @@ module AWS
         camel_case.
           gsub(/(.)([A-Z])/,'\1_\2').
           downcase
+      end
+
+      def resolve_default_task_list(name)
+        name == FlowConstants.use_worker_task_list ? @task_list : name
       end
 
     end
@@ -137,7 +140,7 @@ module AWS
       end
 
       def set_workflow_implementation_types(workflow_implementation_types)
-        workflow_implementation_types.each {|type| add_workflow_implementation_type(type)}
+        workflow_implementation_types.each {|type| add_workflow_implementation(type)}
       end
 
       def add_implementation(workflow_class)
@@ -154,7 +157,7 @@ module AWS
           options = workflow_type.options
           execution_method = options.execution_method
           version = workflow_type.version
-          registration_options = nil
+          registration_options = options.get_registration_options
           implementation_options = nil
           get_state_method = workflow_class.get_state_method
           signals = workflow_class.signals
@@ -181,9 +184,10 @@ module AWS
               :version => version
             }
           )
+
           if options.default_task_list
             workflow_hash.merge!(
-              {:default_task_list => {:name => options.default_task_list} }
+              :default_task_list => {:name => resolve_default_task_list(options.default_task_list)}
             )
           end
           @workflow_type_options << workflow_hash
@@ -378,11 +382,13 @@ module AWS
             :version => activity_type.version
           }
 
-          option_hash.merge!(options.get_default_options)
+          option_hash.merge!(options.get_registration_options)
 
-          option_hash.merge!(
-            :default_task_list => {:name => options.default_task_list}
-          ) if options.default_task_list
+          if options.default_task_list
+            option_hash.merge!(
+              :default_task_list => {:name => resolve_default_task_list(options.default_task_list)}
+            )
+          end
 
           @activity_type_options << option_hash
         end

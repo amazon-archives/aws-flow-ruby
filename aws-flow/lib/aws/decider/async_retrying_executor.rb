@@ -24,12 +24,12 @@ module AWS
         @execution_id = execution_id
       end
       def execute(command, options = nil)
-        return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0) if @return_on_start
+        return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, nil) if @return_on_start
         output = Utilities::AddressableFuture.new
         result_lock = Utilities::AddressableFuture.new
         error_handler do |t|
           t.begin do
-            output.set(schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, 0))
+            output.set(schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, nil))
           end
           t.rescue(Exception) do |error|
             @error_seen = error
@@ -77,7 +77,7 @@ module AWS
           failure = should_retry.get
           if ! failure.nil?
             attempts[failure.class] += 1
-            output.set(schedule_with_retry(command, failure, attempts, first_attempt_time, @clock.current_time - first_attempt_time))
+            output.set(schedule_with_retry(command, failure, attempts, first_attempt_time, @clock.current_time))
           else
             output.set(return_value.get)
           end

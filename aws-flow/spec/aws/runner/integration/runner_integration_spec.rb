@@ -1,51 +1,22 @@
-require 'runner'
-require 'bundler/setup'
-require 'aws/decider'
+require 'spec_helper'
 require 'logger'
 require 'socket'
+include Test::Integ
 
 describe "Runner" do
-
-  # Copied from the utilities for the samples and recipes
-  module SharedUtils
-
-    def setup_domain(domain_name)
-      swf = AWS::SimpleWorkflow.new
-      domain = swf.domains[domain_name]
-      unless domain.exists?
-        swf.domains.create(domain_name, 10)
-      end
-      domain
-    end
-
-    def build_workflow_worker(domain, klass, task_list)
-      AWS::Flow::WorkflowWorker.new(domain.client, domain, task_list, klass)
-    end
-
-    def build_generic_activity_worker(domain, task_list)
-      AWS::Flow::ActivityWorker.new(domain.client, domain, task_list)
-    end
-
-    def build_activity_worker(domain, klass, task_list)
-      AWS::Flow::ActivityWorker.new(domain.client, domain, task_list, klass)
-    end
-
-    def build_workflow_client(domain, options_hash)
-      AWS::Flow::workflow_client(domain.client, domain) { options_hash }
-    end
+  before(:all) do
+    @swf, @domain = setup_swf
   end
 
   class PingUtils
-    include SharedUtils
 
     WF_VERSION = "1.0"
     ACTIVITY_VERSION = "1.0"
     WF_TASKLIST = "workflow_tasklist"
     ACTIVITY_TASKLIST = "activity_tasklist"
-    DOMAIN = "PingTest"
 
     def initialize
-      @domain = setup_domain(DOMAIN)
+      @domain = Test::Integ::get_test_domain
     end
 
     def activity_worker
@@ -91,8 +62,8 @@ describe "Runner" do
     workflow :ping do
       {
         version: PingUtils::WF_VERSION,
-        task_list: PingUtils::WF_TASKLIST,
-        execution_start_to_close_timeout: 30,
+        default_task_list: PingUtils::WF_TASKLIST,
+        default_execution_start_to_close_timeout: 600,
       }
     end
 
@@ -136,10 +107,14 @@ describe "Runner" do
     it "runs" do
 
       runner_config = JSON.parse('{
+        "domain":
+          {
+            "name": ' + "\"#{get_test_domain.name}\"" + ',
+            "retention_in_days": 10
+          },
         "workflow_paths": [],
         "workflow_workers": [
           {
-            "domain": ' + "\"#{PingUtils::DOMAIN}\"" + ',
             "task_list": ' + "\"#{PingUtils::WF_TASKLIST}\"" + ',
             "workflow_classes": [ ' + "\"PingWorkflow\""  + ' ],
             "number_of_workers": 1
@@ -148,7 +123,6 @@ describe "Runner" do
         "activity_paths": [],
         "activity_workers": [
           {
-            "domain": ' + "\"#{PingUtils::DOMAIN}\"" + ',
             "task_list": ' + "\"#{PingUtils::ACTIVITY_TASKLIST}\"" + ',
             "activity_classes": [ ' + "\"PingActivity\""  + ' ],
             "number_of_forks_per_worker": 1,
@@ -162,16 +136,15 @@ describe "Runner" do
 
       workers = AWS::Flow::Runner.start_workers("", runner_config)
 
+      sleep 2
       utils  = PingUtils.new
       wf_client = utils.workflow_client
       
       workflow_execution = wf_client.ping()
 
-      sleep 3 until [
-                     "WorkflowExecutionCompleted",
-                     "WorkflowExecutionTimedOut",
-                     "WorkflowExecutionFailed"
-                    ].include? workflow_execution.events.to_a.last.event_type
+      wait_for_execution(workflow_execution, 3)
+
+      workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
 
       # kill the workers
       workers.each { |w| Process.kill("KILL", w) }

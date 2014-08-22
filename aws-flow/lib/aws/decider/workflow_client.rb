@@ -189,10 +189,14 @@ module AWS
       #   A hash of {StartWorkflowOptions} to use for this workflow execution.
       #
       def start_execution(*input, &block)
+        start_execution_method(nil, *input, &block)
+      end
+
+      def start_execution_method(method_name, *input, &block)
         if Utilities::is_external
-          self.start_external_workflow(input, &block)
+          self.start_external_workflow(method_name, input, &block)
         else
-          self.start_internal_workflow(input, &block)
+          self.start_internal_workflow(method_name, input, &block)
         end
       end
 
@@ -239,8 +243,6 @@ module AWS
         workflow_execution = workflow_execution.workflow_execution if workflow_execution.respond_to? :workflow_execution
         options.signal_name ||= signal_name.to_s
         options.workflow_id ||= workflow_execution.workflow_id.get.to_s
-        execution_method = options.execution_method || @options.execution_method
-        raise "You haven't specified an execution method!" if execution_method.nil?
         Utilities::merge_all_options(options)
         open_request = OpenRequestInfo.new
         decision_id = @decision_helper.get_next_id(:Signal)
@@ -264,13 +266,15 @@ module AWS
 
       # Called by {#start_execution}.
       # @api private
-      def start_internal_workflow(input = NoInput.new, &block)
+      def start_internal_workflow(method_name, input = NoInput.new, &block)
         get_decision_context
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
+        client_options = Utilities::client_options_from_method_name(method_name, @options)
+        options = Utilities::merge_all_options(client_options, options)
+
         workflow_id_future, run_id_future = Future.new, Future.new
         minimal_domain = MinimalDomain.new(@domain.name.to_s)
         output = WorkflowFuture.new(AWS::Flow::MinimalWorkflowExecution.new(minimal_domain, workflow_id_future, run_id_future))
-        options = Utilities::merge_all_options(@options, options)
         new_options = StartWorkflowOptions.new(options)
         open_request = OpenRequestInfo.new
         workflow_id = new_options.workflow_id
@@ -337,9 +341,11 @@ module AWS
 
       # Called by {#start_execution}.
       # @api private
-      def start_external_workflow(input = NoInput.new, &block)
+      def start_external_workflow(method_name, input = NoInput.new, &block)
         options = Utilities::interpret_block_for_options(StartWorkflowOptions, block)
-        options = Utilities::merge_all_options(@options, options)
+        client_options = Utilities::client_options_from_method_name(method_name, @options)
+        options = Utilities::merge_all_options(client_options, options)
+
         @converter ||= YAMLDataConverter.new
         # Basically, we want to avoid the special "NoInput, but allow stuff like nil in"
         if ! (input.class <= NoInput || input.empty?)
@@ -349,8 +355,7 @@ module AWS
           execution_method = @options.execution_method
           version = @options.version
         else
-          # TODO This is a nasty hack
-          workflow_type = @workflow_class.workflows.first
+          workflow_type = method_name.nil? ? @workflow_class.workflows.first : @workflow_class.workflows.select { |x| x.options.execution_method.to_sym == method_name }.first
           execution_method = workflow_type.options.execution_method
           version = workflow_type.version
         end
@@ -381,7 +386,7 @@ module AWS
 
       def method_missing(method_name, *args, &block)
         if is_execution_method(method_name)
-          start_execution(*args, &block)
+          start_execution_method(method_name, *args, &block)
         else
           super(method_name, *args, &block)
         end

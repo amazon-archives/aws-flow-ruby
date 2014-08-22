@@ -94,14 +94,16 @@ module AWS
       #
       def method_missing(method_name, *args, &block)
         options = Utilities::interpret_block_for_options(ActivityOptions, block)
-        options = Utilities::merge_all_options(@options,
+        client_options = Utilities::client_options_from_method_name(method_name, @options)
+
+        options = Utilities::merge_all_options(client_options,
                                     @activity_option_map[method_name.to_sym],
                                     @option_map[method_name.to_sym],
                                     options
                                     )
         new_options = ActivityOptions.new(options)
 
-        activity_type = ActivityType.new("#{new_options.prefix_name}.#{method_name.to_s}", new_options.version, new_options.get_default_options)
+        activity_type = ActivityType.new("#{new_options.prefix_name}.#{method_name.to_s}", new_options.version, new_options.get_registration_options)
         if new_options._exponential_retry
           retry_function = new_options._exponential_retry.retry_function || FlowConstants.exponential_retry_function
           new_options._exponential_retry.return_on_start ||= new_options.return_on_start
@@ -392,9 +394,9 @@ module AWS
       property(:activities, [])
 
       # @api private
-      def _options; @activities.map(&:options); end
+      def _options; @activities; end
 
-      # Defines one or more activities with {ActivityOptions} provided in the
+      # Defines one or more activities with {ActivityRegistrationOptions} provided in the
       # supplied block.
       #
       # @param [Array] activity_names
@@ -406,7 +408,7 @@ module AWS
       #   comes from the list passed to this parameter.
       #
       # @param [Hash] block
-      #   {ActivityOptions} to use on the defined activities.
+      #   {ActivityRegistrationOptions} to use on the defined activities.
       #
       #   The following options are *required* when registering an activity:
       #
@@ -434,7 +436,7 @@ module AWS
       #     end
       #   end
       def activity(*activity_names, &block)
-        options = Utilities::interpret_block_for_options(ActivityOptions, block)
+        options = Utilities::interpret_block_for_options(ActivityRegistrationOptions, block)
         activity_names.each do |activity_name|
           prefix_name = options.prefix_name || self.to_s
           activity_type = ActivityType.new(prefix_name + "." + activity_name.to_s, options.version, options)

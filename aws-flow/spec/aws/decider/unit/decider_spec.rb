@@ -14,212 +14,7 @@
 ##
 
 require 'yaml'
-
-require 'aws/decider'
-include AWS::Flow
-class FakeConfig
-  def to_h
-
-  end
-end
-class FakeServiceClient
-  attr_accessor :trace
-  def respond_decision_task_completed(task_completed_request)
-    @trace ||= []
-    @trace << task_completed_request
-  end
-  def start_workflow_execution(options)
-    @trace ||= []
-    @trace << options
-    {"runId" => "blah"}
-  end
-  def register_activity_type(options)
-  end
-  def register_workflow_type(options)
-  end
-  def respond_activity_task_completed(task_token, result)
-  end
-  def start_workflow_execution(options)
-    {"runId" => "blah"}
-  end
-  def config
-    FakeConfig.new
-  end
-end
-
-$RUBYFLOW_DECIDER_DOMAIN = "rubyflow_decider_domain_06-12-2012"
-$RUBYFLOW_DECIDER_TASK_LIST = 'test_task_list'
-
-class FakeAttribute
-  def initialize(data); @data = data; end
-  def method_missing(method_name, *args, &block)
-    if @data.keys.include? method_name
-      return @data[method_name]
-    end
-    super
-  end
-  def keys; @data.keys; end
-  def [](key); @data[key]; end
-  def to_h; @data; end
-  def []=(key, val); @data[key] = val; end
-end
-
-class FakeEvents
-  def initialize(args)
-    @events = []
-    args.each_with_index do |event, index|
-      event, attr = event if event.is_a? Array
-      attr ||= {}
-      @events << TestHistoryEvent.new(event, index + 1, FakeAttribute.new(attr))
-    end
-    @events
-  end
-  def to_a
-    @events
-  end
-end
-class TrivialConverter
-  def dump(x)
-    x
-  end
-  def load(x)
-    x
-  end
-end
-
-class FakeLogger
-  attr_accessor :level
-  def info(s); end
-  def debug(s); end
-  def warn(s); end
-  def error(s); end
-end
-
-class FakePage
-  def initialize(object); @object = object; end
-  def page; @object; end
-end
-
-class FakeWorkflowExecution
-  def initialize(run_id = "1", workflow_id = "1")
-    @run_id = run_id
-    @workflow_id = workflow_id
-  end
-  attr_accessor :run_id, :workflow_id, :task_list
-end
-
-class FakeWorkflowExecutionCollecton
-  def at(workflow_id, run_id); "Workflow_execution"; end
-end
-
-class FakeDomain
-  def initialize(workflow_type_object)
-    @workflow_type_object = workflow_type_object
-  end
-  def page; FakePage.new(@workflow_type_object); end
-  def workflow_executions; FakeWorkflowExecutionCollecton.new; end
-  def name; "fake_domain"; end
-
-end
-
-
-describe Activity do
-  let(:trace) { [] }
-  let(:client) { client = GenericActivityClient.new(DecisionHelper.new, ActivityOptions.new) }
-
-  it "ensures that schedule_activity gets set up from the activity_client" do
-    client.reconfigure(:test) { |o| o.version = "blah" }
-    class GenericActivityClient
-      alias :old_schedule_activity :schedule_activity
-      def schedule_activity(name, activity_type, input, options)
-        :scheduled_activity
-      end
-    end
-    trace << client.test
-    trace.should == [:scheduled_activity]
-    class GenericActivityClient
-      alias :schedule_activity :old_schedule_activity
-    end
-  end
-
-  describe "multiple activities" do
-    it "ensures that you can schedule multiple activities with the same activity call" do
-      class GenericActivityClient
-        alias :old_schedule_activity :schedule_activity
-        def schedule_activity(name, activity_type, input, options)
-          "scheduled_activity_#{name}".to_sym
-        end
-      end
-      client = GenericActivityClient.new(DecisionHelper.new, ActivityOptions.new)
-      client.reconfigure(:test, :test2) { |o| o.version = "blah" }
-      trace << client.test
-      trace << client.test2
-      class GenericActivityClient
-        alias :schedule_activity :old_schedule_activity
-      end
-      trace.should == [:"scheduled_activity_.test", :"scheduled_activity_.test2"]
-    end
-  end
-  describe GenericActivityClient do
-
-    before(:each) do
-      @options = ActivityOptions.new
-      @decision_helper = DecisionHelper.new
-      @client = GenericActivityClient.new(@decision_helper, @options)
-      [:test, :test_nil].each do |method_name|
-        @client.reconfigure(method_name) { |o| o.version = 1 }
-      end
-    end
-    it "ensures that activities get generated correctly" do
-      scope = AsyncScope.new { @client.test }
-      scope.eventLoop
-      @decision_helper.decision_map.values.first.
-        get_decision[:schedule_activity_task_decision_attributes][:activity_type][:name].should =~
-        /test/
-    end
-
-    it "ensures that an activity that has no arguments is scheduled with no input value" do
-      scope = AsyncScope.new do
-
-        @client.test_nil
-      end
-      scope.eventLoop
-      @decision_helper.decision_map.values.first.
-        get_decision[:schedule_activity_task_decision_attributes].keys.should_not include :input
-    end
-
-    it "ensures that activities pass multiple activities fine" do
-      scope = AsyncScope.new do
-        @client.test(1, 2, 3)
-      end
-      scope.eventLoop
-      input = @decision_helper.decision_map.values.first.
-        get_decision[:schedule_activity_task_decision_attributes][:input]
-      @client.data_converter.load(input).should == [1, 2, 3]
-    end
-  end
-end
-
-describe WorkflowClient do
-
-  class TestWorkflow
-    extend Decider
-
-    entry_point :entry_point
-    def entry_point
-      return "This is the entry point"
-    end
-  end
-  before(:each) do
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    @client = WorkflowClient.new(FakeServiceClient.new, FakeDomain.new(workflow_type_object), TestWorkflow, StartWorkflowOptions.new)
-  end
-  it "makes sure that configure works correctly" do
-    @client.reconfigure(:entry_point) {{ :task_list => "This nonsense" }}
-    @client.entry_point
-
-  end
-end
+require_relative 'setup'
 
 describe ActivityDefinition do
   class MyActivity
@@ -322,42 +117,6 @@ describe WorkflowDefinitionFactory do
   end
 end
 
-describe ForkingExecutor do
-  it "makes sure that forking executors basic execute works" do
-    test_file_name = "ForkingExecutorTestFile"
-    begin
-      forking_executor = ForkingExecutor.new
-      File.exists?(test_file_name).should == false
-      forking_executor.execute do
-        File.new(test_file_name, 'w')
-      end
-      sleep 3
-      File.exists?(test_file_name).should == true
-    ensure
-      File.unlink(test_file_name)
-    end
-  end
-
-  it "ensures that you cannot execute more tasks on a shutdown executor" do
-    forking_executor = ForkingExecutor.new
-    forking_executor.execute do
-    end
-    forking_executor.execute do
-    end
-    forking_executor.shutdown(1)
-    expect { forking_executor.execute { "yay" } }.to raise_error
-    RejectedExecutionException
-  end
-
-end
-
-describe AsyncDecider do
-  before(:each) do
-    @decision_helper = DecisionHelper.new
-    @history_helper = double(HistoryHelper)
-  end
-
-end
 describe YAMLDataConverter do
   let(:converter) {YAMLDataConverter.new}
   %w{syck psych}.each do |engine|
@@ -394,6 +153,51 @@ describe YAMLDataConverter do
   end
 end
 
+describe Workflows do
+
+  context "#workflow" do
+
+    it "makes sure we can specify multiple workflows" do
+      class MultipleWorkflowsTest1_Workflow
+        extend AWS::Flow::Workflows
+        workflow :workflow_a do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 600,
+            default_task_list: "tasklist_a"
+          }
+        end
+        workflow :workflow_b do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 300,
+            default_task_list: "tasklist_b"
+          }
+        end
+      end
+      MultipleWorkflowsTest1_Workflow.workflows.count.should == 2
+      MultipleWorkflowsTest1_Workflow.workflows.map(&:name).should == ["MultipleWorkflowsTest1_Workflow.workflow_a", "MultipleWorkflowsTest1_Workflow.workflow_b"]
+      MultipleWorkflowsTest1_Workflow.workflows.map(&:options).map(&:default_task_list).should == ["tasklist_a", "tasklist_b"]
+    end
+
+    it "makes sure we can pass multiple workflow names with same options" do
+      class MultipleWorkflowsTest2_Workflow
+        extend AWS::Flow::Workflows
+        workflow :workflow_a, :workflow_b do
+          {
+            version: "1.0",
+            default_task_list: "tasklist_a"
+          }
+        end
+      end
+      MultipleWorkflowsTest2_Workflow.workflows.count.should == 2
+      MultipleWorkflowsTest2_Workflow.workflows.map(&:name).should == ["MultipleWorkflowsTest2_Workflow.workflow_a", "MultipleWorkflowsTest2_Workflow.workflow_b"]
+      MultipleWorkflowsTest2_Workflow.workflows.map(&:options).map(&:default_task_list).should == ["tasklist_a", "tasklist_a"]
+
+    end
+  end
+end
+
 describe WorkflowFactory do
   it "ensures that you can create a workflow_client without access to the Workflow definition" do
     workflow_type_object = double("workflow_type", :name => "NonExistantWorkflow.some_entry_method", :start_execution => "" )
@@ -417,53 +221,6 @@ describe "FakeHistory" do
       def current_time
         Time.now
       end
-    end
-
-    class SynchronousWorkflowWorker < WorkflowWorker
-      def start
-        poller = SynchronousWorkflowTaskPoller.new(@service, nil, DecisionTaskHandler.new(@workflow_definition_map), @task_list)
-        poller.poll_and_process_single_task
-      end
-    end
-
-
-    class Hash
-      def to_h; self; end
-    end
-
-    class TestHistoryEvent < AWS::SimpleWorkflow::HistoryEvent
-      def initialize(event_type, event_id, attributes)
-        @event_type = event_type
-        @attributes = attributes
-        @event_id = event_id
-        @created_at = Time.now
-      end
-    end
-
-    class FakeWorkflowType < WorkflowType
-      attr_accessor :domain, :name, :version
-      def initialize(domain, name, version)
-        @domain = domain
-        @name = name
-        @version = version
-      end
-    end
-
-    class TestHistoryWrapper
-      def initialize(workflow_type, events)
-        @workflow_type = workflow_type
-        @events = events
-      end
-      def workflow_execution
-        FakeWorkflowExecution.new
-      end
-      def task_token
-        "1"
-      end
-      def previous_started_event_id
-        1
-      end
-      attr_reader :events, :workflow_type
     end
   end
   after(:all) do
@@ -509,7 +266,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [TestHistoryEvent.new("WorkflowExecutionStarted", 1, {:parent_initiated_event_id=>0, :child_policy=>:request_cancel, :execution_start_to_close_timeout=>3600, :task_start_to_close_timeout=>5, :workflow_type=> fake_workflow_type, :task_list=>"BadWorkflow"}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {:parent_initiated_event_id=>0, :child_policy=>:request_cancel, :execution_start_to_close_timeout=>3600, :task_start_to_close_timeout=>5, :workflow_type=> fake_workflow_type, :task_list=>"BadWorkflow"}),
                                 TestHistoryEvent.new("DecisionTaskStarted", 3, {:scheduled_event_id=>2, :identity=>"some_identity"}),
@@ -529,57 +286,57 @@ describe "FakeHistory" do
   it "reproduces the ActivityTaskTimedOut problem" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
-        fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.start", "1")
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
-                                TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
-                                TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
-                                TestHistoryEvent.new("DecisionTaskStarted", 3, {}),
-                                TestHistoryEvent.new("DecisionTaskCompleted", 4, {}),
-                                TestHistoryEvent.new("ActivityTaskScheduled", 5, {:activity_id => "Activity1"}),
-                                TestHistoryEvent.new("ActivityTaskStarted", 6, {}),
-                                TestHistoryEvent.new("ActivityTaskTimedOut", 7, {:scheduled_event_id => 5, :timeout_type => "START_TO_CLOSE"}),
-                               ])
+                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
+                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
+                                 TestHistoryEvent.new("DecisionTaskStarted", 3, {}),
+                                 TestHistoryEvent.new("DecisionTaskCompleted", 4, {}),
+                                 TestHistoryEvent.new("ActivityTaskScheduled", 5, {:activity_id => "Activity1"}),
+                                 TestHistoryEvent.new("ActivityTaskStarted", 6, {}),
+                                 TestHistoryEvent.new("ActivityTaskTimedOut", 7, {:scheduled_event_id => 5, :timeout_type => "START_TO_CLOSE"}),
+        ])
       end
     end
+
     class BadWorkflow
-      class << self
-        attr_accessor :task_list
+      extend AWS::Flow::Workflows
+      workflow :start do
+        {
+          version: "1",
+          default_execution_start_to_close_timeout: 3600,
+          default_task_list: "BadWorkflow_tasklist",
+          default_task_start_to_close_timeout: 10,
+          default_child_policy: :request_cancel
+        }
       end
-      extend Decider
-      version "1"
-      entry_point :entry_point
-      activity_client :activity do |options|
-        options.prefix_name = "BadActivity"
-        options.version = "1"
-        options.default_task_heartbeat_timeout = "3600"
-        options.default_task_list = "BadWorkflow"
-        options.default_task_schedule_to_close_timeout = "30"
-        options.default_task_schedule_to_start_timeout = "30"
-        options.default_task_start_to_close_timeout = "10"
+      activity_client(:activity) do
+        {
+          prefix_name: "BadActivity",
+          version: "1",
+          default_task_heartbeat_timeout: "3600",
+          default_task_list: "BadWorkflow",
+          default_task_schedule_to_close_timeout: "30",
+          default_task_schedule_to_start_timeout: "30",
+          default_task_start_to_close_timeout: "10",
+        }
       end
-      def entry_point
+      def start
         activity.run_activity1
         activity.run_activity2
       end
     end
-    workflow_type_object = double("workflow_type", :name => "BadWorkflow.entry_point", :start_execution => "" )
+    workflow_type_object = FakeWorkflowType.new(nil, "BadWorkflow.start", "1.0")
     domain = FakeDomain.new(workflow_type_object)
 
     swf_client = FakeServiceClient.new
     task_list = "BadWorkflow_tasklist"
     worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list)
     worker.add_workflow_implementation(BadWorkflow)
-    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
-      options.workflow_name = "BadWorkflow"
-      options.execution_start_to_close_timeout = 3600
-      options.task_list = task_list
-      options.task_start_to_close_timeout = 10
-      options.child_policy = :request_cancel
-    end
+    client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "BadWorkflow" } }
 
-    my_workflow = my_workflow_factory.get_client
-    workflow_execution = my_workflow.start_execution(5)
+    workflow_execution = client.start_execution(5)
     worker.start
 
     swf_client.trace.first[:decisions].first[:decision_type].should ==
@@ -592,7 +349,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                ])
@@ -646,7 +403,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                ])
@@ -699,7 +456,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                ])
@@ -761,7 +518,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -829,7 +586,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
 
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {:created_at => Time.now}),
@@ -897,7 +654,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -974,7 +731,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -1053,7 +810,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -1119,7 +876,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type =  FakeWorkflowType.new(nil, "BadWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -1162,7 +919,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "FixnumWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -1211,7 +968,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "CompleteWorkflowExecutionFailedWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                [
                                 TestHistoryEvent.new("WorkflowExecutionStarted", 1, {}),
                                 TestHistoryEvent.new("DecisionTaskScheduled", 2, {}),
@@ -1278,7 +1035,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "TimeOutWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                FakeEvents.new(["WorkflowExecutionStarted",
                                                "DecisionTaskScheduled",
                                                "DecisionTaskStarted",
@@ -1300,12 +1057,12 @@ describe "FakeHistory" do
                                               ]))
       end
     end
-    workflow_type_object = double("workflow_type", :name => "TimeOutWorkflow.entry_point", :start_execution => "" )
-
+    workflow_type_object = FakeWorkflowType.new(nil, "TimeOutWorkflow.entry_point", "1")
 
     domain = FakeDomain.new(workflow_type_object)
     swf_client = FakeServiceClient.new
-    $my_workflow_client  = workflow_client(swf_client, domain) {{:prefix_name => "TimeOutWorkflow", :execution_method => "entry_point", :version => "1"}}
+    $my_workflow_client  = workflow_client(swf_client, domain){{:prefix_name => "TimeOutWorkflow", :execution_method => "entry_point", :version => "1"}}
+
     class TimeOutActivity
       extend Activity
       activity :run_activity1
@@ -1317,12 +1074,11 @@ describe "FakeHistory" do
       activity_client(:activity) { {:version => "1", :prefix_name => "TimeOutActivity" } }
 
       def entry_point
-        $my_workflow_client.start_execution() { {:task_list => "nonsense_task_list", :workflow_id => "child_workflow_test"}}
+        $my_workflow_client.start_execution { { task_list: "nonsense_tasklist", workflow_id: "child_workflow_test" } }
         activity_client.run_activity1
-        p "yay"
       end
-
     end
+
 
     task_list = "TimeOutWorkflow_tasklist"
     my_workflow_factory = workflow_factory(swf_client, domain) do |options|
@@ -1343,7 +1099,7 @@ describe "FakeHistory" do
     class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
       def get_decision_task
         fake_workflow_type = FakeWorkflowType.new(nil, "OtherTimeOutWorkflow.entry_point", "1")
-        TestHistoryWrapper.new(fake_workflow_type,
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
                                FakeEvents.new(["WorkflowExecutionStarted",
                                                "DecisionTaskScheduled",
                                                "DecisionTaskStarted",
@@ -1406,6 +1162,76 @@ describe "FakeHistory" do
     worker.start
     swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
   end
+
+  it "replicates the error seen in github issue #37" do
+
+    class TimeOutFailuresWorkflow
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          execution_start_to_close_timeout: 600,
+          task_list: "TimeOutFailuresWorkflow_tasklist",
+          version: "1.0",
+        }
+      end
+
+      def entry_point
+        error_handler do |t|
+          t.begin do
+            $client.send_async(:start_execution) { {task_list: "nonsense_task_list", workflow_id: "child_workflow_test"}}
+            create_timer(5)
+          end
+          t.rescue AWS::Flow::ChildWorkflowException do |ex|
+            # noop because we don't want the parent execution to die
+          end
+        end
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["TimerStarted", {:decision_task_completed_event_id => 4, :timer_id => "Timer1", :start_to_fire_timeout => 10}],
+                                               ["StartChildWorkflowExecutionInitiated", {:workflow_id => "child_workflow_test"}],
+                                               ["ChildWorkflowExecutionStarted", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test"}],
+
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ChildWorkflowExecutionTerminated", :workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test")],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               ["TimerFired", {:timer_id => "Timer1"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskCompleted",
+                                               ["CancelTimerFailed", {:timer_id => "Timer1"}],
+                                               "CompleteWorkflowExecutionFailed",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted"
+                                              ]))
+      end
+    end
+    
+    $workflow_type = FakeWorkflowType.new(nil, "TimeOutFailuresWorkflow.entry_point", "1.0")
+    swf_client = FakeServiceClient.new
+    domain = FakeDomain.new($workflow_type)
+    $client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "TimeOutFailuresWorkflow" } }
+    
+    task_list = "TimeOutFailuresWorkflow_tasklist"
+    my_workflow_factory = workflow_factory(swf_client, domain) do |options|
+          end
+    
+    $client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, TimeOutFailuresWorkflow)
+    worker.start
+    #my_workflow = my_workflow_factory.get_client
+    #workflow_execution = my_workflow.start_execution
+    swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
+  end
 end
 
 describe "Misc tests" do
@@ -1420,28 +1246,6 @@ describe "Misc tests" do
     require 'aws'
     require 'aws/decider'
     AWS.eager_autoload!
-  end
-
-  it "ensures that one worker for forking executor will only allow one thing to be processed at a time" do
-    executor = ForkingExecutor.new(:max_workers => 1)
-
-    test_file_name = "ForkingExecutorRunOne"
-    File.new(test_file_name, "w")
-    start_time = Time.now
-    executor.execute do
-      File.open(test_file_name, "a+") { |f| f.write("First Execution\n")}
-      sleep 4
-    end
-    # Because execute will block if the worker queue is full, we will wait here
-    # if we have reached the max number of workers
-    executor.execute { 2 + 2 }
-    finish_time = Time.now
-    # If we waited for the first task to finish, then we will have waited at
-    # least 4 seconds; if we didn't, we should not have waited. Thus, if we have
-    # waited > 3 seconds, we have likely waited for the first task to finish
-    # before doing the second one
-    (finish_time - start_time).should > 3
-    File.unlink(test_file_name)
   end
 
   it "ensures that using send_async doesn't mutate the original hash" do
@@ -1472,361 +1276,10 @@ describe "Misc tests" do
     previous_hash.should == previous_hash_copy
   end
 
-  it "makes sure we can remove depedency on UUIDTools" do
-    require "securerandom"
-    # first check if SecureRandom.uuid returns uuid in the right format
-    regex = /[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/
-    SecureRandom.uuid.should match(regex)
-
-    class FakeWorkflowExecutionCollecton
-      def at(workflow_id, run_id); FakeWorkflowExecution.new(run_id, workflow_id); end
-    end
-
-    # Now check if the uuid is correctly set in start_external_workflow method
-    workflow_type = WorkflowType.new(nil, "TestWorkflow.entry_point", "1")
-    client = AWS::Flow::WorkflowClient.new(FakeServiceClient.new, FakeDomain.new(workflow_type), TestWorkflow, WorkflowOptions.new)
-    workflow = client.start_external_workflow
-    workflow.workflow_id.should match(regex)
-  end
   it "makes sure complete method is present on the completion handle and not open request" do
     ( OpenRequestInfo.new.respond_to? :complete ).should == false
-    task = ExternalTask.new({}) { |t| puts t }
+    task = ExternalTask.new({}) { |t| }
     ( ExternalTaskCompletionHandle.new(task).respond_to? :complete ).should == true
   end
 end
 
-
-describe FlowConstants do
-  options = {
-    :initial_retry_interval => 1,
-    :backoff_coefficient => 2,
-    :should_jitter => false,
-    :maximum_retry_interval_seconds => 100
-  }
-  options = ExponentialRetryOptions.new(options)
-
-  it "will test the default retry function with regular cases" do
-    test_first = [Time.now, Time.now, Time.now]
-    test_time_of_failure = [0, 10, 100]
-    test_attempts = [{Exception=>2}, {Exception=>4}, {ActivityTaskTimedOutException=>5, Exception=>2}]
-    test_output = [1, 4, 32]
-    arr = test_first.zip(test_time_of_failure, test_attempts, test_output)
-    arr.each do |first, time_of_failure, attempts, output|
-      result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
-      (result == output).should == true
-    end
-  end
-
-  it "will test for exceptions" do
-    expect { FlowConstants.exponential_retry_function.call(-1, 1, {}, options) }.to raise_error(ArgumentError, "first is not an instance of Time")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, -1, {}, options) }.to raise_error(ArgumentError, "time_of_failure can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>-1, ActivityTaskTimedOutException=>-10}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
-    expect { FlowConstants.exponential_retry_function.call(Time.now, 1, {Exception=>2, ActivityTaskTimedOutException=>-10}, options) }.to raise_error(ArgumentError, "number of attempts can't be negative")
-  end
-
-end
-class TestWorkflow
-  extend Workflows
-  workflow :entry_point do
-    {
-      :execution_start_to_close_timeout => 30, :version => "1"
-    }
-  end
-  def entry_point
-
-  end
-
-end
-class TestActivity
-  extend Activity
-
-  activity :run_activity1 do |o|
-    o.default_task_heartbeat_timeout = "3600"
-    o.default_task_list = "activity_task_list"
-    o.default_task_schedule_to_close_timeout = "3600"
-    o.default_task_schedule_to_start_timeout = "3600"
-    o.default_task_start_to_close_timeout = "3600"
-    o.version = "1"
-  end
-  def run_activity1
-    "first regular activity"
-  end
-  def run_activity2
-    "second regular activity"
-  end
-end
-
-class TestActivityWorker < ActivityWorker
-
-  attr_accessor :executor
-  def initialize(service, domain, task_list, forking_executor, *args, &block)
-    super(service, domain, task_list, *args, &block)
-    @executor = forking_executor
-  end
-end
-
-class FakeTaskPoller < WorkflowTaskPoller
-  def get_decision_task
-    nil
-  end
-end
-def dumb_fib(n)
-  n < 1 ? 1 : dumb_fib(n - 1) + dumb_fib(n - 2)
-end
-describe WorkflowWorker do
-  it "will test whether WorkflowWorker shuts down cleanly when an interrupt is received" do
-    task_list = "TestWorkflow_tasklist"
-    service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    domain = FakeDomain.new(workflow_type_object)
-    workflow_worker = WorkflowWorker.new(service, domain, task_list)
-    workflow_worker.add_workflow_implementation(TestWorkflow)
-    pid = fork do
-      loop do
-        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
-      end
-    end
-    # Send an interrupt to the child process
-    Process.kill("INT", pid)
-    # Adding a sleep to let things get setup correctly (not ideal but going with
-    # this for now)
-    sleep 5
-    return_pid, status = Process.wait2(pid, Process::WNOHANG)
-    Process.kill("KILL", pid) if return_pid.nil?
-    return_pid.should_not be nil
-    status.success?.should be_true
-  end
-
-  it "will test whether WorkflowWorker dies cleanly when two interrupts are received" do
-    class FakeTaskPoller
-      def poll_and_process_single_task
-        dumb_fib(5000)
-      end
-    end
-    task_list = "TestWorkflow_tasklist"
-    service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    domain = FakeDomain.new(workflow_type_object)
-    workflow_worker = WorkflowWorker.new(service, domain, task_list)
-    workflow_worker.add_workflow_implementation(TestWorkflow)
-    pid = fork do
-      loop do
-        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
-      end
-    end
-    # Send an interrupt to the child process
-    sleep 3
-    2.times { Process.kill("INT", pid); sleep 2 }
-    return_pid, status = Process.wait2(pid, Process::WNOHANG)
-
-    Process.kill("KILL", pid) if return_pid.nil?
-    return_pid.should_not be nil
-    status.success?.should be_false
-  end
-
-end
-describe ActivityWorker do
-
-  class FakeDomain
-    def activity_tasks
-      sleep 30
-    end
-  end
-  it "will test whether the ActivityWorker shuts down cleanly when an interrupt is received" do
-
-    task_list = "TestWorkflow_tasklist"
-    service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    domain = FakeDomain.new(workflow_type_object)
-    forking_executor = ForkingExecutor.new
-    activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }
-    activity_worker.add_activities_implementation(TestActivity)
-    # Starts the activity worker in a forked process. Also, attaches an at_exit
-    # handler to the process. When the process exits, the handler checks whether
-    # the executor's internal is_shutdown variable is set correctly or not.
-    pid = fork do
-      at_exit {
-        activity_worker.executor.is_shutdown.should == true
-      }
-      activity_worker.start true
-    end
-    # Send an interrupt to the child process
-    Process.kill("INT", pid)
-    # Adding a sleep to let things get setup correctly (not ideal but going with
-    # this for now)
-    sleep 5
-    return_pid, status = Process.wait2(pid, Process::WNOHANG)
-    Process.kill("KILL", pid) if return_pid.nil?
-    return_pid.should_not be nil
-
-    status.success?.should be_true
-  end
-
-  # This method will take a long time to run, allowing us to test our shutdown
-  # scenarios
-
-
-  it "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
-    task_list = "TestWorkflow_tasklist"
-    service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.entry_point", :start_execution => "" )
-    domain = FakeDomain.new(workflow_type_object)
-    forking_executor = ForkingExecutor.new
-    activity_worker = TestActivityWorker.new(service, domain, task_list, forking_executor) { {:logger => FakeLogger.new} }
-
-    activity_worker.add_activities_implementation(TestActivity)
-    # Starts the activity worker in a forked process. Also, executes a task
-    # using the forking executor of the activity worker. The executor will
-    # create a child process to run that task. The task (dumb_fib) is
-    # purposefully designed to be long running so that we can test our shutdown
-    # scenario.
-    pid = fork do
-      activity_worker.executor.execute {
-        dumb_fib(1000)
-      }
-      activity_worker.start true
-    end
-    # Adding a sleep to let things get setup correctly (not idea but going with
-    # this for now)
-    sleep 3
-    # Send 2 interrupts to the child process
-    2.times { Process.kill("INT", pid); sleep 3 }
-    status = Process.waitall
-    status[0][1].success?.should be_false
-  end
-
-end
-
-describe "testing changing default values in RetryOptions and RetryPolicy" do
-
-  it "will test exponential retry with a new retry function" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :should_jitter => false
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception, 1)
-    result.should == 10
-  end
-
-  it "will test the jitter function" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :should_jitter => true
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options, true))
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception, 1)
-    result.should >= 10 && result.should < 15
-  end
-
-
-  it "will test whether we get the same jitter for a particular execution id" do
-
-    (FlowConstants.jitter_function.call(1, 100)).should equal(FlowConstants.jitter_function.call(1, 100))
-
-  end
-
-  it "will test the default exceptions included for retry" do
-    options = RetryOptions.new
-    options.exceptions_to_include.should include Exception
-  end
-
-  it "will test the default exceptions included for retry" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :exceptions_to_include => [ActivityTaskTimedOutException],
-      :exceptions_to_exclude => [ActivityTaskFailedException]
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    result = retry_policy.isRetryable(ActivityTaskTimedOutException.new("a", "b", "c", "d"))
-    result.should == true
-
-    result = retry_policy.isRetryable(ActivityTaskFailedException.new("a", "b", "c", RuntimeError.new))
-    result.should == false
-  end
-
-
-  it "will make sure exception is raised if the called exception is there in both included and excluded exceptions" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :exceptions_to_include => [ActivityTaskFailedException],
-      :exceptions_to_exclude => [ActivityTaskFailedException]
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    expect {retry_policy.isRetryable(ActivityTaskFailedException.new("a", "b", "c", ActivityTaskFailedException))}.to raise_error
-  end
-
-  it "will test max_attempts" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :maximum_attempts => 5,
-      :should_jitter => false
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception.new, 1)
-    result.should == -1
-
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>4}, Exception.new, 1)
-    result.should == 10
-  end
-
-  it "will test retries_per_exception" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      10
-    end
-    options = {
-      :retries_per_exception => {Exception => 5},
-      :should_jitter => false
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception.new, 1)
-    result.should == -1
-
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>4}, Exception.new, 1)
-    result.should == 10
-  end
-
-  it "makes sure that the default retry function will use the user provided options" do
-
-    first = Time.now
-    time_of_failure = 0
-    attempts = {Exception=>2}
-    options = {
-      :initial_retry_interval => 10,
-      :backoff_coefficient => 2,
-      :should_jitter => false,
-      :maximum_retry_interval_seconds => 5
-    }
-    options = ExponentialRetryOptions.new(options)
-    result = FlowConstants.exponential_retry_function.call(first, time_of_failure, attempts, options)
-    result.should == 5
-  end
-
-  it "ensures that the next_retry_delay_seconds honors -1 returned by the retry function" do
-    my_retry_func = lambda do |first, time_of_failure, attempts|
-      -1
-    end
-    options = {
-      :should_jitter => true
-    }
-    retry_policy = RetryPolicy.new(my_retry_func, RetryOptions.new(options))
-    result = retry_policy.next_retry_delay_seconds(Time.now, 0, {Exception=>10}, Exception, 1)
-    result.should == -1
-  end
-
-  it "ensures that the jitter function checks arguments passed to it" do
-    expect { FlowConstants.jitter_function.call(1, -1) }.to raise_error(
-      ArgumentError, "max_value should be greater than 0")
-  end
-end

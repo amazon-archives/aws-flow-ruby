@@ -25,69 +25,6 @@ module AWS
       end
     end
 
-    # This module refactors out some of the common methods for the Options
-    # classes. Any class including this module should implement
-    # make_runtime_key method and default_keys method. default_keys method
-    # provides an array of keys that are considered to be the default options
-    # for that class. make_runtime_key method converts a passed in default key
-    # to it's corresponding runtime key.
-    module OptionsMethods
-
-      # Retrieves the runtime values for the default options
-      #
-      # @return [Hash]
-      #   The runtime option names and their current values.
-      #
-      def get_runtime_options
-        runtime_options = {}
-        # For the default values that are present, convert the default keys into
-        # runtime keys. i.e. remove 'default_' and 'default_task_' from the key
-        # name and merge their values with the default values
-        get_default_options.each do |key, val|
-          new_key = make_runtime_key(key)
-          new_val = get_options([new_key])
-          runtime_options[new_key] = new_val.empty? ? val : new_val.values.first
-        end
-        runtime_options
-      end
-
-      # Retrieves the default options.
-      #
-      # @return [Hash]
-      #   A hash containing the default option names and their current values.
-      #
-      def get_default_options
-        # Get the default options
-        get_options(default_keys)
-      end
-
-      # Retrieves full options. It merges the runtime options with the remaining
-      # options
-      #
-      # @return [Hash]
-      #   A hash containing the full option names and their current values.
-      #
-      def get_full_options
-        # Initialize an empty hash
-        options_hash = {}
-
-        # Get all the properties held by this class
-        options_keys = self.class.held_properties
-
-        # Remove the unnecessary options (i.e. options not recognized by swf but
-        # only by flow) from the options_keys array.
-        default_keys.concat([:from_class]).each { |x| options_keys.delete(x) }
-
-        # If the value for an option is held by the class, get it and store it
-        # in a hash
-        options_keys.each do |option|
-          options_hash[option] = self.send(option) if self.send(option)
-        end
-        # Merge the options_hash with the runtime options
-        options_hash.merge(self.get_runtime_options)
-      end
-    end
-
     # The base class for all options classes in the AWS Flow Framework for Ruby.
     class Options
       extend Utilities::UpwardLookups
@@ -247,7 +184,7 @@ module AWS
       def get_full_options
         result = {}
         SignalWorkflowOptions.held_properties.each do |option|
-          result[option] = self.send(option) if self.send(option) && self.send(option) != ""
+          result[option] = self.send(option) if self.send(option) != nil && self.send(option) != ""
         end
         result
       end
@@ -378,6 +315,13 @@ module AWS
     # Defaults for `WorkflowOptions`.
     class WorkflowDefaults < Defaults
 
+      # The default data converter. By default, this is {YAMLDataConverter}.
+      def data_converter; FlowConstants.default_data_converter; end
+
+    end
+
+    class WorkflowRegistrationDefaults < WorkflowDefaults
+
       # The default task start-to-close timeout duration. The default value is
       # `30`.
       def default_task_start_to_close_timeout; 30; end
@@ -389,8 +333,7 @@ module AWS
       # array (no tags).
       def tag_list; []; end
 
-      # The default data converter. By default, this is {YAMLDataConverter}.
-      def data_converter; FlowConstants.default_data_converter; end
+      def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
     # Options for workflows.
@@ -485,7 +428,6 @@ module AWS
     #   * It must not contain the literal string "arn".
     #
     class WorkflowOptions < Options
-      include OptionsMethods
 
       properties(
         :version,
@@ -497,36 +439,53 @@ module AWS
         :execution_method
       )
 
-      # Adding default properties
-      properties(
-        :default_task_start_to_close_timeout,
-        :default_execution_start_to_close_timeout,
-        :default_task_list
-      )
-      property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
-
-
       property(:tag_list, [])
       property(:child_policy, [lambda(&:to_s), lambda(&:upcase)])
       property(:data_converter, [])
 
       default_classes << WorkflowDefaults.new
 
-      # This method provides the default option keys for workflows
-      def default_keys
-        [:default_task_start_to_close_timeout,
-         :default_execution_start_to_close_timeout,
-         :default_task_list,
-         :default_child_policy]
-      end
-
-      # This method converts default option keys to runtime keys by replacing
-      # "default_" in the key name
-      def make_runtime_key(key)
-        key.to_s.gsub(/default_/, "").to_sym
+      def get_full_options
+        result = {}
+        usable_properties = self.class.held_properties
+        usable_properties.delete(:from_class)
+        usable_properties.each do |option|
+          result[option] = self.send(option) if self.send(option) != nil && self.send(option) != ""
+        end
+        result
       end
 
     end
+
+    class WorkflowRegistrationOptions < WorkflowOptions
+      class << self
+        def registration_options
+          [ 
+            :default_task_start_to_close_timeout,
+            :default_execution_start_to_close_timeout,
+            :default_task_list,
+            :default_child_policy
+          ]
+        end
+      end
+
+      # Adding default properties
+      properties(
+        :default_task_start_to_close_timeout,
+        :default_execution_start_to_close_timeout,
+        :default_task_list
+      )
+
+      property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
+
+      default_classes << WorkflowRegistrationDefaults.new
+
+      def get_registration_options
+        get_options(self.class.registration_options)
+      end
+
+    end
+
 
     # Options for {WorkflowClient#start_execution}.
     #
@@ -549,6 +508,10 @@ module AWS
 
     # Defaults for the {ActivityOptions} class.
     class ActivityDefaults < Defaults
+      def data_converter; FlowConstants.default_data_converter; end
+    end
+
+    class ActivityRegistrationDefaults < ActivityDefaults
 
       # The default schedule-to-start timeout for activity tasks. This timeout
       # represents the time, in seconds, between when the activity task is first
@@ -585,9 +548,8 @@ module AWS
       # set this value to "NONE" to imply no timeout value.
       def default_task_heartbeat_timeout; Float::INFINITY; end
 
-      def data_converter; FlowConstants.default_data_converter; end
+      def default_task_list; FlowConstants.use_worker_task_list; end
     end
-
 
     # Options to use on an activity or decider. The following options are
     # defined:
@@ -640,7 +602,6 @@ module AWS
     #   decision.
     #
     class ActivityOptions < Options
-      include OptionsMethods
 
       properties(
         :heartbeat_timeout,
@@ -652,39 +613,10 @@ module AWS
         :input
       )
 
-      # Adding default properties
-      properties(
-        :default_task_heartbeat_timeout,
-        :default_task_list,
-        :default_task_schedule_to_close_timeout,
-        :default_task_schedule_to_start_timeout,
-        :default_task_start_to_close_timeout,
-      )
-
       property(:manual_completion, [lambda {|x| x == true}])
       property(:data_converter, [])
 
       default_classes << ActivityDefaults.new
-
-      # This method provides the default option keys for activities
-      def default_keys
-        [:default_task_heartbeat_timeout,
-         :default_task_schedule_to_close_timeout,
-         :default_task_schedule_to_start_timeout,
-         :default_task_start_to_close_timeout,
-         :default_task_list]
-      end
-
-      # This method converts default option keys to runtime keys by replacing
-      # "default_task_" in the key name. It handles the exception of task_list
-      # where only "default_" needs to be replaced.
-      def make_runtime_key(key)
-        if key =~ /task_list/
-          key.to_s.gsub(/default_/, "").to_sym
-        else
-          key.to_s.gsub(/default_task_/, "").to_sym
-        end
-      end
 
       # Gets the activity prefix name.
       #
@@ -777,6 +709,48 @@ module AWS
         retry_options = Utilities::interpret_block_for_options(ExponentialRetryOptions, block)
         @_exponential_retry = retry_options
       end
+
+      def get_full_options
+        result = {}
+        usable_properties = self.class.held_properties
+        usable_properties.delete(:from_class)
+        usable_properties.each do |option|
+          result[option] = self.send(option) if self.send(option) != nil && self.send(option) != ""
+        end
+        result
+      end
+
+    end
+
+    # This class is used to capture the options passed during activity declaration.
+    class ActivityRegistrationOptions < ActivityOptions
+      class << self
+        def registration_options
+          [
+            :default_task_heartbeat_timeout,
+            :default_task_schedule_to_close_timeout,
+            :default_task_schedule_to_start_timeout,
+            :default_task_start_to_close_timeout,
+            :default_task_list
+          ]
+        end
+      end
+
+      # Adding default properties
+      properties(
+        :default_task_heartbeat_timeout,
+        :default_task_list,
+        :default_task_schedule_to_close_timeout,
+        :default_task_schedule_to_start_timeout,
+        :default_task_start_to_close_timeout,
+      )
+
+      default_classes << ActivityRegistrationDefaults.new
+
+      def get_registration_options
+        get_options(self.class.registration_options)
+      end
+
     end
 
     # Runtime options for an activity.
