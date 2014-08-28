@@ -335,7 +335,7 @@ module AWS
       #   The entry points (methods) that starts the workflow.
       #
       # @param block
-      #   A block of {WorflowRegistrationOptions} for the workflow.
+      #   A block of {WorkflowRegistrationOptions} for the workflow.
       #
       def workflow(*workflow_names, &block)
         workflow_names.each do |workflow_name| 
