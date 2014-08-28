@@ -305,7 +305,7 @@ module AWS
 
       # Interprets the command-line paramters pased in from the shell.
       #
-      # The parameter --file (short: -f) is *required*, and must provide the
+      # The parameter `--file` (short: `-f`) is *required*, and must provide the
       # path to the runner configuration file.
       #
       # @api private
@@ -319,7 +319,7 @@ module AWS
 
         optparse.parse!(argv)
 
-        # The `--file  parameter is not optional.
+        # The `--file` parameter is not optional.
         raise OptionParser::MissingArgument.new("file") if options[:file].nil?
 
         return options
