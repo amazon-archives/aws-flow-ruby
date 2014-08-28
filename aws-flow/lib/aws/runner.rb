@@ -1,58 +1,54 @@
 module AWS
   module Flow
+    # The Runner is a command-line utility that can spawn workflow and activity workers according to a specification
+    # that you provide in a [JSON](http://json.org/) configuration file. It is available beginning with version 1.3.0 of
+    # the AWS Flow Framework for Ruby.
+    #
+    # ## Invoking the Runner
+    #
+    # It is invoked like so:
+    #
+    #     aws-flow-ruby -f runspec.json
+    #
+    # Where **runspec.json** represents a local JSON file that specifies how to run your activities and workflows.
+    #
+    # ## The Runner Specification File
+    #
+    # The runner is configured by passing it a JSON-formatted configuration file. Here is a minimal example, providing
+    # only the required fields:
+    #
+    #     {
+    #       "domain": { "name": "ExampleDomain" },
+    #       "workflow_workers": [
+    #         {
+    #           "task_list": "example_workflow_tasklist"
+    #         }
+    #       ],
+    #       "activity_workers": [
+    #         {
+    #           "task_list": "example_activity_tasklist"
+    #         }
+    #       ],
+    #     }
+    #
+    # ## For More Information
+    #
+    # For a complete description of the runner's specification, with examples of both configuring and using the runner,
+    # see [The Runner](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/the-runner.html) in the *AWS Flow
+    # Framework for Ruby Developer Guide*.
+    #
     module Runner
 
-      # import the necessary gems to run Ruby Flow code
+      # Import the necessary gems to run Ruby Flow code.
       require 'aws/decider'
       include AWS::Flow
       require 'json'
       require 'optparse'
       require 'socket'
 
-
-      ##
-      ## Helper to start workflow and activity workers according to a predefined
-      ## JSON file format that decribes where to find the required elements
-      ## 
-
-      # Example of the format:
-      # {
-      #     "domain":
-      #     {
-      #        "name": <name_of_the_domain>,
-      #        "retention_in_days": <days>
-      #     }
-      #     "activity_workers": [
-      #         
-      #        {
-      #             "task_list": <name_of_the_task_list>,
-      #             "activity_classes": [ <name_of_class_containing_the_activities_to_be_worked_on> ],
-      #             "number_of_workers": <number_of_activity_workers_to_spawn>,
-      #             "number_of_forks_per_worker": <number_of_forked_workers>
-      #         }
-      #         //, ... can add more
-      #     ],
-      #     "workflow_workers": [
-      #         {
-      #             "task_list": <name_of_the_task_list>,
-      #             "workflow_classes": [ <name_of_class_containing_the_workflows_to_be_worked_on> ],
-      #             "number_of_workers": <number_of_workflow_workers_to_spawn>
-      #         }
-      #         //, ... can add more
-      #     ],
-      #     // Configure which files are 'require'd in order to load the classes
-      #     "workflow_paths": [
-      #         "lib/workflow.rb"
-      #     ],
-      #     "activity_paths": [
-      #         "lib/activity.rb"
-      #     ],
-      #     // This is used by the opsworks recipe
-      #     "user_agent_prefix" : "ruby-flow-opsworks"
-      # }
-
-
-      # registers the domain if it is not
+      # Registers the domain if it is not already registered.
+      #
+      # @api private
       def self.setup_domain(json_config)
 
         swf = create_service_client(json_config)
@@ -72,18 +68,27 @@ module AWS
         return AWS::SimpleWorkflow::Domain.new( domain['name'] )
       end
 
+      # @api private
       def self.set_process_name(name)
         $0 = name
       end
 
-      # searches the object space for all subclasses of clazz
+      # Searches the object space for all subclasses of `clazz`.
+      #
+      # @api private
       def self.all_subclasses(clazz)
         ObjectSpace.each_object(Class).select { |klass| klass.is_a? clazz }
       end
 
-      # used to extract and validate the 'activity_classes'
-      # and 'workflow_classes' fields from the config, or autodiscover 
-      # subclasses in the ObjectSpace
+      # Gets the classes to run.
+      #
+      # This method extracts and validates the 'activity_classes' and
+      # 'workflow_classes' fields from the runner specification file, or by
+      # autodiscovery of subclasses of [AWS::Flow::Activities]] and
+      # [AWS::Flow::Workflows] in the object space.
+      #
+      #
+      # @api private
       def self.get_classes(json_fragment, what)
         classes = json_fragment[what[:config_key]]
         if classes.nil? || classes.empty? then
@@ -99,12 +104,18 @@ module AWS
         classes
       end
 
-      # used to add implementations to workers; see get_classes
+      # Used to add implementations to workers; see [get_classes] for more
+      # information.
+      #
+      # @api private
       def self.add_implementations(worker, json_fragment, what)
         classes = get_classes(json_fragment, what)
         classes.each { |c| worker.add_implementation(c) }
       end
 
+      # Spawns the workers.
+      #
+      # @api private
       def self.spawn_and_start_workers(json_fragment, process_name, worker)
         workers = []
         num_of_workers = json_fragment['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
@@ -117,9 +128,10 @@ module AWS
         workers
       end
 
-      # used to support host-specific task lists
-      # when the string "|hostname|" is found in the task list
-      # it is replaced by the host name
+      # Used to support host-specific task lists. When the string "|hostname|"
+      # is found in the task list it is replaced by the actual host name.
+      #
+      # @api private
       def self.expand_task_list(value)
         raise ArgumentError.new unless value
         ret = value
@@ -127,23 +139,30 @@ module AWS
         ret
       end
 
+      # @api private
       def self.is_empty_field?(json_fragment, field_name)
         field = json_fragment[field_name]
         field.nil? || field.empty?
       end
 
-      # This is used to issue the necessary "require" commands to 
-      # load the code needed to run a module
+      # Runs the necessary "require" commands to load the code needed to run a
+      # module.
       #
-      # config_path: the path where the config file is, to be able to 
+      # config_path: the path where the config file is, to be able to
       #     resolve relative references
+      #
       # json_config: the content of the config
+      #
       # what: what should loaded. This is a hash expected to contain two keys:
+      #
       #     - :default_file : the file to load unless a specific list is provided
+      #
       #     - :config_key : the key of the config element which can contain a
-      #             specific list of files to load
+      #           specific list of files to load
+      #
+      # @api private
       def self.load_files(config_path, json_config, what)
-        if is_empty_field?(json_config, what[:config_key]) then 
+        if is_empty_field?(json_config, what[:config_key]) then
           file = File.join(File.dirname(config_path), what[:default_file])
           require file if File.exists? file
         else
@@ -151,6 +170,14 @@ module AWS
         end
       end
 
+      # Starts the activity workers.
+      #
+      # The activities run by the workers consist of each class that extends
+      # [AWS::Flow::Activities] in the paths provided in the `activity_paths`
+      # section of [the runner specification file][], or that are loaded from
+      # `require` statements in the `workflows.rb` file.
+      #
+      # @api private
       def self.start_activity_workers(swf, domain = nil, config_path, json_config)
         workers = []
         # load all classes for the activities
@@ -178,6 +205,14 @@ module AWS
         return workers
       end
 
+      # Starts the workflow workers.
+      #
+      # The workflows run by the workers consist of each class that extends
+      # [AWS::Flow::Workflows] in the paths provided in the `workflow_paths`
+      # section of [the runner specification file][], or that are loaded from
+      # `require` statements in the `workflows.rb` file.
+      #
+      # @api private
       def self.start_workflow_workers(swf, domain = nil, config_path, json_config)
         workers = []
         # load all the classes for the workflows
@@ -202,23 +237,23 @@ module AWS
         return workers
       end
 
+      # @api private
       def self.create_service_client(json_config)
         # set the UserAgent prefix for all clients
         if json_config['user_agent_prefix'] then
           AWS.config(user_agent_prefix: json_config['user_agent_prefix'])
         end
-        
+
         swf = AWS::SimpleWorkflow.new
       end
 
+      # Starts the workers and returns an array of process IDs (pids) for the
+      # worker processes.
       #
-      # this will start all the workers and return an array of pids for the worker
-      # processes
-      # 
+      # @api private
       def self.start_workers(domain = nil, config_path, json_config)
-        
         workers = []
-        
+
         swf = create_service_client(json_config)
 
         workers << start_activity_workers(swf, domain, config_path, json_config)
@@ -226,17 +261,20 @@ module AWS
 
         # needed to avoid returning nested arrays based on the calls above
         workers.flatten!
-
       end
 
-      # setup forwarding of signals to child processes, to facilitate and support
-      # orderly shutdown
+      # Sets up forwarding of signals to child processes to facilitate and
+      # support orderly shutdown.
+      #
+      # @api private
       def self.setup_signal_handling(workers)
         Signal.trap("INT") { workers.each { |w| Process.kill("INT", w) }  }
       end
 
+      # Waits until all the child workers are finished.
+      #
       # TODO: use a logger
-      # this will wait until all the child workers have died
+      # @api private
       def self.wait_for_child_processes(workers)
         until workers.empty?
           puts "waiting on workers " + workers.to_s + " to complete"
@@ -245,23 +283,32 @@ module AWS
         end
       end
 
-      # this is used to extend the load path so that the 'require' 
-      # of workflow and activity implementation files can succeed
-      # before adding the implementation classes to the workers
+      # Extends the load path so that the 'require' of workflow and activity
+      # implementation files can succeed before adding the implementation
+      # classes to the workers.
+      #
+      # @api private
       def self.add_dir_to_load_path(path)
         raise ArgumentError.new("Invalid directory path: \"" + path.to_s + "\"") if not FileTest.directory? path
         $LOAD_PATH.unshift path.to_s
       end
 
       #
-      # loads the configuration from a JSON file
+      # Loads the runner specification from a JSON file (passed in with the
+      # `--file` parameter when run from the shell).
       #
+      # @api private
       def self.load_config_json(path)
         raise ArgumentError.new("Invalid file path: \"" + path.to_s + "\"") if not File.file? path
         config = JSON.parse(File.open(path) { |f| f.read })
       end
 
-
+      # Interprets the command-line paramters pased in from the shell.
+      #
+      # The parameter --file (short: -f) is *required*, and must provide the
+      # path to the runner configuration file.
+      #
+      # @api private
       def self.parse_command_line(argv = ARGV)
         options = {}
         optparse = OptionParser.new do |opts|
@@ -272,12 +319,16 @@ module AWS
 
         optparse.parse!(argv)
 
-        # file parameter is not optional
+        # The `--file  parameter is not optional.
         raise OptionParser::MissingArgument.new("file") if options[:file].nil?
 
         return options
       end
 
+      #
+      # Invoked from the shell.
+      #
+      # @api private
       def self.main
         options = parse_command_line
         config_path =  options[:file]
@@ -287,12 +338,10 @@ module AWS
         workers = start_workers(domain, config_path, config)
         setup_signal_handling(workers)
 
-        # hang there until killed: this process is used to relay signals to children
-        # to support and facilitate an orderly shutdown
+        # Hang there until killed: this process is used to relay signals to
+        # children to support and facilitate an orderly shutdown.
         wait_for_child_processes(workers)
-
       end
-
     end
   end
 end
