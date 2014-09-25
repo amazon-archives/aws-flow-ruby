@@ -45,7 +45,16 @@ module AWS
         modified_instance
       end
 
-      # @api private
+      # Reconfigures an activity client with a block of passed-in options.
+      #
+      # @note This functionality is limited to activity clients only.
+      #
+      # @param method_names
+      #   The activity methods to modify with the options passed in.
+      #
+      # @param block
+      #   A block of {ActivityOptions} to use to reconfigure the client.
+      #
       def reconfigure(*method_names, &block)
         options = Utilities::interpret_block_for_options(self.class.default_option_class, block)
         method_names.each { |method_name| @option_map[method_name.to_sym] = options }
