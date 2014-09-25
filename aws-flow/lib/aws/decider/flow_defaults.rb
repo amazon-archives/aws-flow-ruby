@@ -18,51 +18,77 @@ module AWS
 
     # Constants used by the AWS Flow Framework for Ruby.
     #
-    # @!attribute exponential_retry_maximum_retry_interval_seconds
-    #   The maximum exponential retry interval in seconds.
+    # @!attribute [r] default_data_converter
+    #   The DataConverter used to interpret results from Amazon SWF.
     #
-    #   Use the value `-1` (the default) to set *no maximum*.
+    #   @return [Object] {YAMLDataConverter}
     #
-    # @!attribute exponential_retry_retry_expiration_seconds
-    #   The maximum time that can pass, in seconds, before the exponential retry
-    #   attempt is considered to be a failure.
-    #
-    #   Use the value -1 (the default) to set *no maximum*.
-    #
-    # @!attribute exponential_retry_backoff_coefficient
-    #
+    # @!attribute [r] exponential_retry_backoff_coefficient
     #   The coefficient used to determine how much to back off the interval
-    #   timing for an exponential retry scenario. The default value, `2.0`,
-    #   causes each retry attempt to wait twice as long as the previous attempt.
+    #     timing for an exponential retry scenario.
     #
-    # @!attribute exponential_retry_maximum_attempts
-    #   The maximum number of attempts to make for an exponential retry of a
-    #   failed task. The default value is `Float::INFINITY`, which indicates
-    #   that there should be *no* limit to the number of retry attempts.
+    #   @return [Float] `2.0` (each retry takes twice as long as the previous
+    #     attempt)
     #
-    # @!attribute exponential_retry_function
+    # @!attribute [r] exponential_retry_exceptions_to_exclude
+    #   A list of the exception types to exclude from initiating retry attempts.
+    #
+    #   @return [Array<Object>] an empty list. No exceptions are excluded.
+    #
+    # @!attribute [r] exponential_retry_exceptions_to_include
+    #   A list of the exception types to include for initiating retry attempts.
+    #
+    #   @return [Array<Class>] `Exception` (all exceptions are included)
+    #
+    # @!attribute [r] exponential_retry_function
     #   The default exponential retry function.
     #
-    # @!attribute default_data_converter
-    #   The DataConverter used to interpret results from Amazon SWF. By
-    #   default, this is {YAMLDataConverter}.
+    #   @return A *lambda* that takes four parameters: an initial time, a time
+    #     of failure, a number of attempts, and a set of
+    #     {ExponentialRetryOptions}.
     #
-    # @!attribute exponential_retry_exceptions_to_include
-    #   A list of the exception types to include for initiating retry attempts.
-    #   By default, all exceptions are included (the default value is
-    #   `Exception`, which is the base class for all exceptions.)
+    # @!attribute [r] exponential_retry_initial_retry_interval
+    #   The initial retry interval.
     #
-    # @!attribute exponential_retry_exceptions_to_exclude
-    #   A list of the exception types to exclude from initiating retry attempts.
-    #   By default, no exceptions are excluded; this is an empty list.
+    #   @return [Fixnum] `2`
     #
-    # @!attribute jitter_function
+    # @!attribute [r] exponential_retry_maximum_attempts
+    #   The maximum number of attempts to make for an exponential retry of a
+    #     failed task.
+    #
+    #   @return [Float] `Float::INFINITY` (there is no limit to the number of
+    #     retry attempts)
+    #
+    # @!attribute [r] exponential_retry_maximum_retry_interval_seconds
+    #   The maximum interval that can pass, in seconds, before a retry occurs.
+    #
+    #   @return [Fixnum] `-1` (no maximum)
+    #
+    # @!attribute [r] exponential_retry_retry_expiration_seconds
+    #   The maximum time that can pass, in seconds, before an exponential retry
+    #     attempt is considered to be a failure.
+    #
+    #   @return [Fixnum] `-1` (no expiration for a retry attempt)
+    #
+    # @!attribute [r] jitter_function
     #   The function that is used to determine how long to wait for the next
-    #   retry attempt when *should_jitter* is set to `true`.
+    #     retry attempt when *should_jitter* is set to `true`.
     #
-    # @!attribute should_jitter
-    #   Indicates whether there should be any randomness built in to the timing of
-    #   the retry attempt. The default value is `true`.
+    #   @return a *lambda* that takes a random number seed and a maximum value
+    #     (must be > 0).
+    #
+    # @!attribute [r] should_jitter
+    #   Indicates whether there should be any randomness built in to the timing
+    #     of the retry attempt.
+    #
+    #   @return [Boolean] `true`
+    #
+    # @!attribute [r] use_worker_task_list
+    #   Used with activity and workflow options. Indicates that the activity
+    #     and/or workflow should use the same task list that the associated
+    #     worker is polling on.
+    #
+    #   @return [String] "USE_WORKER_TASK_LIST"
     #
     class FlowConstants
 
