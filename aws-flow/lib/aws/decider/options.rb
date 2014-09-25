@@ -58,7 +58,7 @@ module AWS
       # class, and returns the result.
       #
       # @return [Hash]
-      #   The merged set of options, defined as a hash.
+      #   The merged set of options, returned as a hash.
       #
       # @param [Options] options
       #   An {Options}-derived class containing a set of options to use if this
@@ -116,8 +116,10 @@ module AWS
     class WorkerDefaults < Defaults
 
       # Whether to use Ruby's `fork` for launching new workers. The default is
-      # `true`. On Windows, you should override this default value and set
-      # `use_forking` to `false`.
+      # `true`.
+      #
+      # On Windows, you should override this default value and set `use_forking`
+      # to `false`. See {WorkerOptions} for more information.
       #
       # @return [Boolean]
       #   Returns `true`.
@@ -139,9 +141,13 @@ module AWS
     #   Whether to use Ruby's `fork` for launching new workers. The default is
     #   `true`.
     #
-    #   On Windows, this should be set to `false` unless you are running Ruby
-    #   under Cygwin. For more information, see [Important
-    #   Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/welcome.html#forking-windows-note)
+    #   On Windows, `use_forking` should generally be set to `false`:
+    #
+    #       AWS::Flow::ActivityWorker.new(
+    #           @domain.client, @domain, ACTIVITY_TASKLIST, klass) { { use_forking: false } }
+    #
+    #   For more information, see
+    #   [Important Notes](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/welcome.html#forking-windows-note)
     #   in the *AWS Flow Framework for Ruby Developer Guide*.
     #
     class WorkerOptions < Options
@@ -195,23 +201,40 @@ module AWS
 
       #  The default maximum number of attempts to make before the task is
       #  marked as failed.
+      #
+      #  @see FlowConstants.exponential_retry_maximum_attempts
       def maximum_attempts; FlowConstants.exponential_retry_maximum_attempts; end
 
       #  The default retry function to use.
+      #
+      #  @see FlowConstants.exponential_retry_function
       def retry_function; FlowConstants.exponential_retry_function; end
 
       #  The exceptions that will initiate a retry attempt. The default is to
       #  use *all* exceptions.
+      #
+      #  @see FlowConstants.exponential_retry_exceptions_to_include
       def exceptions_to_include; FlowConstants.exponential_retry_exceptions_to_include; end
 
       #  The exceptions that will *not* initiate a retry attempt. The default is
       #  an empty list; no exceptions are excluded.
+      #
+      #  @see FlowConstants.exponential_retry_exceptions_to_exclude
       def exceptions_to_exclude; FlowConstants.exponential_retry_exceptions_to_exclude; end
 
+      # Sets the backoff coefficient to use for retry attempts.
+      #
+      # @see FlowConstants.exponential_retry_backoff_coefficient
       def backoff_coefficient; FlowConstants.exponential_retry_backoff_coefficient; end
 
+      # @desc (see FlowConstants#should_jitter)
+      # @return the value of {FlowConstants#should_jitter}
       def should_jitter; FlowConstants.should_jitter; end
+
+      # @see FlowConstants.jitter_function
       def jitter_function; FlowConstants.jitter_function; end
+
+      # @see FlowConstants.exponential_retry_initial_retry_interval
       def initial_retry_interval; FlowConstants.exponential_retry_initial_retry_interval; end
     end
 
@@ -263,14 +286,15 @@ module AWS
       #  The retry function to use.
       #
       # @param [true, false] use_defaults
-      #   If set to `true`, the default options specified will be used as the runtime options.
+      #   If set to `true`, the default options specified will be used as the
+      #   runtime options.
       #
       def initialize(hash={}, use_defaults=false)
         super(hash, use_defaults)
       end
 
-      # Tests whether this activity can be retried based on the `:exceptions_to_retry` and
-      # `:exceptions_to_exclude` options.
+      # Tests whether this activity can be retried based on the
+      # `exceptions_to_retry` and `exceptions_to_exclude` options.
       #
       # @param [Object] failure
       #   The failure type to test.
@@ -351,10 +375,12 @@ module AWS
     #   The supported child policies are:
     #
     #   * `TERMINATE`: the child executions will be terminated.
+    #
     #   * `REQUEST_CANCEL`: a request to cancel will be attempted for each child
-    #     execution by recording a `WorkflowExecutionCancelRequested` event in its
-    #     history. It is up to the decider to take appropriate actions when it
-    #     receives an execution history with this event.
+    #      execution by recording a `WorkflowExecutionCancelRequested` event in its
+    #      history. It is up to the decider to take appropriate actions when it
+    #      receives an execution history with this event.
+    #
     #   * `ABANDON`: no action will be taken. The child executions will continue
     #     to run.
     #
@@ -460,7 +486,7 @@ module AWS
     class WorkflowRegistrationOptions < WorkflowOptions
       class << self
         def registration_options
-          [ 
+          [
             :default_task_start_to_close_timeout,
             :default_execution_start_to_close_timeout,
             :default_task_list,
@@ -710,6 +736,7 @@ module AWS
         @_exponential_retry = retry_options
       end
 
+      # Return the full set of options for the Activity.
       def get_full_options
         result = {}
         usable_properties = self.class.held_properties
@@ -725,6 +752,14 @@ module AWS
     # This class is used to capture the options passed during activity declaration.
     class ActivityRegistrationOptions < ActivityOptions
       class << self
+        # Default registration options. These can be set only during Activity
+        # registration.
+        #
+        # * `default_task_heartbeat_timeout`
+        # * `default_task_schedule_to_close_timeout`
+        # * `default_task_schedule_to_start_timeout`
+        # * `default_task_start_to_close_timeout`
+        #
         def registration_options
           [
             :default_task_heartbeat_timeout,
@@ -747,6 +782,7 @@ module AWS
 
       default_classes << ActivityRegistrationDefaults.new
 
+      # Return the options for this Activity that are set during registration.
       def get_registration_options
         get_options(self.class.registration_options)
       end
@@ -763,7 +799,8 @@ module AWS
       #   options in this class.
       #
       # @param [true, false] use_defaults
-      #   Set to `true` to use the default runtime options for the activity.
+      #   Set to `true` to use the default runtime options for the activity. The
+      #   default is `false`.
       #
       def initialize(default_options = {}, use_defaults=false)
         super(default_options, use_defaults)

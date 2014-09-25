@@ -313,9 +313,14 @@ module AWS
     end
 
     # Represents an activity client.
+    # @api private
     class ActivityClient
+      # TODO -- Is this class used anywhere? It might be helpful to remove it,
+      # if it is not. Most of its functionality seems to be implemented in the
+      # GenericClient and GenericActivityClient classes.
 
       # Gets the data converter for the activity client.
+      # @api private
       def data_converter
         @generic_client.data_converter
       end
@@ -325,6 +330,7 @@ module AWS
       # @param other
       #   The data converter to set.
       #
+      # @api private
       def data_converter=(other)
         @generic_client.data_converter = other
       end
@@ -337,6 +343,7 @@ module AWS
       # @param [ExponentialRetryOptions] block
       #   A hash of {ExponentialRetryOptions} to use.
       #
+      # @api private
       def exponential_retry(method_name, &block)
         @generic_client.retry(method_name, lambda {|first, time_of_failure, attempts| 1}, block)
       end
