@@ -16,13 +16,18 @@
 module AWS
   module Flow
 
+    # internal AsyncRetryingExecutor class
+    # @api private
     class AsyncRetryingExecutor
+      # @api private
       def initialize(retrying_policy, clock, execution_id, return_on_start = false)
         @retrying_policy = retrying_policy
         @clock = clock
         @return_on_start = return_on_start
         @execution_id = execution_id
       end
+
+      # @api private
       def execute(command, options = nil)
         return schedule_with_retry(command, nil, Hash.new { |hash, key| hash[key] = 1 }, @clock.current_time, nil) if @return_on_start
         output = Utilities::AddressableFuture.new
@@ -44,6 +49,7 @@ module AWS
         output
       end
 
+      # @api private
       def schedule_with_retry(command, failure, attempts, first_attempt_time, time_of_recorded_failure)
         delay = -1
         if attempts.values.reduce(0, :+) > 1
@@ -60,6 +66,7 @@ module AWS
         end
       end
 
+      # @api private
       def invoke(command, attempts, first_attempt_time)
         failure_to_retry = nil
         should_retry = Future.new
@@ -86,7 +93,6 @@ module AWS
         return output if @return_on_start
         output.get
       end
-
     end
 
     # Represents a policy for retrying failed tasks.
@@ -95,10 +101,10 @@ module AWS
       # Creates a new `RetryPolicy` instance.
       #
       # @param retry_function
-      #   The method to be called for each retry attempt.
+      #   The method that will be called for each retry attempt.
       #
       # @param options
-      #   A set of {RetryOptions} to modify the retry behavior.
+      #   A set of {RetryOptions} used to modify the retry behavior.
       #
       def initialize(retry_function, options)
         @retry_function = retry_function
@@ -115,7 +121,8 @@ module AWS
       #   The failure to test.
       #
       # @return [true, false]
-      #   Returns `true` if the task can be retried for this failure.
+      #   Returns `true` if the task can be retried for this failure; `false`
+      #   otherwise.
       #
       def isRetryable(failure)
         if failure.respond_to? :cause
@@ -126,23 +133,31 @@ module AWS
 
         return true if @exceptions_to_exclude.empty? && @exceptions_to_include.empty?
         raise "#{failure} appears in both exceptions_to_include and exceptions_to_exclude" if @exceptions_to_exclude.include?(failure_class) && @exceptions_to_include.include?(failure_class)
-        # In short, default to false
-        # the second part of the statement does an intersection of the 2 arrays to see if any of the ancestors of
-        # failure exists in @exceptions_to_include
+        # In short, default to false.
+        # The second part of the statement does an intersection of the 2 arrays
+        # to see if any of the ancestors of failure exists in
+        # @exceptions_to_include
         return (!@exceptions_to_exclude.include?(failure_class) && !(@exceptions_to_include & failure_class.ancestors).empty?)
 
          #return (!@exceptions_to_exclude.include?(failure) && @exceptions_to_include.include?(failure))
       end
 
-      # Schedules a new retry attempt.
+      # Schedules a new retry attempt with an initial delay.
       #
       # @param first_attempt
+      #   The time to delay before the first retry attempt is made.
       #
       # @param time_of_recorded_failure
       #
       # @param attempts
+      #   The number of retry attempts to make before the task is considered to
+      #   be failed.
       #
       # @param failure
+      #   The type of failure to retry. If not specified, then all types of
+      #   failures will be retried.
+      #
+      # @param execution_id
       #
       def next_retry_delay_seconds(first_attempt, time_of_recorded_failure, attempts, failure = nil, execution_id)
         if attempts.values.reduce(0, :+) < 2
