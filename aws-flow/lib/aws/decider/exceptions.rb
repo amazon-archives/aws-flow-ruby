@@ -45,6 +45,7 @@ module AWS
       #
       def initialize(reason = "Something went wrong in Flow",
                      details = "But this indicates that it got corrupted getting out")
+        super(reason)
         @reason = reason
         @details = details
         details = details.message if details.is_a? Exception
