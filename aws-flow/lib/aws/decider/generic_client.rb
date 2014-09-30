@@ -16,7 +16,8 @@
 module AWS
   module Flow
 
-    # A generic activity client.
+    # A generic activity client. This class is not usually used directly; it
+    # serves as the base class for both activity and workflow client classes.
     class GenericClient
 
       # The option map for the client.
@@ -27,11 +28,14 @@ module AWS
         @option_map = {}
       end
 
-
-      # Sets a map of options for this client.
+      # Creates a new client that is a copy of this client instance, modified by
+      # a hash of passed-in options.
       #
       # @param opts
-      #   The options to set.
+      #   The options to set on the new client. Any options that are not set
+      #   here are copied from the original client.
+      #
+      # @return [GenericClient] A new client instance.
       #
       def with_opts(opts = {})
         modified_instance = self.dup
@@ -41,6 +45,16 @@ module AWS
         modified_instance
       end
 
+      # Reconfigures an activity client with a block of passed-in options.
+      #
+      # @note This functionality is limited to activity clients only.
+      #
+      # @param method_names
+      #   The activity methods to modify with the options passed in.
+      #
+      # @param block
+      #   A block of {ActivityOptions} to use to reconfigure the client.
+      #
       def reconfigure(*method_names, &block)
         options = Utilities::interpret_block_for_options(self.class.default_option_class, block)
         method_names.each { |method_name| @option_map[method_name.to_sym] = options }
@@ -51,17 +65,18 @@ module AWS
         raise "You cannot use this function outside of a workflow definition" if Utilities::is_external
       end
 
-
-      # Starts an asynchronous execution of a task. This method returns immediately; it does not wait for the task to
-      # complete.
+      # Starts an asynchronous execution of a task. This method returns
+      # immediately; it does not wait for the task to complete.
       #
-      # @note Trying to use {#send_async} outside of a workflow will fail with an exception.
+      # @note Trying to use {#send_async} outside of a workflow will fail with
+      #       an exception.
       #
       # @param task The task to execute.
       #
       # @param args A number of arguments used to start the task execution.
       #
-      # @param block A code block with additional options to start the task execution.
+      # @param block
+      #   A code block with additional options to start the task execution.
       #
       # @example The following two calls are equivalent.
       #    foo.send_async :bar # plus args and block if appropriate
@@ -75,7 +90,8 @@ module AWS
         # If there is no block, just make a block for immediate return.
         if block.nil?
           modified_options = Proc.new{ {:return_on_start => true } }
-          # If there is a block, and it doesn't take any arguments, it will evaluate to a hash. Add an option to the hash.
+          # If there is a block, and it doesn't take any arguments, it will
+          # evaluate to a hash. Add an option to the hash.
         elsif block.arity == 0
           modified_options = Proc.new do
             result = block.call
@@ -99,16 +115,25 @@ module AWS
         self.send(task, *args, &modified_options)
       end
 
-
       # Retries the given method using an exponential fallback function.
+      #
+      # @param method_name
+      #   The method to retry.
+      #
+      # @param args
+      #   Arguments (parameters) that are passed to the method specified in
+      #   *method_name*.
+      #
+      # @param block
+      #   A block of {RetryOptions} used to specify retry behavior.
+      #
       def exponential_retry(method_name, *args, &block)
         future = self._retry(method_name, FlowConstants.exponential_retry_function, block, args)
         Utilities::drill_on_future(future)
       end
 
-
-
       # Used by {#retry}
+      #
       # @api private
       def _retry_with_options(lambda_to_execute, retry_function, retry_options, args = NoInput.new)
         retry_policy = RetryPolicy.new(retry_function, retry_options)
@@ -137,7 +162,6 @@ module AWS
         return output.get
       end
 
-
       # Retries the given method using an optional retry function and block of {RetryOptions}.
       #
       # @param (see #retry)
@@ -149,20 +173,22 @@ module AWS
         _retry_with_options(lambda { self.send(method_name, *args) }, retry_function, retry_options)
       end
 
-
-      # Retries the given method using an optional retry function and block of {RetryOptions}.
+      # Retries the given method using an optional retry function and block of
+      # {RetryOptions}.
       #
       # @param method_name
-      #   The activity to retry.
+      #   The method to retry.
       #
       # @param retry_function
-      #   The retry function to use.
+      #   The function to use in order to determine if a retry should be
+      #   attempted.
       #
       # @param args
-      #   Arguments to send to the method named in the `method_name` parameter.
+      #   Arguments to send to the method provided in the *method_name*
+      #   parameter.
       #
       # @param block
-      #   The {RetryOptions} to set.
+      #   A block of {RetryOptions} used to specify retry behavior.
       #
       def retry(method_name, retry_function, *args, &block)
         if retry_function.is_a? Fixnum
@@ -173,8 +199,10 @@ module AWS
         Utilities::drill_on_future(future)
       end
 
-
-      # @return The decision context for this client.
+      # Returns the decision context for this client.
+      #
+      # @return The decision context.
+      #
       def decision_context
         FlowFiber.current[:decision_context]
       end
