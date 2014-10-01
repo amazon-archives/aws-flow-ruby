@@ -537,43 +537,50 @@ module AWS
       def data_converter; FlowConstants.default_data_converter; end
     end
 
+    # Default values for a registered activity type. These values are set by
+    # default for all activities that use the activity type.
     class ActivityRegistrationDefaults < ActivityDefaults
 
-      # The default schedule-to-start timeout for activity tasks. This timeout
-      # represents the time, in seconds, between when the activity task is first
-      # scheduled to when it is started.
+      # *Optional*. The default schedule-to-start timeout for activity tasks.
+      # This timeout represents the time, in seconds, between when the activity
+      # task is first scheduled to when it is started.
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
       def default_task_schedule_to_start_timeout; Float::INFINITY; end
 
-      # The default schedule-to-close timeout for activity tasks. This timeout
-      # represents the time, in seconds, between when the activity task is first
-      # scheduled to when it is closed (whether due to success, failure, or a
-      # timeout).
+      # *Optional*. The default schedule-to-close timeout for activity tasks.
+      # This timeout represents the time, in seconds, between when the activity
+      # task is first scheduled to when it is closed (whether due to success,
+      # failure, or a timeout).
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
-      def default_task_schedule_to_close_timeout;  Float::INFINITY; end
+      def default_task_schedule_to_close_timeout; Float::INFINITY; end
 
-      # The default start-to-close timeout for activity tasks. This timeout
-      # represents the time, in seconds, between when the activity task is first
-      # started to when it is closed (whether due to success, failure, or a
-      # timeout).
+      # *Optional*. The default start-to-close timeout for activity tasks. This
+      # timeout represents the time, in seconds, between when the activity task
+      # is first started to when it is closed (whether due to success, failure,
+      # or a timeout).
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
       def default_task_start_to_close_timeout; Float::INFINITY; end
 
-      # The default maximum time, in seconds, before which a worker processing a
-      # task of this type must report progress.  If the timeout is exceeded, the
-      # activity task is automatically timed out. If the worker subsequently
-      # attempts to record a heartbeat or returns a result, it will be ignored.
+      # *Optional*. The default maximum time, in seconds, before which a worker
+      # processing a task of this type must report progress. If the timeout is
+      # exceeded, the activity task is automatically timed out. If the worker
+      # subsequently attempts to record a heartbeat or returns a result, it will
+      # be ignored.
       #
       # This default can be overridden when scheduling an activity task. You can
       # set this value to "NONE" to imply no timeout value.
       def default_task_heartbeat_timeout; Float::INFINITY; end
 
+      # *Optional*. The default task list to use for all activities that use
+      # this activity type. If not specified, the value
+      # `FlowConstants.use_worker_task_list` will be used, which causes the
+      # activities to use the task list specified for the activity worker.
       def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
@@ -746,7 +753,6 @@ module AWS
         end
         result
       end
-
     end
 
     # This class is used to capture the options passed during activity declaration.
@@ -786,7 +792,6 @@ module AWS
       def get_registration_options
         get_options(self.class.registration_options)
       end
-
     end
 
     # Runtime options for an activity.
