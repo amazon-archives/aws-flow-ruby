@@ -71,7 +71,23 @@ module AWS
         rescue Exception => e
           #TODO we need the proper error handling here
           raise e if e.is_a? CancellationException
-          raise ActivityFailureException.new(e.message, @converter.dump(e))
+
+          converted_failure = @converter.dump(e)
+          reason = e.message
+
+          # Check if serialized exception violates the 32k limit
+          if converted_failure.to_s.size > FlowConstants::FAILURE_DETAILS
+            # The ActivityFailureException takes two inputs - reason and
+            # details. We put the reason of the current exception e in the reason field of
+            # ActivityFailureException and we put the entire serialized
+            # exception in the details field of ActivityFailureException. Hence
+            # it is necessary for us to fit the entire serialized exception
+            # inside 32k limit.
+            new_exception, reason = truncate_exception(e)
+            # serialize the new exception
+            converted_failure = @converter.dump(new_exception)
+          end
+          raise ActivityFailureException.new(reason, converted_failure)
         ensure
           @instance._activity_execution_context = nil
         end
@@ -81,6 +97,46 @@ module AWS
           return @converter.dump("The result was too large, so we could not serialize it correctly. You can find the full result in the ActivityTaskPoller logs."), result, true
         end
         return converted_result, result, false
+      end
+
+      # @api private
+      # This method will take the exception and truncate both the reason and
+      # details.
+      def truncate_exception(e)
+
+
+        # Truncation overhead for serializing and other stuff. This value is
+        # copied from make_fail_decision in async_decider.rb
+        truncation_overhead = 8000
+        # We want the entire exception to fit inside 32k since the exception
+        # will be a part of ActivityTaskFailure's details field.
+        size_diff = FlowConstants::FAILURE_DETAILS - FlowConstants::FAILURE_REASON - truncation_overhead
+
+        # get the details/backtrace of the current exception
+        new_details = e.details if e.respond_to? :details
+        new_details ||= e.backtrace.join("")
+
+        # truncate the details
+        new_details = new_details.slice(0, size_diff)
+        new_details += "->->->->->THIS BACKTRACE WAS TRUNCATED"
+
+        # get the reason/message of the current exception
+        reason = e.message
+        if reason.size > FlowConstants::FAILURE_REASON
+          # truncate the reason
+          reason = reason.slice(0, FlowConstants::FAILURE_REASON - 10)
+          reason += "[TRUNCATED]"
+        end
+
+        # create a new exception because we can't rewrite the reason/message of an
+        # already existing exception
+        new_exception = e.class.new(reason)
+        if e.respond_to? :details
+          new_exception.details = new_details
+        else
+          new_exception.set_backtrace(new_details)
+        end
+        [new_exception, reason]
       end
 
     end

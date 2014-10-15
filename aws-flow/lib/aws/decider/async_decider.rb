@@ -281,9 +281,9 @@ module AWS
         # Sizes taken from
         # http://docs.aws.amazon.com/amazonswf/latest/apireference/API_FailWorkflowExecutionDecisionAttributes.html
         #reason = failure.reason if (failure.respond_to? :reason)
-        max_response_size = 32768
+        max_response_size = FlowConstants::FAILURE_DETAILS
         truncation_overhead = 8000
-        reason ||= failure.message.slice(0, 255)
+        reason ||= failure.message.slice(0, FlowConstants::FAILURE_REASON)
         detail_size = max_response_size - truncation_overhead
 
         # If you don't have details, you must be some other type of
@@ -352,7 +352,7 @@ module AWS
             else
               @decision_helper[decision_id] = make_completion_decision(decision_id, {
                                                                          :decision_type => "CompleteWorkflowExecution",
-                                                                         :complete_workflow_execution_decision_attributes => {:result => @result.get}})
+                                                                         :complete_workflow_execution_decision_attributes => {:result => @result.get }})
             end
           end
         end

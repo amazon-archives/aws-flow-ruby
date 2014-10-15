@@ -56,7 +56,13 @@ module AWS
           end
           t.ensure do
             raise @failure if @failure
-            result.set(@converter.dump method_output.get)
+            # We are going to have to convert this object into a string to submit it, and that's where the 32k limit will be enforced, so it's valid to turn the object to a string and check the size of the result
+            output = @converter.dump method_output.get
+            if output.to_s.size > 32768
+              error_message = "We could not serialize the output of the workflow correctly since it was too large. Please limit the size of the output to 32768 characters. A truncated prefix output is included in the details field."
+              raise WorkflowException.new(error_message, @converter.dump(output))
+            end
+            result.set(output)
           end
         end
         return result

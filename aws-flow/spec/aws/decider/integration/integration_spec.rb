@@ -216,6 +216,59 @@ describe "RubyFlowDecider" do
     history_events.last.should == "WorkflowExecutionFailed"
   end
 
+  it "ensures that an activity returning an exception of size more than 32k fails the activity correctly and truncates the stacktrace" do
+    general_test(:task_list => "ActivityTaskExceptionLargeOutput", :class_name => "ActivityTaskExceptionLargeOutput")
+    @activity_class.class_eval do
+      def run_activity1
+        raise  ":" + "a" * 33000
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    @activity_worker.run_once
+    @worker.run_once
+    wait_for_execution(workflow_execution)
+    history_events = workflow_execution.events.map(&:event_type)
+    # Previously, it would time out, as the failure would include the original
+    # large output that killed the completion and failure call. Thus, we need to
+    # check that we fail the ActivityTask.
+    history_events.should include "ActivityTaskFailed"
+
+    workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
+    history_events.last.should == "WorkflowExecutionFailed"
+    workflow_execution.events.to_a.last.attributes.details.should =~ /->->->->->THIS BACKTRACE WAS TRUNCATED/
+  end
+
+  it "ensures that a workflow output > 32k fails the workflow" do
+    general_test(:task_list => "WorkflowOutputTooLarge", :class_name => "WorkflowOutputTooLarge")
+    @workflow_class.class_eval do
+      def entry_point
+        return ":" + "a" * 33000
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    wait_for_execution(workflow_execution)
+    last_event = workflow_execution.events.to_a.last
+    last_event.event_type.should == "WorkflowExecutionFailed"
+    last_event.attributes.reason.should == "We could not serialize the output of the workflow correctly since it was too large. Please limit the size of the output to 32768 characters. A truncated prefix output is included in the details field."
+  end
+
+  it "ensures that a workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
+    general_test(:task_list => "WorkflowExceptionTooLarge", :class_name => "WorkflowExceptionTooLarge")
+    @workflow_class.class_eval do
+      def entry_point
+        raise  ":" + "a" * 33000
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    @worker.run_once
+    wait_for_execution(workflow_execution)
+    last_event = workflow_execution.events.to_a.last
+    last_event.event_type.should == "WorkflowExecutionFailed"
+    workflow_execution.events.to_a.last.attributes.details.should =~ /->->->->->THIS BACKTRACE WAS TRUNCATED/
+  end
+
   it "ensures that activities can be processed with different configurations" do
     class TwoConfigActivity
       extend Activities

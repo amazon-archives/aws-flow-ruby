@@ -266,9 +266,18 @@ module AWS
             @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}."
             respond_activity_task_canceled_with_retry(task.task_token, e.message)
           rescue Exception => e
-            @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}. Full stack trace: #{e.backtrace}"
-            respond_activity_task_failed_with_retry(task.task_token, e.message, e.backtrace)
-            #Do rescue stuff
+            begin
+              @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}. Full stack trace: #{e.backtrace}"
+              respond_activity_task_failed_with_retry(task.task_token, e.message, e.backtrace)
+            rescue Exception => e
+              # We want to ensure that the ActivityWorker doesn't just sit
+              # around and time the activity out. If there is a failure and we can't
+              # respond back with the correct exception for some reason
+              # (possibly really large exceptions), we should fail the activity task with
+              # some minimal details
+              reason = "ActivityWorker failed to respond_activity_task_failed with the correct message and stacktrace. Please look at the ActivityWorker logs for more details."
+              respond_activity_task_failed_with_retry(task.task_token, reason, "")
+            end
           ensure
             @poll_semaphore.release
           end
