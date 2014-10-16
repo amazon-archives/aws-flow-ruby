@@ -276,6 +276,7 @@ module AWS
               # (possibly really large exceptions), we should fail the activity task with
               # some minimal details
               reason = "ActivityWorker failed to respond_activity_task_failed with the correct message and stacktrace. Please look at the ActivityWorker logs for more details."
+              @logger.error reason
               respond_activity_task_failed_with_retry(task.task_token, reason, "")
             end
           ensure

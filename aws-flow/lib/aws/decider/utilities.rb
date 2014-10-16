@@ -73,6 +73,41 @@ module AWS
         client_options
       end
 
+      # @api private
+      # This method is used to truncate Activity and Workflow exceptions to
+      # fit them into responses to the SWF service. This method doesn't worry
+      # about serialization. It is assumed that the caller will take care of
+      # serialization and the truncation overhead that comes with it.
+      def self.truncate_exception(e, reason_size, detail_size)
+
+        # get the details/backtrace of the exception
+        details = e.details if e.respond_to? :details
+        # If you don't have details, you must be some other type of
+        # exception. We can't do anything exceedingly clever, so lets just get
+        # the stack trace and pop that out.
+        details ||= e.backtrace.join("") unless e.backtrace.nil?
+        details ||= ""
+
+        # truncate the details if needed and add truncation string at the end
+        if details.size > detail_size
+          # saving 38 spaces at the end to add the truncation string
+          details = details.slice(0, detail_size - 38)
+          details += "->->->->->THIS BACKTRACE WAS TRUNCATED"
+        end
+
+        # get the reason/message of the exception
+        reason = e.message
+        # truncate the reason if needed and add a smaller version of the
+        # truncation string at the end
+        if reason.size > reason_size
+          # saving 11 spaces at the end to add [TRUNCATED]
+          reason = reason.slice(0, reason_size - 11)
+          reason += "[TRUNCATED]"
+        end
+        [reason, details]
+
+      end
+
 
       # @api private
       def self.interpret_block_for_options(option_class, block, use_defaults = false)

@@ -96,8 +96,12 @@ module AWS
         attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval, :use_worker_task_list
       end
 
-      FAILURE_REASON = 256
-      FAILURE_DETAILS = 32768
+      # Sizes taken from
+      # http://docs.aws.amazon.com/amazonswf/latest/apireference/API_FailWorkflowExecutionDecisionAttributes.html
+      REASON_LIMIT = 256
+      DETAILS_LIMIT = 32768
+      TRUNCATION_OVERHEAD = 8000
+
       INFINITY = -1
       RETENTION_DEFAULT = 7
       NUM_OF_WORKERS_DEFAULT = 1

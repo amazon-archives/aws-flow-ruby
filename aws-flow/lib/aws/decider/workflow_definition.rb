@@ -50,8 +50,35 @@ module AWS
               method_output.set(@instance.send(@workflow_method, *ruby_input))
             end
           end
-          t.rescue(Exception) do |error|
-            @failure = WorkflowException.new(error.message, @converter.dump(error))
+          t.rescue(Exception) do |e|
+
+            converted_failure = @converter.dump(e)
+            reason = e.message
+
+            ## Check if serialized exception violates the 32k limit
+            #if converted_failure.to_s.size > FlowConstants::DETAILS_LIMIT
+              ## The ActivityFailureException takes two inputs - reason and
+              ## details. We put the reason of the current exception e in the reason field of
+              ## ActivityFailureException and we put the entire serialized
+              ## exception in the details field of ActivityFailureException. Hence
+              ## it is necessary for us to fit the entire serialized exception
+              ## inside 32k limit.
+              #detail_size = FlowConstants::DETAILS_LIMIT - (FlowConstants::REASON_LIMIT + FlowConstants::TRUNCATION_OVERHEAD)
+              #reason, details = AWS::Flow::Utilities::truncate_exception(e, FlowConstants::REASON_LIMIT, detail_size)
+
+              #new_exception = e.class.new(reason)
+              #if e.respond_to? :details
+                #new_exception.details = details
+              #else
+                #new_exception.set_backtrace(details)
+              #end
+              ## serialize the new exception
+              #converted_failure = @converter.dump(new_exception)
+            #end
+
+
+            #@failure = WorkflowException.new(error.message, @converter.dump(error))
+            @failure = WorkflowException.new(reason, converted_failure)
             #TODO error handling stuff
           end
           t.ensure do
@@ -59,12 +86,12 @@ module AWS
             # We are going to have to convert this object into a string to submit it, and that's where the 32k limit will be enforced, so it's valid to turn the object to a string and check the size of the result
             output = @converter.dump method_output.get
             if output.to_s.size > 32768
-              error_message = "We could not serialize the output of the workflow correctly since it was too large. Please limit the size of the output to 32768 characters. A truncated prefix output is included in the details field."
+              error_message = "We could not serialize the output of the workflow correctly since it was too large. Please limit the size of the output to 32768 characters. A truncated output is included in the details field."
               raise WorkflowException.new(error_message, @converter.dump(output))
             end
             result.set(output)
           end
-        end
+          end
         return result
       end
 

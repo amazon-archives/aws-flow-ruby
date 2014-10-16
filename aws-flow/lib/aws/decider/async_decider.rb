@@ -278,27 +278,10 @@ module AWS
       def make_fail_decision(decision_id, failure)
         decision_type = "FailWorkflowExecution"
 
-        # Sizes taken from
-        # http://docs.aws.amazon.com/amazonswf/latest/apireference/API_FailWorkflowExecutionDecisionAttributes.html
-        #reason = failure.reason if (failure.respond_to? :reason)
-        max_response_size = FlowConstants::FAILURE_DETAILS
-        truncation_overhead = 8000
-        reason ||= failure.message.slice(0, FlowConstants::FAILURE_REASON)
-        detail_size = max_response_size - truncation_overhead
+        detail_size = FlowConstants::DETAILS_LIMIT - FlowConstants::TRUNCATION_OVERHEAD
+        reason, details = AWS::Flow::Utilities::truncate_exception(failure, FlowConstants::REASON_LIMIT, detail_size)
 
-        # If you don't have details, you must be some other type of
-        # exception. We can't do anything exceedingly clever, so lets just get
-        # the stack trace and pop that out.
-        details = failure.details if (failure.respond_to? :details)
-        details ||= failure.backtrace.join("")
-        new_details = details[0..(max_response_size - truncation_overhead)]
-        if details.length > (max_response_size - truncation_overhead)
-          new_details += "->->->->->THIS BACKTRACE WAS TRUNCATED"
-        end
-        # details.unshift(reason)
-        # details = details.join("\n")
-
-        fail_workflow_execution_decision_attributes = {:reason => reason, :details => new_details}
+        fail_workflow_execution_decision_attributes = {:reason => reason, :details => details}
         decision = {:decision_type => decision_type, :fail_workflow_execution_decision_attributes => fail_workflow_execution_decision_attributes}
         CompleteWorkflowStateMachine.new(decision_id, decision)
 
