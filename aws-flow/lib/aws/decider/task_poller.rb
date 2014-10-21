@@ -146,8 +146,8 @@ module AWS
 
             respond_activity_task_failed_with_retry(
               task.task_token,
-              "An activity cannot send a response with a result larger than 32768 characters. Please reduce the response size. A truncated prefix output is included in the details field.",
-              output
+              "We could not serialize the output of the Activity correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Activity Worker logs to see the original output.",
+              ""
             )
           elsif ! activity_implementation.execution_options.manual_completion
             @service.respond_activity_task_completed(

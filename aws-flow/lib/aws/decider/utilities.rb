@@ -78,15 +78,30 @@ module AWS
       # fit them into responses to the SWF service. This method doesn't worry
       # about serialization. It is assumed that the caller will take care of
       # serialization and the truncation overhead that comes with it.
-      def self.truncate_exception(e, reason_size, detail_size)
+      def self.truncate_exception error
 
-        # get the details/backtrace of the exception
-        details = e.details if e.respond_to? :details
+        detail_size = FlowConstants::DETAILS_LIMIT - (FlowConstants::REASON_LIMIT + FlowConstants::TRUNCATION_OVERHEAD)
+        reason_size = FlowConstants::REASON_LIMIT
+        # Get the exception details if the exception is from the flow family of
+        # exceptions
+        details = error.details if error.respond_to? :details
         # If you don't have details, you must be some other type of
         # exception. We can't do anything exceedingly clever, so lets just get
         # the stack trace and pop that out.
-        details ||= e.backtrace.join("") unless e.backtrace.nil?
+        details ||= error.backtrace.join("") unless error.backtrace.nil?
         details ||= ""
+
+        # If the exception was indeed a flow family of exceptions, then details
+        # inside would most likely be another exception. Instead of digging for
+        # more exceptions inside this one, let's just get all the information
+        # from this class and put it in a string so that we can truncate and
+        # serialize it.
+        if details.is_a? Exception
+          details = "exception.class=#{details.class}|exception.message=#{details.message}|exception.backtrace=#{details.backtrace}"
+          if details.respond_to? :details
+            details += "|exception.details=#{details.details}"
+          end
+        end
 
         # truncate the details if needed and add truncation string at the end
         if details.size > detail_size
@@ -96,7 +111,7 @@ module AWS
         end
 
         # get the reason/message of the exception
-        reason = e.message
+        reason = error.message
         # truncate the reason if needed and add a smaller version of the
         # truncation string at the end
         if reason.size > reason_size
@@ -104,7 +119,23 @@ module AWS
           reason = reason.slice(0, reason_size - 11)
           reason += "[TRUNCATED]"
         end
-        [reason, details]
+
+        # Here we generate a new exception with the reason and details that we
+        # got above. We are using the 'exception' factory method instead of
+        # initializing it directly because Flow Exceptions' constructors are not
+        # uniform and could require 2..4 arguments. Whereas a regular ruby
+        # exception only requires 0..1.
+        new_exception = error.exception(reason)
+        if new_exception.respond_to? :details
+          new_exception.details = details
+        else
+          new_exception.set_backtrace(details)
+        end
+
+        # Return back both - reason and exception so that the caller doesn't
+        # need to check whether this exception responds to :reason or not, i.e.
+        # whether this is a flow exception or a regular ruby exception
+        [reason, new_exception]
 
       end
 

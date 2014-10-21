@@ -191,82 +191,174 @@ describe "RubyFlowDecider" do
     @my_workflow_client = workflow_client(@domain.client, @domain) { { from_class: @workflow_class } }
   end
 
-  it "ensures that an activity returning more than 32k data fails the activity" do
-    general_test(:task_list => "ActivityTaskLargeOutput", :class_name => "ActivityTaskLargeOutput")
-    @activity_class.class_eval do
-      def run_activity1
-        # Make sure we return something that's over 32k. Note this won't
-        # necessarily work with all converters, as it's pretty trivially
-        # compressible
-        return ":" + "a" * 33000
+  describe "Workflow/Activity return values/exceptions" do
+    it "ensures that an activity returning more than 32k data fails the activity" do
+      general_test(:task_list => "ActivityTaskLargeOutput", :class_name => "ActivityTaskLargeOutput")
+      @activity_class.class_eval do
+        def run_activity1
+          # Make sure we return something that's over 32k. Note this won't
+          # necessarily work with all converters, as it's pretty trivially
+          # compressible
+          return ":" + "a" * 33000
+        end
       end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @activity_worker.run_once
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      history_events = workflow_execution.events.map(&:event_type)
+      # Previously, it would time out, as the failure would include the original
+      # large output that killed the completion and failure call. Thus, we need to
+      # check that we fail the ActivityTask.
+      history_events.should include "ActivityTaskFailed"
+
+      workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
+      workflow_execution.events.to_a.last.attributes.reason.should == "We could not serialize the output of the Activity correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Activity Worker logs to see the original output."
+      history_events.last.should == "WorkflowExecutionFailed"
     end
-    workflow_execution = @my_workflow_client.start_execution
-    @worker.run_once
-    @activity_worker.run_once
-    @worker.run_once
-    wait_for_execution(workflow_execution)
-    history_events = workflow_execution.events.map(&:event_type)
-    # Previously, it would time out, as the failure would include the original
-    # large output that killed the completion and failure call. Thus, we need to
-    # check that we fail the ActivityTask.
-    history_events.should include "ActivityTaskFailed"
 
-    workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
-    history_events.last.should == "WorkflowExecutionFailed"
-  end
-
-  it "ensures that an activity returning an exception of size more than 32k fails the activity correctly and truncates the stacktrace" do
-    general_test(:task_list => "ActivityTaskExceptionLargeOutput", :class_name => "ActivityTaskExceptionLargeOutput")
-    @activity_class.class_eval do
-      def run_activity1
-        raise  ":" + "a" * 33000
+    it "ensures that an activity returning an exception of size more than 32k fails the activity correctly and truncates the message" do
+      general_test(:task_list => "ActivityTaskExceptionLargeOutput", :class_name => "ActivityTaskExceptionLargeOutput")
+      @activity_class.class_eval do
+        def run_activity1
+          raise  ":" + "a" * 33000
+        end
       end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @activity_worker.run_once
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      history_events = workflow_execution.events.map(&:event_type)
+      # Previously, it would time out, as the failure would include the original
+      # large output that killed the completion and failure call. Thus, we need to
+      # check that we fail the ActivityTask.
+      history_events.should include "ActivityTaskFailed"
+
+      workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
+      history_events.last.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      details = workflow_execution.events.to_a.last.attributes.details
+      exception = FlowConstants.default_data_converter.load(details)
+      exception.class.should == AWS::Flow::ActivityTaskFailedException
     end
-    workflow_execution = @my_workflow_client.start_execution
-    @worker.run_once
-    @activity_worker.run_once
-    @worker.run_once
-    wait_for_execution(workflow_execution)
-    history_events = workflow_execution.events.map(&:event_type)
-    # Previously, it would time out, as the failure would include the original
-    # large output that killed the completion and failure call. Thus, we need to
-    # check that we fail the ActivityTask.
-    history_events.should include "ActivityTaskFailed"
 
-    workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
-    history_events.last.should == "WorkflowExecutionFailed"
-    workflow_execution.events.to_a.last.attributes.details.should =~ /->->->->->THIS BACKTRACE WAS TRUNCATED/
-  end
-
-  it "ensures that a workflow output > 32k fails the workflow" do
-    general_test(:task_list => "WorkflowOutputTooLarge", :class_name => "WorkflowOutputTooLarge")
-    @workflow_class.class_eval do
-      def entry_point
-        return ":" + "a" * 33000
+    it "ensures that a workflow output > 32k fails the workflow" do
+      general_test(:task_list => "WorkflowOutputTooLarge", :class_name => "WorkflowOutputTooLarge")
+      @workflow_class.class_eval do
+        def entry_point
+          return ":" + "a" * 33000
+        end
       end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      last_event.attributes.reason.should == "We could not serialize the output of the Workflow correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Workflow Worker logs to see the original output."
     end
-    workflow_execution = @my_workflow_client.start_execution
-    @worker.run_once
-    wait_for_execution(workflow_execution)
-    last_event = workflow_execution.events.to_a.last
-    last_event.event_type.should == "WorkflowExecutionFailed"
-    last_event.attributes.reason.should == "We could not serialize the output of the workflow correctly since it was too large. Please limit the size of the output to 32768 characters. A truncated prefix output is included in the details field."
-  end
 
-  it "ensures that a workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
-    general_test(:task_list => "WorkflowExceptionTooLarge", :class_name => "WorkflowExceptionTooLarge")
-    @workflow_class.class_eval do
-      def entry_point
-        raise  ":" + "a" * 33000
+    it "ensures that a workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
+      general_test(:task_list => "WorkflowExceptionTooLarge", :class_name => "WorkflowExceptionTooLarge")
+      @workflow_class.class_eval do
+        def entry_point
+          raise  ":" + "a" * 33000
+        end
       end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      details = workflow_execution.events.to_a.last.attributes.details
+      exception = FlowConstants.default_data_converter.load(details)
+      exception.class.should == RuntimeError
     end
-    workflow_execution = @my_workflow_client.start_execution
-    @worker.run_once
-    wait_for_execution(workflow_execution)
-    last_event = workflow_execution.events.to_a.last
-    last_event.event_type.should == "WorkflowExecutionFailed"
-    workflow_execution.events.to_a.last.attributes.details.should =~ /->->->->->THIS BACKTRACE WAS TRUNCATED/
+
+    it "ensures that a child workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
+      general_test(:task_list => "ChildWorkflowExceptionTooLarge", :class_name => "ChildWorkflowExceptionTooLarge")
+      @workflow_class.class_eval do
+        workflow(:child) do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 300,
+            default_task_list: "ChildWorkflowExceptionTooLarge",
+            prefix_name: "ChildWorkflowExceptionTooLargeWorkflow"
+          }
+        end
+        def entry_point
+          child_client = AWS::Flow::workflow_client(nil, nil) { { from_class: "ChildWorkflowExceptionTooLargeWorkflow" } }
+          child_client.child
+        end
+        def child
+          raise  ":" + "a" * 33000
+        end
+      end
+
+      worker = WorkflowWorker.new(@domain.client, @domain, "ChildWorkflowExceptionTooLarge", @workflow_class)
+      worker.register
+      workflow_execution = @my_workflow_client.start_execution
+      worker.run_once
+      worker.run_once
+      worker.run_once
+      worker.run_once
+
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      details = workflow_execution.events.to_a.last.attributes.details
+      exception = FlowConstants.default_data_converter.load(details)
+      exception.class.should == AWS::Flow::ChildWorkflowFailedException
+      exception.cause.class.should == RuntimeError
+    end
+
+
+    it "ensures that a child child workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
+      general_test(:task_list => "ChildChildWorkflowExceptionTooLarge", :class_name => "ChildChildWorkflowExceptionTooLarge")
+      @workflow_class.class_eval do
+        workflow(:child, :child_1) do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 300,
+            default_task_list: "ChildChildWorkflowExceptionTooLarge",
+            prefix_name: "ChildChildWorkflowExceptionTooLargeWorkflow"
+          }
+        end
+        def entry_point
+          child_client = AWS::Flow::workflow_client(nil, nil) { { from_class: "ChildChildWorkflowExceptionTooLargeWorkflow" } }
+          child_client.child
+        end
+        def child
+          child_1_client = AWS::Flow::workflow_client(nil, nil) { { from_class: "ChildChildWorkflowExceptionTooLargeWorkflow" } }
+          child_1_client.child_1
+        end
+        def child_1
+          raise  ":" + "a" * 33000
+        end
+      end
+      worker = WorkflowWorker.new(@domain.client, @domain, "ChildChildWorkflowExceptionTooLarge", @workflow_class)
+      worker.register
+      workflow_execution = @my_workflow_client.start_execution
+      worker.run_once
+      worker.run_once
+      worker.run_once
+      worker.run_once
+      worker.run_once
+      worker.run_once
+      worker.run_once
+
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      details = workflow_execution.events.to_a.last.attributes.details
+      exception = FlowConstants.default_data_converter.load(details)
+      exception.class.should == AWS::Flow::ChildWorkflowFailedException
+      exception.cause.class.should == AWS::Flow::ChildWorkflowFailedException
+    end
   end
 
   it "ensures that activities can be processed with different configurations" do
@@ -561,7 +653,7 @@ describe "RubyFlowDecider" do
         def entry_point
           domain = get_test_domain
           wf = AWS::Flow.workflow_client(domain.client, domain) { { from_class: "FooBar" } }
-          wf.start_execution("foo")
+          wf.start_execution
         end
       end
       workflow_execution = @my_workflow_client.start_execution

@@ -77,22 +77,10 @@ module AWS
 
           # Check if serialized exception violates the 32k limit
           if converted_failure.to_s.size > FlowConstants::DETAILS_LIMIT
-            # The ActivityFailureException takes two inputs - reason and
-            # details. We put the reason of the current exception e in the reason field of
-            # ActivityFailureException and we put the entire serialized
-            # exception in the details field of ActivityFailureException. Hence
-            # it is necessary for us to fit the entire serialized exception
-            # inside 32k limit.
-            detail_size = FlowConstants::DETAILS_LIMIT - (FlowConstants::REASON_LIMIT + FlowConstants::TRUNCATION_OVERHEAD)
-            reason, details = AWS::Flow::Utilities::truncate_exception(e, FlowConstants::REASON_LIMIT, detail_size)
+            # Truncate the exception to fit in the response
+            reason, new_exception = AWS::Flow::Utilities::truncate_exception(e)
 
-            new_exception = e.class.new(reason)
-            if e.respond_to? :details
-              new_exception.details = new_details
-            else
-              new_exception.set_backtrace(new_details)
-            end
-            # serialize the new exception
+            # Serialize the new exception
             converted_failure = @converter.dump(new_exception)
           end
           raise ActivityFailureException.new(reason, converted_failure)
@@ -102,7 +90,7 @@ module AWS
         converted_result = @converter.dump(result)
         # We are going to have to convert this object into a string to submit it, and that's where the 32k limit will be enforced, so it's valid to turn the object to a string and check the size of the result
         if converted_result.to_s.size > 32768
-          return @converter.dump("The result was too large, so we could not serialize it correctly. You can find the full result in the ActivityTaskPoller logs."), result, true
+          return converted_result, result, true
         end
         return converted_result, result, false
       end

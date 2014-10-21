@@ -277,11 +277,7 @@ module AWS
       #
       def make_fail_decision(decision_id, failure)
         decision_type = "FailWorkflowExecution"
-
-        detail_size = FlowConstants::DETAILS_LIMIT - FlowConstants::TRUNCATION_OVERHEAD
-        reason, details = AWS::Flow::Utilities::truncate_exception(failure, FlowConstants::REASON_LIMIT, detail_size)
-
-        fail_workflow_execution_decision_attributes = {:reason => reason, :details => details}
+        fail_workflow_execution_decision_attributes = {:reason => failure.reason, :details => failure.details}
         decision = {:decision_type => decision_type, :fail_workflow_execution_decision_attributes => fail_workflow_execution_decision_attributes}
         CompleteWorkflowStateMachine.new(decision_id, decision)
 

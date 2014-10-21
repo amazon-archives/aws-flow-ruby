@@ -1232,6 +1232,7 @@ describe "FakeHistory" do
     #workflow_execution = my_workflow.start_execution
     swf_client.trace.first[:decisions].first[:decision_type].should == "CompleteWorkflowExecution"
   end
+
 end
 
 describe "Misc tests" do
@@ -1281,5 +1282,260 @@ describe "Misc tests" do
     task = ExternalTask.new({}) { |t| }
     ( ExternalTaskCompletionHandle.new(task).respond_to? :complete ).should == true
   end
+end
+
+describe "Workflow/Activity return values/exceptions" do
+  it "ensures that a workflow exception message > 32k fails the workflow correctly and truncates the message" do
+
+    class WorkflowOutputTooLarge
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+
+      def entry_point
+        raise "a"*33000
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+
+    $workflow_type = FakeWorkflowType.new(nil, "WorkflowOutputTooLarge.entry_point", "1.0")
+    swf_client = FakeServiceClient.new
+    domain = FakeDomain.new($workflow_type)
+    client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "WorkflowOutputTooLarge" } }
+
+    task_list = "WorkflowsOutputTooLarge"
+
+    client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, WorkflowOutputTooLarge)
+    worker.start
+
+    swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
+
+    reason = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:reason]
+    details = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:details]
+    reason.should include("TRUNCATED")
+    exception = FlowConstants.default_data_converter.load(details)
+    exception.class.should == RuntimeError
+    exception.message.should == "a"*245+"[TRUNCATED]"
+  end
+
+  it "ensures that a workflow backtrace > 32k fails the workflow correctly and truncates the backtrace" do
+
+    class WorkflowOutputTooLarge
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+
+      def entry_point
+        a = StandardError.new("SIMULATION")
+        a.set_backtrace("a"*33000)
+        raise a
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+
+    $workflow_type = FakeWorkflowType.new(nil, "WorkflowOutputTooLarge.entry_point", "1.0")
+    swf_client = FakeServiceClient.new
+    domain = FakeDomain.new($workflow_type)
+    client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "WorkflowOutputTooLarge" } }
+
+    task_list = "WorkflowsOutputTooLarge"
+
+    client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, WorkflowOutputTooLarge)
+    worker.start
+
+    reason = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:reason]
+    details = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:details]
+    exception = FlowConstants.default_data_converter.load(details)
+    exception.class.should == StandardError
+    exception.message.should == "SIMULATION"
+    exception.backtrace.first.should include("->->->->->THIS BACKTRACE WAS TRUNCATED")
+    swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
+  end
+
+  it "ensures that a workflow output > 32k fails the workflow correctly" do
+
+    class WorkflowOutputTooLarge
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+
+      def entry_point
+        return "a"*33000
+      end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        TestHistoryWrapper.new($workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+
+    $workflow_type = FakeWorkflowType.new(nil, "WorkflowOutputTooLarge.entry_point", "1.0")
+    swf_client = FakeServiceClient.new
+    domain = FakeDomain.new($workflow_type)
+    client = AWS::Flow::workflow_client(swf_client, domain) { { from_class: "WorkflowOutputTooLarge" } }
+
+    task_list = "WorkflowsOutputTooLarge"
+
+    client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, WorkflowOutputTooLarge)
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
+  end
+
+
+  it "ensures that child workflows returning exceptions > 32k get wrapped correctly" do
+
+    class ChildWorkflowOutputTooLargeTestWorkflow
+      extend Workflows
+      workflow(:entry_point, :child) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+
+      def entry_point
+        $my_workflow_client.child { { workflow_id: "child_workflow_test" }}
+      end
+      def child; end
+    end
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        fake_workflow_type = FakeWorkflowType.new(nil, "ChildWorkflowOutputTooLargeTestWorkflow.entry_point", "1.0")
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["StartChildWorkflowExecutionInitiated", {:workflow_id => "child_workflow_test"}],
+                                               ["ChildWorkflowExecutionStarted", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               ["ChildWorkflowExecutionFailed", {:workflow_execution => FakeWorkflowExecution.new("1", "child_workflow_test"), :workflow_id => "child_workflow_test", :workflow_type => fake_workflow_type, :reason => "a"*245+"[TRUNCATED]", :details => "SIMULATED"}],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+    workflow_type = FakeWorkflowType.new(nil, "ChildWorkflowOutputTooLargeTestWorkflow.entry_point", "1")
+
+    domain = FakeDomain.new(workflow_type)
+    swf_client = FakeServiceClient.new
+    $my_workflow_client  = workflow_client(swf_client, domain) { { from_class: "ChildWorkflowOutputTooLargeTestWorkflow" } }
+
+    task_list = "ChildWorkflowOutputTooLargeTestWorkflow"
+
+    $my_workflow_client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, ChildWorkflowOutputTooLargeTestWorkflow)
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
+    reason = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:reason]
+    details = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:details]
+    reason.should include("TRUNCATED")
+    exception = FlowConstants.default_data_converter.load(details)
+    exception.class.should == AWS::Flow::ChildWorkflowFailedException
+    exception.reason.should == "a"*245+"[TRUNCATED]"
+    exception.details.should == "SIMULATED"
+  end
+
+  it "ensures that activities returning exceptions > 32k get wrapped correctly" do
+
+    class ActivityExceptionTooLargeActivity
+      extend Activities
+      activity(:activity_a) do
+        {
+          version: "1.0"
+        }
+      end
+      def activity_a; end
+    end
+    class ActivityExceptionTooLargeTestWorkflow
+      extend Workflows
+      workflow(:entry_point) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+
+      activity_client(:client) { { from_class: "ActivityExceptionTooLargeActivity" } }
+      def entry_point
+        client.activity_a
+      end
+    end
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        fake_workflow_type = FakeWorkflowType.new(nil, "ActivityExceptionTooLargeTestWorkflow.entry_point", "1.0")
+        TestHistoryWrapper.new(fake_workflow_type, FakeWorkflowExecution.new(nil, nil),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+                                               "DecisionTaskCompleted",
+                                               ["ActivityTaskScheduled", {:activity_id => "Activity1"}],
+                                               "ActivityTaskStarted",
+                                               ["ActivityTaskFailed", scheduled_event_id: 5, activity_id: "Activity1", reason: "a"*245+"[TRUNCATED]", details: "SIMULATED"],
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+    workflow_type = FakeWorkflowType.new(nil, "ActivityExceptionTooLargeTestWorkflow.entry_point", "1")
+
+    domain = FakeDomain.new(workflow_type)
+    swf_client = FakeServiceClient.new
+    $my_workflow_client  = workflow_client(swf_client, domain) { { from_class: "ActivityExceptionTooLargeTestWorkflow" } }
+
+    task_list = "ActivityExceptionTooLargeTestWorkflow"
+
+    $my_workflow_client.start_execution
+    worker = SynchronousWorkflowWorker.new(swf_client, domain, task_list, ActivityExceptionTooLargeTestWorkflow)
+    worker.start
+    swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
+    reason = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:reason]
+    details = swf_client.trace.first[:decisions].first[:fail_workflow_execution_decision_attributes][:details]
+    reason.should include("TRUNCATED")
+    exception = FlowConstants.default_data_converter.load(details)
+    exception.class.should == AWS::Flow::ActivityTaskFailedException
+    exception.reason.should == "a"*245+"[TRUNCATED]"
+    exception.details.should == "SIMULATED"
+  end
+
 end
 
