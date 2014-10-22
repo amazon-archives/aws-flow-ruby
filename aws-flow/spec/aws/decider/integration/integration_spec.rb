@@ -662,6 +662,7 @@ describe "RubyFlowDecider" do
       @worker.run_once
       child_worker.run_once
       @worker.run_once
+      @worker.run_once
       wait_for_execution(workflow_execution)
       workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionFailed"
       # Make sure this is actually caused by a child workflow failed

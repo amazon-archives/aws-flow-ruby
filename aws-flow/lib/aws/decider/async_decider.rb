@@ -277,7 +277,17 @@ module AWS
       #
       def make_fail_decision(decision_id, failure)
         decision_type = "FailWorkflowExecution"
-        fail_workflow_execution_decision_attributes = {:reason => failure.reason, :details => failure.details}
+
+        # Get the reason from the failure. Or get the message if a
+        # CancellationException is initialized without a reason. Fall back to
+        # a default string if nothing is provided
+        reason = failure.reason || failure.message || "Workflow failure did not provide any reason."
+        # Get the details from the failure. Or get the backtrace if a
+        # CancellationException is initialized without a details. Fall back to
+        # a default string if nothing is provided
+        details = failure.details || failure.backtrace.to_s || "Workflow failure did not provide any details."
+
+        fail_workflow_execution_decision_attributes = { reason: reason, details: details }
         decision = {:decision_type => decision_type, :fail_workflow_execution_decision_attributes => fail_workflow_execution_decision_attributes}
         CompleteWorkflowStateMachine.new(decision_id, decision)
 
