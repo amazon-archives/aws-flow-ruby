@@ -189,12 +189,11 @@ describe Activities do
 
       activity :run_activity1, :run_activity2, :run_activity3, :run_activity4 do
         {
-          default_task_heartbeat_timeout: 60,
           version: "1.0",
           default_task_list: "large_activity_task_list",
-          default_task_schedule_to_close_timeout: 10,
-          default_task_schedule_to_start_timeout: 5,
-          default_task_start_to_close_timeout: 5,
+          default_task_schedule_to_close_timeout: 60,
+          default_task_schedule_to_start_timeout: 30,
+          default_task_start_to_close_timeout: 30,
           exponential_retry: {
             retries_per_exception: {
               ActivityTaskTimedOutException => Float::INFINITY,

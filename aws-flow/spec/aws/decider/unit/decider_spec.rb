@@ -1376,7 +1376,7 @@ describe "Workflow/Activity return values/exceptions" do
     exception = FlowConstants.default_data_converter.load(details)
     exception.class.should == StandardError
     exception.message.should == "SIMULATION"
-    exception.backtrace.first.should include("->->->->->THIS BACKTRACE WAS TRUNCATED")
+    exception.backtrace.first.should include("[TRUNCATED]")
     swf_client.trace.first[:decisions].first[:decision_type].should == "FailWorkflowExecution"
   end
 

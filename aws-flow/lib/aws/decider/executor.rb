@@ -158,7 +158,7 @@ module AWS
           if status.success?
             @log.debug "Child process #{pid} exited successfully"
           else
-            @log.error "Child process #{pid} exited with non-zero status code"
+            @log.error "Child process #{pid} exited with non-zero status code: #{status}"
           end
 
           # Reap

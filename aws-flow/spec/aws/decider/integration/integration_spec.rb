@@ -214,7 +214,7 @@ describe "RubyFlowDecider" do
       history_events.should include "ActivityTaskFailed"
 
       workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
-      workflow_execution.events.to_a.last.attributes.reason.should == "We could not serialize the output of the Activity correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Activity Worker logs to see the original output."
+      workflow_execution.events.to_a.last.attributes.reason.should == "An activity cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Activity Worker logs to see the original response."
       history_events.last.should == "WorkflowExecutionFailed"
     end
 
@@ -238,7 +238,7 @@ describe "RubyFlowDecider" do
 
       workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
       history_events.last.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
       exception = FlowConstants.default_data_converter.load(details)
       exception.class.should == AWS::Flow::ActivityTaskFailedException
@@ -256,14 +256,16 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      last_event.attributes.reason.should == "We could not serialize the output of the Workflow correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Workflow Worker logs to see the original output."
+      last_event.attributes.reason.should == "A workflow cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response."
     end
 
-    it "ensures that a workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
-      general_test(:task_list => "WorkflowExceptionTooLarge", :class_name => "WorkflowExceptionTooLarge")
+    it "ensures that a workflow exception details > 32k fails the workflow correctly and truncates the details" do
+      general_test(:task_list => "WorkflowExceptionDetailsTooLarge", :class_name => "WorkflowExceptionDetailsTooLarge")
       @workflow_class.class_eval do
         def entry_point
-          raise  ":" + "a" * 33000
+          e = RuntimeError.new("a")
+          e.set_backtrace("a"*25769)
+          raise e
         end
       end
       workflow_execution = @my_workflow_client.start_execution
@@ -271,11 +273,102 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      details = workflow_execution.events.to_a.last.attributes.details
+      exception = FlowConstants.default_data_converter.load(details)
+      exception.class.should == RuntimeError
+      exception.backtrace.first.should include ("[TRUNCATED]")
+    end
+
+    it "ensures that a workflow exception message > 256 characters fails the workflow correctly and truncates the message" do
+      general_test(:task_list => "WorkflowExceptionMessageTooLarge", :class_name => "WorkflowExceptionMessageTooLarge")
+      @workflow_class.class_eval do
+        def entry_point
+          raise  "a" * 257
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
       exception = FlowConstants.default_data_converter.load(details)
       exception.class.should == RuntimeError
     end
+
+
+    it "ensures that a respond_decision_task_completed call with response > 32k that we can't truncate fails the workflow correctly" do
+      class CustomException < FlowException
+        def initialize(reason, details)
+          @something = "a"*50000
+          super(reason, details)
+        end
+      end
+      general_test(:task_list => "CustomWorkflowExceptionTooLarge", :class_name => "CustomWorkflowExceptionTooLarge")
+      @workflow_class.class_eval do
+        def entry_point
+          raise  CustomException.new("asdf", "sdf")
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+    end
+
+    it "ensures that an activity input > 32k data fails the workflow" do
+      general_test(:task_list => "ActivityTaskLargeInput", :class_name => "ActivityTaskLargeInput")
+      @workflow_class.class_eval do
+        def entry_point
+          activity.run_activity1("A"*50000)
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      worker = WorkflowWorker.new(@domain.client, @domain, "ActivityTaskLargeInput", @workflow_class)
+      worker.register
+      worker.run_once
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      last_event.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+      last_event.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
+    end
+
+
+    it "ensures that a child workflow input > 32k fails the workflow" do
+      general_test(:task_list => "ChildWorkflowInputTooLarge", :class_name => "ChildWorkflowInputTooLarge")
+      @workflow_class.class_eval do
+        workflow(:child) do
+          {
+            version: "1.0",
+            default_execution_start_to_close_timeout: 300,
+            default_task_list: "ChildWorkflowInputTooLarge",
+            prefix_name: "ChildWorkflowInputTooLargeWorkflow"
+          }
+        end
+        def entry_point
+          child_client = AWS::Flow::workflow_client(nil, nil) { { from_class: "ChildWorkflowInputTooLargeWorkflow" } }
+          child_client.child("A"*50000)
+        end
+        def child(input); end
+      end
+
+      worker = WorkflowWorker.new(@domain.client, @domain, "ChildWorkflowInputTooLarge", @workflow_class)
+      worker.register
+      workflow_execution = @my_workflow_client.start_execution
+      worker.run_once
+
+      wait_for_execution(workflow_execution)
+      last_event = workflow_execution.events.to_a.last
+      last_event.event_type.should == "WorkflowExecutionFailed"
+      workflow_execution.events.to_a.last.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+      workflow_execution.events.to_a.last.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
+    end
+
+
 
     it "ensures that a child workflow exception > 32k fails the workflow correctly and truncates the stacktrace" do
       general_test(:task_list => "ChildWorkflowExceptionTooLarge", :class_name => "ChildWorkflowExceptionTooLarge")
@@ -308,7 +401,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
       exception = FlowConstants.default_data_converter.load(details)
       exception.class.should == AWS::Flow::ChildWorkflowFailedException
@@ -353,7 +446,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should =~ /TRUNCATED/
+      workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
       exception = FlowConstants.default_data_converter.load(details)
       exception.class.should == AWS::Flow::ChildWorkflowFailedException
@@ -878,16 +971,17 @@ describe "RubyFlowDecider" do
       general_test(:task_list => "exponential_retry_key", :class_name => "ExponentialRetryKey")
       @workflow_class.class_eval do
         def entry_point
-          activity.reconfigure(:run_activity1) {
+          activity.run_activity1  do
             {
               :exponential_retry => {:maximum_attempts => 1},
-              :default_task_schedule_to_start_timeout => 5}
-          }
-          activity.run_activity1
+              :schedule_to_start_timeout => 1
+            }
+          end
         end
       end
+      worker = WorkflowWorker.new(@domain.client, @domain, "exponential_retry_key", @workflow_class)
       workflow_execution = @my_workflow_client.start_execution
-      4.times { @worker.run_once }
+      4.times { worker.run_once }
       wait_for_execution(workflow_execution)
       workflow_execution.events.to_a.last.event_type.should == "WorkflowExecutionFailed"
     end

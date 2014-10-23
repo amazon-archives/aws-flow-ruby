@@ -98,9 +98,17 @@ module AWS
 
       # Sizes taken from
       # http://docs.aws.amazon.com/amazonswf/latest/apireference/API_FailWorkflowExecutionDecisionAttributes.html
+      DATA_LIMIT = 32768
+
+      # Number of chars that can fit in FlowException's reason
       REASON_LIMIT = 256
-      DETAILS_LIMIT = 32768
+      # Number of chars that can fit in FlowException's details. Same as
+      # DATA_LIMIT
+      DETAILS_LIMIT = DATA_LIMIT
+      # This is the truncation overhead for serialization.
       TRUNCATION_OVERHEAD = 8000
+      # Truncation string added to the end of a trucated string"
+      TRUNCATED = "[TRUNCATED]"
 
       INFINITY = -1
       RETENTION_DEFAULT = 7

@@ -52,27 +52,23 @@ module AWS
           end
           t.rescue(Exception) do |e|
 
-            converted_failure = @converter.dump(e)
-            reason = e.message
+            # Check if serialized exception violates the 32k limit and truncate it
+            reason, converted_failure = AWS::Flow::Utilities::check_and_truncate_exception(e, @converter)
 
-            # Check if serialized exception violates the 32k limit
-            if converted_failure.to_s.size > FlowConstants::DETAILS_LIMIT
-              # Truncate the exception to fit in the response
-              reason, new_exception = AWS::Flow::Utilities::truncate_exception(e)
-
-              # Serialize the new exception
-              converted_failure = @converter.dump(new_exception)
-            end
+            # Wrap the exception that we got into a WorkflowException so that it
+            # can be handled correctly.
 
             @failure = WorkflowException.new(reason, converted_failure)
-            #TODO error handling stuff
           end
           t.ensure do
             raise @failure if @failure
-            # We are going to have to convert this object into a string to submit it, and that's where the 32k limit will be enforced, so it's valid to turn the object to a string and check the size of the result
+            # We are going to have to convert this object into a string to submit it,
+            # and that's where the 32k limit will be enforced, so it's valid to turn
+            # the object to a string and check the size of the result
             output = @converter.dump method_output.get
-            if output.to_s.size > 32768
-              error_message = "We could not serialize the output of the Workflow correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Workflow Worker logs to see the original output."
+
+            if output.to_s.size > FlowConstants::DATA_LIMIT
+              error_message = "A workflow cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response."
               raise WorkflowException.new(error_message, "")
             end
             result.set(output)

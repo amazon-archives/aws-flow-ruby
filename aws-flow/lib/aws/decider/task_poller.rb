@@ -64,19 +64,40 @@ module AWS
           @logger.info Utilities.workflow_task_to_debug_string("Got decision task", task)
 
           task_completed_request = @handler.handle_decision_task(task)
-          @logger.debug "Response to the task will be #{task_completed_request}"
+          @logger.debug "Response to the task will be #{task_completed_request.inspect}"
+
           if !task_completed_request[:decisions].empty? && (task_completed_request[:decisions].first.keys.include?(:fail_workflow_execution_decision_attributes))
             fail_hash = task_completed_request[:decisions].first[:fail_workflow_execution_decision_attributes]
             reason = fail_hash[:reason]
             details = fail_hash[:details]
-            @logger.debug "#{reason}, #{details}"
           end
-          @service.respond_decision_task_completed(task_completed_request)
+
+          begin
+            @service.respond_decision_task_completed(task_completed_request)
+          rescue AWS::SimpleWorkflow::Errors::ValidationException => e
+            if e.message.include? "failed to satisfy constraint: Member must have length less than or equal to"
+              # We want to ensure that the WorkflowWorker doesn't just sit around and
+              # time the workflow out. If there is a validation failure possibly
+              # because of large inputs to child workflows/activities or large custom
+              # exceptions we should fail the workflow with some minimal details.
+              task_completed_request[:decisions] = [
+                {
+                  decision_type: "FailWorkflowExecution",
+                  fail_workflow_execution_decision_attributes: {
+                    reason: "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response." ,
+                    details: "AWS::SimpleWorkflow::Errors::ValidationException"
+                  }
+                }
+              ]
+              @service.respond_decision_task_completed(task_completed_request)
+            end
+            @logger.error "#{task.workflow_type.inspect} failed with exception: #{e.inspect}"
+          end
           @logger.info Utilities.workflow_task_to_debug_string("Finished executing task", task)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
-          @logger.error "Error in the poller, #{e.class}, #{e}"
+          @logger.error "Error in the poller, #{e.inspect}"
         rescue Exception => e
-          @logger.error "Error in the poller, #{e.class}, #{e}"
+          @logger.error "Error in the poller, #{e.inspect}"
         end
       end
     end
@@ -135,18 +156,26 @@ module AWS
         begin
           context = ActivityExecutionContext.new(@service, @domain, task)
           unless activity_implementation = @activity_definition_map[activity_type]
-            raise "This activity worker was told to work on activity type #{activity_type.name}.#{activity_type.version}, but this activity worker only knows how to work on #{@activity_definition_map.keys.map(&:name).join' '}"
+            raise "This activity worker was told to work on activity type "\
+              "#{activity_type.inspect}, but this activity worker only knows "\
+              "how to work on #{@activity_definition_map.keys.map(&:name).join' '}"
           end
 
           output, original_result, too_large = activity_implementation.execute(task.input, context)
 
-           @logger.debug "Responding on task_token #{task.task_token} for task #{task}."
+           @logger.debug "Responding on task_token #{task.task_token.inspect}."
           if too_large
-            @logger.error "Activity #{activity_type.name}.#{activity_type.version} failed: The output of this activity was too large (greater than 2^15), and therefore aws-flow could not return it to SWF. aws-flow is now attempting to mark this activity as failed. For reference, the result was #{original_result}"
+            @logger.error "#{task.activity_type.inspect} failed: An activity "\
+              "cannot send a response with a result larger than "\
+              "#{FlowConstants::DATA_LIMIT} characters. Please limit the "\
+              "size of the response. For reference, the result was #{original_result}"
 
             respond_activity_task_failed_with_retry(
               task.task_token,
-              "We could not serialize the output of the Activity correctly since it was too large. Please limit the size of the output to 32768 characters. Please look at the Activity Worker logs to see the original output.",
+              "An activity cannot send a response with a result larger than "\
+              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
+              "of the response. You can look at the Activity Worker logs to "\
+              "see the original response.",
               ""
             )
           elsif ! activity_implementation.execution_options.manual_completion
@@ -156,8 +185,7 @@ module AWS
             )
           end
         rescue ActivityFailureException => e
-          @logger.error "Activity #{activity_type.name}.#{activity_type.version} with input #{task.input} failed with exception #{e}."
-
+          @logger.error "#{task.activity_type.inspect} failed with exception: #{e.inspect}."
           respond_activity_task_failed_with_retry(
             task.task_token,
             e.message,
@@ -231,7 +259,33 @@ module AWS
       #
       def respond_activity_task_failed(task_token, reason, details)
         @logger.debug "The task token to be reported on is #{task_token}"
-        @service.respond_activity_task_failed(:task_token => task_token, :reason => reason.to_s, :details => details.to_s)
+
+        begin
+          @service.respond_activity_task_failed(
+            task_token: task_token,
+            reason: reason.to_s,
+            details: details.to_s
+          )
+        rescue AWS::SimpleWorkflow::Errors::ValidationException => e
+          if e.message.include? "failed to satisfy constraint: Member must have length less than or equal to"
+            # We want to ensure that the ActivityWorker doesn't just sit
+            # around and time the activity out. If there is a validation failure
+            # possibly because of large custom exceptions we should fail the
+            # activity task with some minimal details
+            reason = "An activity cannot send a response with data larger than "\
+              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
+              "of the response. You can look at the ActivityWorker logs to see "\
+              "the original response."
+
+            respond_activity_task_failed_with_retry(
+              task.task_token,
+              reason,
+              "AWS::SimpleWorkflow::Errors::ValidationException"
+            )
+          end
+          @logger.error "respond_activity_task_failed call failed with "\
+            "exception: #{e.inspect}"
+        end
       end
 
       # Processes the specified activity task.
@@ -263,28 +317,17 @@ module AWS
           begin
             execute(task)
           rescue CancellationException => e
-            @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}."
+            @logger.error "#{task.activity_type.inspect} failed with exception: #{e.inspect}"
             respond_activity_task_canceled_with_retry(task.task_token, e.message)
           rescue Exception => e
-            begin
-              @logger.error "Got an error, #{e.message}, while executing #{task.activity_type.name}. Full stack trace: #{e.backtrace}"
-              respond_activity_task_failed_with_retry(task.task_token, e.message, e.backtrace)
-            rescue Exception => e
-              # We want to ensure that the ActivityWorker doesn't just sit
-              # around and time the activity out. If there is a failure and we can't
-              # respond back with the correct exception for some reason
-              # (possibly really large exceptions), we should fail the activity task with
-              # some minimal details
-              reason = "ActivityWorker failed to respond_activity_task_failed with the correct message and stacktrace. Please look at the ActivityWorker logs for more details."
-              @logger.error reason
-              respond_activity_task_failed_with_retry(task.task_token, reason, "")
-            end
+            @logger.error "#{task.activity_type.inspect} failed with exception: #{e.inspect}"
+            respond_activity_task_failed_with_retry(task.task_token, e.message, e.backtrace)
           ensure
             @poll_semaphore.release
           end
         rescue Exception => e
           semaphore_needs_release = true
-          @logger.error "Got into the other error mode: #{e}"
+          @logger.error "Error in the poller, exception: #{e.inspect}. stacktrace: #{e.backtrace}"
           raise e
         ensure
           @poll_semaphore.release if semaphore_needs_release
@@ -317,7 +360,7 @@ module AWS
             @logger.info Utilities.activity_task_to_debug_string("Got activity task", task)
           end
         rescue Exception => e
-          @logger.error "Error in the poller, #{e.class}, #{e}"
+          @logger.error "Error in the poller, #{e.inspect}"
           @poll_semaphore.release
           return false
         end
