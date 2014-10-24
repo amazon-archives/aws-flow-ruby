@@ -244,6 +244,27 @@ describe "RubyFlowDecider" do
       exception.class.should == AWS::Flow::ActivityTaskFailedException
     end
 
+    it "ensures that an activity returning a Cancellation Exception of size more than 32k fails the activity" do
+      general_test(:task_list => "ActivityTaskCancellationExceptionLargeOutput", :class_name => "ActivityTaskCancellationExceptionLargeOutput")
+      @activity_class.class_eval do
+        def run_activity1
+          raise  CancellationException.new("a" * 33000)
+        end
+      end
+      workflow_execution = @my_workflow_client.start_execution
+      @worker.run_once
+      @activity_worker.run_once
+      @worker.run_once
+      wait_for_execution(workflow_execution)
+      history_events = workflow_execution.events.map(&:event_type)
+      history_events.should include "ActivityTaskFailed"
+
+      history_events.last.should == "WorkflowExecutionFailed"
+      event = workflow_execution.events.to_a.select { |x| x.event_type == "ActivityTaskFailed"}
+      event.first.attributes.reason.should ==  "An activity cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Activity Worker logs to see the original response."
+      event.first.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
+    end
+
     it "ensures that a workflow output > 32k fails the workflow" do
       general_test(:task_list => "WorkflowOutputTooLarge", :class_name => "WorkflowOutputTooLarge")
       @workflow_class.class_eval do

@@ -236,7 +236,33 @@ module AWS
       #   is cancelled.
       #
       def respond_activity_task_canceled(task_token, message)
-        @service.respond_activity_task_canceled({:task_token => task_token, :details => message})
+
+        begin
+          @service.respond_activity_task_canceled(
+            :task_token => task_token,
+            :details => message
+          )
+        rescue AWS::SimpleWorkflow::Errors::ValidationException => e
+          if e.message.include? "failed to satisfy constraint: Member must have length less than or equal to"
+            # We want to ensure that the ActivityWorker doesn't just sit
+            # around and time the activity out. If there is a validation failure
+            # possibly because of large custom exceptions we should fail the
+            # activity task with some minimal details
+            reason = "An activity cannot send a response with data larger than "\
+              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
+              "of the response. You can look at the Activity Worker logs to see "\
+              "the original response."
+
+            respond_activity_task_failed_with_retry(
+              task_token,
+              reason,
+              "AWS::SimpleWorkflow::Errors::ValidationException"
+            )
+          end
+          @logger.error "respond_activity_task_canceled call failed with "\
+            "exception: #{e.inspect}"
+        end
+
       end
 
       # Responds to the decider that the activity task has failed. No retry is
@@ -274,7 +300,7 @@ module AWS
             # activity task with some minimal details
             reason = "An activity cannot send a response with data larger than "\
               "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
-              "of the response. You can look at the ActivityWorker logs to see "\
+              "of the response. You can look at the Activity Worker logs to see "\
               "the original response."
 
             respond_activity_task_failed_with_retry(

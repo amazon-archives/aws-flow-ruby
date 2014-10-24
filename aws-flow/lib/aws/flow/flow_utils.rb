@@ -25,6 +25,7 @@ module AWS
         def initialize(reason = nil, details = nil)
           @reason = reason
           @details = details
+          super(reason)
         end
       end
 
