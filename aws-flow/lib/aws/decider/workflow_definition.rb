@@ -68,8 +68,10 @@ module AWS
             output = @converter.dump method_output.get
 
             if output.to_s.size > FlowConstants::DATA_LIMIT
-              error_message = "A workflow cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response."
-              raise WorkflowException.new(error_message, "")
+              raise WorkflowException.new(
+                Utilities.validation_error_string_partial("Workflow"),
+                ""
+              )
             end
             result.set(output)
           end

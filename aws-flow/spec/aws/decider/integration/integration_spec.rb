@@ -214,7 +214,7 @@ describe "RubyFlowDecider" do
       history_events.should include "ActivityTaskFailed"
 
       workflow_execution.events.to_a.last.attributes.details.should_not =~ /Psych/
-      workflow_execution.events.to_a.last.attributes.reason.should == "An activity cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Activity Worker logs to see the original response."
+      workflow_execution.events.to_a.last.attributes.reason.should == Utilities.validation_error_string("Activity")
       history_events.last.should == "WorkflowExecutionFailed"
     end
 
@@ -261,7 +261,7 @@ describe "RubyFlowDecider" do
 
       history_events.last.should == "WorkflowExecutionFailed"
       event = workflow_execution.events.to_a.select { |x| x.event_type == "ActivityTaskFailed"}
-      event.first.attributes.reason.should ==  "An activity cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Activity Worker logs to see the original response."
+      event.first.attributes.reason.should == Utilities.validation_error_string("Activity")
       event.first.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
     end
 
@@ -277,7 +277,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      last_event.attributes.reason.should == "A workflow cannot send a response with a result larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response."
+      last_event.attributes.reason.should == Utilities.validation_error_string_partial("Workflow")
     end
 
     it "ensures that a workflow exception details > 32k fails the workflow correctly and truncates the details" do
@@ -337,7 +337,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+      workflow_execution.events.to_a.last.attributes.reason.should == Utilities.validation_error_string("Workflow")
     end
 
     it "ensures that an activity input > 32k data fails the workflow" do
@@ -354,7 +354,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      last_event.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+      last_event.attributes.reason.should == Utilities.validation_error_string("Workflow")
       last_event.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
     end
 
@@ -385,7 +385,7 @@ describe "RubyFlowDecider" do
       wait_for_execution(workflow_execution)
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
-      workflow_execution.events.to_a.last.attributes.reason.should == "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response."
+      workflow_execution.events.to_a.last.attributes.reason.should == Utilities.validation_error_string("Workflow")
       workflow_execution.events.to_a.last.attributes.details.should == "AWS::SimpleWorkflow::Errors::ValidationException"
     end
 

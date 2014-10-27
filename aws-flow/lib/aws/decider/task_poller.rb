@@ -84,7 +84,7 @@ module AWS
                 {
                   decision_type: "FailWorkflowExecution",
                   fail_workflow_execution_decision_attributes: {
-                    reason: "A workflow cannot send a response with data larger than #{FlowConstants::DATA_LIMIT} characters. Please limit the size of the response. You can look at the Workflow Worker logs to see the original response." ,
+                    reason: Utilities.validation_error_string("Workflow"),
                     details: "AWS::SimpleWorkflow::Errors::ValidationException"
                   }
                 }
@@ -165,17 +165,13 @@ module AWS
 
            @logger.debug "Responding on task_token #{task.task_token.inspect}."
           if too_large
-            @logger.error "#{task.activity_type.inspect} failed: An activity "\
-              "cannot send a response with a result larger than "\
-              "#{FlowConstants::DATA_LIMIT} characters. Please limit the "\
-              "size of the response. For reference, the result was #{original_result}"
+            @logger.error "#{task.activity_type.inspect} failed: "\
+              "#{Utilities.validation_error_string_partial("Activity")} For "\
+              "reference, the result was #{original_result}"
 
             respond_activity_task_failed_with_retry(
               task.task_token,
-              "An activity cannot send a response with a result larger than "\
-              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
-              "of the response. You can look at the Activity Worker logs to "\
-              "see the original response.",
+              Utilities.validation_error_string("Activity"),
               ""
             )
           elsif ! activity_implementation.execution_options.manual_completion
@@ -192,7 +188,6 @@ module AWS
             e.details
           )
         end
-        #TODO all the completion stuffs
       end
 
       # Responds to the decider that the activity task has failed, and attempts
@@ -248,14 +243,9 @@ module AWS
             # around and time the activity out. If there is a validation failure
             # possibly because of large custom exceptions we should fail the
             # activity task with some minimal details
-            reason = "An activity cannot send a response with data larger than "\
-              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
-              "of the response. You can look at the Activity Worker logs to see "\
-              "the original response."
-
             respond_activity_task_failed_with_retry(
               task_token,
-              reason,
+              Utilities.validation_error_string("Activity"),
               "AWS::SimpleWorkflow::Errors::ValidationException"
             )
           end
@@ -298,14 +288,9 @@ module AWS
             # around and time the activity out. If there is a validation failure
             # possibly because of large custom exceptions we should fail the
             # activity task with some minimal details
-            reason = "An activity cannot send a response with data larger than "\
-              "#{FlowConstants::DATA_LIMIT} characters. Please limit the size "\
-              "of the response. You can look at the Activity Worker logs to see "\
-              "the original response."
-
             respond_activity_task_failed_with_retry(
               task.task_token,
-              reason,
+              Utilities.validation_error_string("Activity"),
               "AWS::SimpleWorkflow::Errors::ValidationException"
             )
           end

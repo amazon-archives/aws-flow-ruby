@@ -40,6 +40,20 @@ module AWS
         return "#{message} #{task.activity_type.name}.#{task.activity_type.version} with input: #{task.input} and task_token: #{task.task_token}"
       end
 
+      # The following two methods are used to generate an error string when
+      # response size of a workflow or activity is greater than 32k.
+      def self.validation_error_string_partial(infix)
+        str = infix.downcase == "workflow" ? "A" : "An"
+        str += " #{infix} cannot send a response with data larger than "\
+          "#{FlowConstants::DATA_LIMIT} characters. Please limit the size of the "\
+          "response."
+        str
+      end
+
+      def self.validation_error_string(infix)
+        "#{self.validation_error_string_partial(infix)} You can look at the "\
+          "#{infix} Worker logs to see the original response."
+      end
 
       # @api private
       def self.drill_on_future(future)
@@ -84,17 +98,16 @@ module AWS
         # get the reason/message of the exception
         reason = error.message
 
-        reason_limit = FlowConstants::REASON_LIMIT
         # truncate the reason if needed and add a smaller version of the
         # truncation string at the end
-        if reason.size > reason_limit
+        if reason.size > FlowConstants::REASON_LIMIT
           # saving some space at the end to add the truncation string
-          reason = reason.slice(0, reason_limit - FlowConstants::TRUNCATED.size)
+          reason = reason.slice(0, FlowConstants::REASON_LIMIT - FlowConstants::TRUNCATED.size)
           reason += FlowConstants::TRUNCATED
         end
 
         if converted_failure.to_s.size > FlowConstants::DETAILS_LIMIT
-          detail_limit = FlowConstants::DETAILS_LIMIT - (reason_limit + FlowConstants::TRUNCATION_OVERHEAD)
+          detail_limit = FlowConstants::DETAILS_LIMIT - (reason.size + FlowConstants::TRUNCATION_OVERHEAD)
           # Get the exception details if the exception is from the flow family of
           # exceptions
           details = error.details if error.respond_to? :details
