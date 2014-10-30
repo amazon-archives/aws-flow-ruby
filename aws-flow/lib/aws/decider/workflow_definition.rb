@@ -50,15 +50,32 @@ module AWS
               method_output.set(@instance.send(@workflow_method, *ruby_input))
             end
           end
-          t.rescue(Exception) do |error|
-            @failure = WorkflowException.new(error.message, @converter.dump(error))
-            #TODO error handling stuff
+          t.rescue(Exception) do |e|
+
+            # Check if serialized exception violates the 32k limit and truncate it
+            reason, converted_failure = AWS::Flow::Utilities::check_and_truncate_exception(e, @converter)
+
+            # Wrap the exception that we got into a WorkflowException so that it
+            # can be handled correctly.
+
+            @failure = WorkflowException.new(reason, converted_failure)
           end
           t.ensure do
             raise @failure if @failure
-            result.set(@converter.dump method_output.get)
+            # We are going to have to convert this object into a string to submit it,
+            # and that's where the 32k limit will be enforced, so it's valid to turn
+            # the object to a string and check the size of the result
+            output = @converter.dump method_output.get
+
+            if output.to_s.size > FlowConstants::DATA_LIMIT
+              raise WorkflowException.new(
+                Utilities.validation_error_string_partial("Workflow"),
+                ""
+              )
+            end
+            result.set(output)
           end
-        end
+          end
         return result
       end
 

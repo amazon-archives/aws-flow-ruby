@@ -75,6 +75,29 @@ describe WorkflowClient do
         client.workflow_b
       end
 
+      it "ensures workflow client uses user supplied data_converter" do
+        class FooWorkflow
+          extend AWS::Flow::Workflows
+          workflow :foo_workflow do
+            { version: "1.0" }
+          end
+        end
+        class FooDataConverter; end
+
+        swf = double(AWS::SimpleWorkflow)
+        domain = double(AWS::SimpleWorkflow::Domain)
+
+        swf.stub(:start_workflow_execution).and_return({"runId" => "111"})
+        domain.stub(:name)
+        array = []
+        domain.stub(:workflow_executions).and_return(array)
+        array.stub(:at)
+
+        client = AWS::Flow::workflow_client(swf, domain) { { from_class: "WorkflowClientTestWorkflow" } }
+        expect_any_instance_of(FooDataConverter).to receive(:dump)
+        client.start_execution(:foo_workflow, "some_input") { { data_converter: FooDataConverter.new } }
+      end
+
     end
 
   end

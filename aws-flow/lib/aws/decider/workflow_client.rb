@@ -346,10 +346,10 @@ module AWS
         client_options = Utilities::client_options_from_method_name(method_name, @options)
         options = Utilities::merge_all_options(client_options, options)
 
-        @converter ||= YAMLDataConverter.new
+        @data_converter = options[:data_converter]
         # Basically, we want to avoid the special "NoInput, but allow stuff like nil in"
         if ! (input.class <= NoInput || input.empty?)
-          options[:input] = @converter.dump input
+          options[:input] = @data_converter.dump input
         end
         if @workflow_class.nil?
           execution_method = @options.execution_method

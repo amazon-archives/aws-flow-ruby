@@ -96,6 +96,20 @@ module AWS
         attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval, :use_worker_task_list
       end
 
+      # Sizes taken from
+      # http://docs.aws.amazon.com/amazonswf/latest/apireference/API_FailWorkflowExecutionDecisionAttributes.html
+      DATA_LIMIT = 32768
+
+      # Number of chars that can fit in FlowException's reason
+      REASON_LIMIT = 256
+      # Number of chars that can fit in FlowException's details. Same as
+      # DATA_LIMIT
+      DETAILS_LIMIT = DATA_LIMIT
+      # This is the truncation overhead for serialization.
+      TRUNCATION_OVERHEAD = 8000
+      # Truncation string added to the end of a trucated string"
+      TRUNCATED = "[TRUNCATED]"
+
       INFINITY = -1
       RETENTION_DEFAULT = 7
       NUM_OF_WORKERS_DEFAULT = 1

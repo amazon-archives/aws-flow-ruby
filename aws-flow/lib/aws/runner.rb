@@ -194,7 +194,7 @@ module AWS
           task_list = expand_task_list(w['task_list'])
 
           # create a worker
-          worker = ActivityWorker.new(swf.client, domain, task_list, *w['activities']) {{ max_workers: fork_count }}
+          worker = ActivityWorker.new(swf.client, domain, task_list, *w['activities']) {{ execution_workers: fork_count }}
           add_implementations(worker, w, {config_key: 'activity_classes',
                      clazz: AWS::Flow::Activities})
 

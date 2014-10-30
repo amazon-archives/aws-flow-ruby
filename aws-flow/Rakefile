@@ -17,19 +17,19 @@ require "rspec/core/rake_task"
 
 desc "Run unit tests"
 RSpec::Core::RakeTask.new(:unit_tests) do |spec|
-  spec.rspec_opts = ['--color', '--format nested']
+  spec.rspec_opts = ['--color', '--format nested', '--profile']
   spec.pattern = 'spec/**/unit/*.rb'
 end
 
 desc "Run integration tests"
 RSpec::Core::RakeTask.new(:integration_tests) do |spec|
-  spec.rspec_opts = ['--color', '--format nested']
+  spec.rspec_opts = ['--color', '--format nested', '--profile']
   spec.pattern = 'spec/**/integration/*.rb'
 end
 
 desc "Run all tests"
 RSpec::Core::RakeTask.new(:all_tests) do |spec|
-  spec.rspec_opts = ['--color', '--format nested']
+  spec.rspec_opts = ['--color', '--format nested', '--profile']
   spec.pattern = 'spec/**/*.rb'
 end
 
