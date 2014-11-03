@@ -16,9 +16,11 @@
 require 'bundler/setup'
 require 'aws/flow'
 require 'aws/decider'
+require 'aws/replayer'
 require 'runner'
 
 include AWS::Flow
+include AWS::Flow::Replayer
 
 def constantize(camel_case_word)
   names = camel_case_word.split('::')
@@ -77,7 +79,7 @@ module Test
       #ForkingExecutor.executors = []
     end
 
-    def setup_swf
+    def setup_swf domain_name=nil
       current_date = Time.now.strftime("%d-%m-%Y")
       file_name = "/tmp/" + current_date
       if File.exists?(file_name)
@@ -89,13 +91,8 @@ module Test
       File.open(file_name, 'w+') {|f| f.write(last_run)}
       current_date = Time.now.strftime("%d-%m-%Y")
       swf = AWS::SimpleWorkflow.new
-      $rubyflow_decider_domain = "rubyflow_#{current_date}-#{last_run}"
-      begin
-        domain = swf.domains.create($rubyflow_decider_domain, "10")
-      rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
-        domain = swf.domains[$rubyflow_decider_domain]
-      end
-      @swf, @domain = swf, domain
+      $rubyflow_decider_domain = domain_name || "rubyflow_#{current_date}-#{last_run}"
+      domain = setup_domain($rubyflow_decider_domain)
       return swf, domain
     end
 

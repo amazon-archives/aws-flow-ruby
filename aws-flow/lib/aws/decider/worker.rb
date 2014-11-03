@@ -153,26 +153,15 @@ module AWS
         workflow_class.workflows.delete_if do |workflow_type|
           workflow_type.version.nil? || workflow_type.name.nil?
         end
-        workflow_class.workflows.each do |workflow_type|
-          options = workflow_type.options
-          execution_method = options.execution_method
-          version = workflow_type.version
-          registration_options = options.get_registration_options
-          implementation_options = nil
-          get_state_method = workflow_class.get_state_method
-          signals = workflow_class.signals
 
-          @workflow_definition_map[workflow_type] = WorkflowDefinitionFactory.new(
-            workflow_class,
-            workflow_type,
-            registration_options,
-            options,
-            execution_method,
-            signals,
-            get_state_method
-          )
+        @workflow_definition_map.merge!(
+          WorkflowDefinitionFactory.generate_definition_map(workflow_class)
+        )
+
+        workflow_class.workflows.each do |workflow_type|
           # TODO should probably do something like
           # GenericWorkflowWorker#registerWorkflowTypes
+          options = workflow_type.options
           workflow_hash = options.get_options(
             [
               :default_task_start_to_close_timeout,
@@ -181,7 +170,7 @@ module AWS
             ], {
               :domain => @domain.name,
               :name => workflow_type.name,
-              :version => version
+              :version => workflow_type.version
             }
           )
 

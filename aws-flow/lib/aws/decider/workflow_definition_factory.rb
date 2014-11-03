@@ -17,6 +17,38 @@ module AWS
   module Flow
 
     class WorkflowDefinitionFactory
+
+      class << self
+        # Method to create a workflow definition map from a workflow class
+        def generate_definition_map(workflow_class)
+
+          unless workflow_class.respond_to?(:workflows)
+            raise ArgumentError.new("workflow_class must extend module AWS::Flow::Workflows")
+          end
+
+          workflow_definition_map = {}
+
+          workflow_class.workflows.each do |workflow_type|
+            options = workflow_type.options
+            execution_method = options.execution_method
+            registration_options = options.get_registration_options
+            get_state_method = workflow_class.get_state_method
+            signals = workflow_class.signals
+
+            workflow_definition_map[workflow_type] = self.new(
+              workflow_class,
+              workflow_type,
+              registration_options,
+              options,
+              execution_method,
+              signals,
+              get_state_method
+            )
+          end
+          workflow_definition_map
+        end
+      end
+
       attr_reader :converter
       def initialize(klass, workflow_type, registration_options, implementation_options, workflow_method, signals, get_state_method)
         @klass = klass

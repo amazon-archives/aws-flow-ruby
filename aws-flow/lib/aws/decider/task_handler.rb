@@ -21,6 +21,15 @@ module AWS
     # `DecisionTaskHandler` and pass it to {WorkflowTaskPoller} on
     # {WorkflowTaskPoller#initialize construction}.
     class DecisionTaskHandler
+
+      class << self
+        # Factory method to create a DecisionTaskHandler instance given a
+        # workflow class
+        def from_workflow_class workflow_class
+          self.new(WorkflowDefinitionFactory.generate_definition_map(workflow_class))
+        end
+      end
+
       attr_reader :workflow_definition_map
 
       # Creates a new `DecisionTaskHandler`.
