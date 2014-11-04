@@ -1,6 +1,8 @@
 module AWS
   module Flow
     module Replayer
+      require 'aws/decider'
+      include AWS::Flow
 
       # This class is used by the Replayer to fetch the DecisionTask which will
       # be used by the DecisionTaskHandler. This is an 'abstract' class. We need
