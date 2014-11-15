@@ -61,7 +61,7 @@ module AWS
             @logger.debug "Didn't get a task on task_list: #{@task_list}"
             return false
           end
-          @logger.info Utilities.workflow_task_to_debug_string("Got decision task", task)
+          @logger.info Utilities.workflow_task_to_debug_string("Got decision task", task, @task_list)
 
           task_completed_request = @handler.handle_decision_task(task)
           @logger.debug "Response to the task will be #{task_completed_request.inspect}"
@@ -93,7 +93,7 @@ module AWS
             end
             @logger.error "#{task.workflow_type.inspect} failed with exception: #{e.inspect}"
           end
-          @logger.info Utilities.workflow_task_to_debug_string("Finished executing task", task)
+          @logger.info Utilities.workflow_task_to_debug_string("Finished executing task", task, @task_list)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
           @logger.error "Error in the poller, #{e.inspect}"
         rescue Exception => e

@@ -1537,5 +1537,48 @@ describe "Workflow/Activity return values/exceptions" do
     exception.details.should == "SIMULATED"
   end
 
+
+  # A bug was introduced in the previous commit which resulted in unnecessary
+  # calls to #describe_workflow_execution during logging of a DecisionTask. This
+  # test ensures that we don't call describe_workflow_execution anymore.
+  it "ensures describe_workflow_execution is not called during polling" do
+
+    swf = double("swf")
+    domain = double("domain")
+    allow(domain).to receive(:name).and_return("foo")
+    allow(swf).to receive(:domain).and_return(domain)
+
+    # Set the expectations for the test
+    expect_any_instance_of(AWS::SimpleWorkflow::Client::V20120125).to_not receive(:describe_workflow_execution)
+
+    class SomeWorkflow
+      extend Workflows
+      workflow(:start) do
+        {
+          version: "1.0",
+          default_execution_start_to_close_timeout: 600,
+        }
+      end
+      def start; end
+    end
+
+    class SynchronousWorkflowTaskPoller < WorkflowTaskPoller
+      def get_decision_task
+        fake_workflow_type = FakeWorkflowType.new(nil, "SomeWorkflow.start", "1.0")
+        domain = double("domain")
+        TestHistoryWrapper.new(fake_workflow_type, AWS::SimpleWorkflow::WorkflowExecution.new(domain, "workflow_id", "run_id"),
+                               FakeEvents.new(["WorkflowExecutionStarted",
+                                               "DecisionTaskScheduled",
+                                               "DecisionTaskStarted",
+        ]))
+      end
+    end
+    workflow_type = FakeWorkflowType.new(nil, "SomeWorkflow.entry_point", "1")
+    client  = workflow_client(swf, domain) { { from_class: "SomeWorkflow" } }
+
+    worker = SynchronousWorkflowWorker.new(swf, domain, "SomeWorkflow", SomeWorkflow)
+    worker.start
+  end
+
 end
 
