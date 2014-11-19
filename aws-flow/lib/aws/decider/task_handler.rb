@@ -73,7 +73,7 @@ module AWS
         workflow_type = task.workflow_type
         # TODO put in context correctly
         workflow_definition_factory = @workflow_definition_map[workflow_type]
-        raise "No such definition for #{workflow_type}" if workflow_definition_factory.nil?
+        raise "No workflow definition for #{workflow_type.inspect}" if workflow_definition_factory.nil?
         AsyncDecider.new(workflow_definition_factory, history_helper, DecisionHelper.new)
       end
 
