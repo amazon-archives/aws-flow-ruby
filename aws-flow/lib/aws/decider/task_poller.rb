@@ -361,11 +361,9 @@ module AWS
         semaphore_needs_release = true
         @logger.debug "Before the poll"
 
-        start = Time.now
         GC.disable
         @task_options ||= @service.config.to_h
         GC.enable
-        puts "Options setup: #{(Time.now - start) * 1000}"
 
         begin
           if use_forking
