@@ -4,7 +4,7 @@ include Test::Integ
 describe Replayer do
   before(:all) do
 
-    @swf, @domain = setup_swf("ReplayerTest")
+    @swf, @domain = setup_swf
 
     class ReplayerTestActivity
       extend Activities

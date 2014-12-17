@@ -10,6 +10,7 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_schedule_to_close_timeout: "NONE",
         default_task_schedule_to_start_timeout: "NONE",
         default_task_start_to_close_timeout: "NONE",
+        default_task_priority: "0",
         default_task_list: "USE_WORKER_TASK_LIST"
       }
     end
@@ -20,6 +21,7 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_schedule_to_close_timeout: 50,
         default_task_start_to_close_timeout: 30,
         default_task_heartbeat_timeout: 5,
+        default_task_priority: 100,
         default_task_list: "test_tasklist",
       })
       options.get_registration_options.should == {
@@ -27,6 +29,7 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_schedule_to_close_timeout: "50",
         default_task_schedule_to_start_timeout: "20",
         default_task_start_to_close_timeout: "30",
+        default_task_priority: "100",
         default_task_list: "test_tasklist"
       }
     end
@@ -42,6 +45,7 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_schedule_to_close_timeout: "NONE",
         default_task_schedule_to_start_timeout: "NONE",
         default_task_start_to_close_timeout: "NONE",
+        default_task_priority: "0",
         default_task_list: "USE_WORKER_TASK_LIST",
         data_converter: FlowConstants.default_data_converter
       }
@@ -60,6 +64,7 @@ describe AWS::Flow::ActivityRegistrationOptions do
         task_list: "test_tasklist",
         version: "1.0",
         prefix_name: "FooActivity",
+        task_priority: 100,
         manual_completion: true,
         heartbeat_timeout: 10
       })
@@ -71,6 +76,8 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_start_to_close_timeout: "30",
         default_task_list: "USE_WORKER_TASK_LIST",
         task_list: "test_tasklist",
+        default_task_priority: "0",
+        task_priority: "100",
         version: "1.0",
         prefix_name: "FooActivity",
         manual_completion: true,
@@ -97,6 +104,7 @@ describe AWS::Flow::WorkflowRegistrationOptions do
       options.get_registration_options.should == { 
         default_task_start_to_close_timeout: "30",
         default_child_policy: "TERMINATE",
+        default_task_priority: "0",
         default_task_list: "USE_WORKER_TASK_LIST"
       }
     end
@@ -106,12 +114,14 @@ describe AWS::Flow::WorkflowRegistrationOptions do
         default_task_schedule_to_close_timeout: 30,
         default_execution_start_to_close_timeout: 600,
         default_child_policy: "ABANDON",
+        default_task_priority: "100",
         default_task_list: "task_list"
       })
       options.get_registration_options.should == {
         default_task_start_to_close_timeout: "30",
         default_execution_start_to_close_timeout: "600",
         default_child_policy: "ABANDON",
+        default_task_priority: "100",
         default_task_list: "task_list"
       }
     end
@@ -127,6 +137,7 @@ describe AWS::Flow::WorkflowRegistrationOptions do
         default_task_start_to_close_timeout: "30",
         default_child_policy: "TERMINATE",
         default_task_list: "USE_WORKER_TASK_LIST",
+        default_task_priority: "0",
         tag_list: [],
         data_converter: FlowConstants.default_data_converter
       }
@@ -153,6 +164,7 @@ describe AWS::Flow::WorkflowRegistrationOptions do
         default_child_policy: "TERMINATE",
         default_task_list: "USE_WORKER_TASK_LIST",
         task_list: "test_tasklist",
+        default_task_priority: "0",
         version: "1.0",
         prefix_name: "FooActivity",
         data_converter: FlowConstants.default_data_converter,
@@ -189,6 +201,7 @@ describe AWS::Flow::ActivityOptions do
         task_list: "test_tasklist",
         version: "1.0",
         prefix_name: "FooActivity",
+        task_priority: 100,
         manual_completion: true,
         heartbeat_timeout: 10
       })
@@ -198,6 +211,7 @@ describe AWS::Flow::ActivityOptions do
         version: "1.0",
         prefix_name: "FooActivity",
         manual_completion: true,
+        task_priority: "100",
         heartbeat_timeout: "10",
         data_converter: FlowConstants.default_data_converter,
       }
@@ -263,6 +277,7 @@ describe AWS::Flow::WorkflowRegistrationDefaults do
       defaults.default_child_policy.should == "TERMINATE"
       defaults.tag_list.should == []
       defaults.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
+      defaults.default_task_priority == "0"
     end
 
   end
@@ -280,6 +295,7 @@ describe AWS::Flow::ActivityRegistrationDefaults do
       defaults.default_task_schedule_to_close_timeout.should == Float::INFINITY
       defaults.default_task_start_to_close_timeout.should == Float::INFINITY
       defaults.default_task_heartbeat_timeout.should == Float::INFINITY
+      defaults.default_task_priority == "0"
       defaults.default_task_list.should == AWS::Flow::FlowConstants.use_worker_task_list
     end
 

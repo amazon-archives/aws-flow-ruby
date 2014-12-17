@@ -195,7 +195,7 @@ module AWS
             }
         }
         task_list = options.task_list ? {:task_list => {:name => options.task_list}} : {}
-        to_add = options.get_options([:heartbeat_timeout, :schedule_to_close_timeout, :schedule_to_start_timeout, :start_to_close_timeout, :input], task_list)
+        to_add = options.get_options([:heartbeat_timeout, :schedule_to_close_timeout, :task_priority, :schedule_to_start_timeout, :start_to_close_timeout, :input], task_list)
         result[attribute_type].merge!(to_add)
         result
       end
@@ -336,7 +336,7 @@ module AWS
         }
         result[:start_child_workflow_execution_decision_attributes].delete(:task_list) if options.task_list.nil?
         #TODO Figure out what control is
-        to_add = options.get_options([:execution_start_to_close_timeout, :task_start_to_close_timeout, :child_policy, :tag_list, :input])
+        to_add = options.get_options([:execution_start_to_close_timeout, :task_start_to_close_timeout, :task_priority, :child_policy, :tag_list, :input])
         result[attribute_name].merge!(to_add)
         result
       end

@@ -166,7 +166,8 @@ module AWS
             [
               :default_task_start_to_close_timeout,
               :default_execution_start_to_close_timeout,
-              :default_child_policy
+              :default_child_policy,
+              :default_task_priority
             ], {
               :domain => @domain.name,
               :name => workflow_type.name,

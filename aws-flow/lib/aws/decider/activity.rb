@@ -433,6 +433,7 @@ module AWS
       #       :default_task_schedule_to_close_timeout => "20",
       #       :default_task_schedule_to_start_timeout => "20",
       #       :default_task_start_to_close_timeout => "20",
+      #       :default_task_priority => "0",
       #       :version => "1",
       #       :prefix_name => "ExampleActivity"
       #     }
