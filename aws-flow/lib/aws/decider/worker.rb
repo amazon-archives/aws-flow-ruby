@@ -337,7 +337,7 @@ module AWS
             registration_difference =  default_options.sort.to_a - previous_registration.sort.to_a
 
             unless registration_difference.empty?
-              raise "There is a difference between the types you have registered previously and the types you are currently registering, but you haven't changed the version. These new changes will not be picked up. In particular, these options are different #{Hash[registration_difference]}"
+              raise "Activity [#{activity_type_options[:name]}]: There is a difference between the types you have registered previously and the types you are currently registering, but you haven't changed the version. These new changes will not be picked up. In particular, these options are different #{Hash[registration_difference]}"
             end
             # Purposefully eaten up, the alternative is to check first, and who
             # wants to do two trips when one will do?
