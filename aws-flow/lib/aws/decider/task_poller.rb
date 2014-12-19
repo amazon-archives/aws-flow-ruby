@@ -360,7 +360,6 @@ module AWS
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
-        @logger.debug "Before the poll"
         begin
           if use_forking
             @executor.block_on_max_workers
