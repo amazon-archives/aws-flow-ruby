@@ -52,6 +52,15 @@ describe "task_priority" do
       worker.register
       activity_worker.register
 
+      type = @domain.workflow_types.to_a.find { |x| x.name == "WorkflowForTaskPriority.start" }
+      type.default_task_priority.should == 10
+
+      type = @domain.activity_types.to_a.find { |x| x.name == "ActivityForTaskPriority.run_1" }
+      type.default_task_priority.should == 20
+
+      type = @domain.activity_types.to_a.find { |x| x.name == "ActivityForTaskPriority.run_2" }
+      type.default_task_priority.should == 0
+
       client = AWS::Flow::workflow_client(@domain.client, @domain) { {from_class: "WorkflowForTaskPriority"} }
       execution = client.start_execution
 
@@ -63,10 +72,10 @@ describe "task_priority" do
       wait_for_execution(execution)
 
       event = execution.events.select { |x| x.event_type =~ /ActivityTaskScheduled/ }
-      event.first.attributes[:task_priority].should == "20"
-      event.last.attributes[:task_priority].should == "0"
+      event.first.attributes[:task_priority].should == 20
+      event.last.attributes[:task_priority].should == 0
       events = execution.events.select { |x| x.event_type =~ /DecisionTaskScheduled/ }
-      events.first.attributes[:taskPriority].should == "10"
+      events.first.attributes[:taskPriority].should == 10
     end
 
     it "ensures that overriden values of task priority are assigned when workflow is started and when activity is scheduled" do
@@ -80,6 +89,8 @@ describe "task_priority" do
       activity_worker = ActivityWorker.new(@domain.client, @domain, task_list, ActivityForTaskPriority)
       worker.register
       activity_worker.register
+      type = @domain.workflow_types.to_a.find { |x| x.name == "WorkflowForTaskPriority.start" }
+      type.default_task_priority.should == 10
 
       client = AWS::Flow::workflow_client(@domain.client, @domain) { {from_class: "WorkflowForTaskPriority"} }
       execution = client.start_execution { { task_priority: "100" } }
@@ -91,9 +102,9 @@ describe "task_priority" do
       wait_for_execution(execution)
 
       event = execution.events.select { |x| x.event_type =~ /ActivityTaskScheduled/ }
-      event.first.attributes[:task_priority].should == "200"
+      event.first.attributes[:task_priority].should == 200
       events = execution.events.select { |x| x.event_type =~ /DecisionTaskScheduled/ }
-      events.first.attributes[:taskPriority].should == "100"
+      events.first.attributes[:taskPriority].should == 100
     end
 
   end
@@ -128,7 +139,7 @@ describe "task_priority" do
       execution.events.map(&:event_type).last.should == "WorkflowExecutionContinuedAsNew"
       execution.status.should == :continued_as_new
       events = execution.events.select { |x| x.event_type == "WorkflowExecutionContinuedAsNew" }
-      events.first.attributes.task_priority.should == "50"
+      events.first.attributes.task_priority.should == 50
     end
 
 
@@ -150,7 +161,7 @@ describe "task_priority" do
       execution.events.map(&:event_type).last.should == "WorkflowExecutionContinuedAsNew"
       execution.status.should == :continued_as_new
       events = execution.events.select { |x| x.event_type == "WorkflowExecutionContinuedAsNew" }
-      events.first.attributes.task_priority.should == "100"
+      events.first.attributes.task_priority.should == 100
     end
   end
 
@@ -202,6 +213,8 @@ describe "task_priority" do
 
       events = workflow_execution.events.map(&:event_type)
       events.should include("ChildWorkflowExecutionStarted", "ChildWorkflowExecutionCompleted", "WorkflowExecutionCompleted")
+      events = workflow_execution.events.select { |x| x.event_type =~ /ChildWorkflowExecutionStarted/ }
+      events[0].attributes.workflow_execution.task_priority.should == 100
       @forking_executor.shutdown 0
     end
 
