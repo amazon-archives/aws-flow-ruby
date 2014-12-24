@@ -201,12 +201,13 @@ describe "task_priority" do
       parent_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "ChildWorkflowsTestParentWorkflow" } }
       @child_worker = WorkflowWorker.new(@domain.client, @domain, "test2", ChildWorkflowsTestChildWorkflow)
       @parent_worker = WorkflowWorker.new(@domain.client, @domain, "test", ChildWorkflowsTestParentWorkflow)
+      @child_worker.register
+      @parent_worker.register
 
       @forking_executor = ForkingExecutor.new(:max_workers => 3)
       @forking_executor.execute { @parent_worker.start }
       @forking_executor.execute { @child_worker.start }
       @forking_executor.execute { @child_worker.start }
-      sleep 2
 
       workflow_execution = parent_client.start_execution
       wait_for_execution(workflow_execution)

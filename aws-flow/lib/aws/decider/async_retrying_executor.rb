@@ -125,7 +125,7 @@ module AWS
       #   otherwise.
       #
       def isRetryable(failure)
-        if failure.respond_to? :cause
+        if failure.respond_to?(:cause) && !failure.cause.nil?
           failure_class = failure.cause.class
         else
           failure_class = failure.class

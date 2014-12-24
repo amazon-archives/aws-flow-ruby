@@ -50,8 +50,7 @@ describe "Runner" do
 
     # This activity will say hello when invoked by the workflow
     def ping() 
-      puts "Pong from #{Socket.gethostbyname(Socket.gethostname).first}"
-      "Pong from #{Socket.gethostbyname(Socket.gethostname).first}"
+      "Pong from #{Socket.gethostname}"
     end
   end
 
