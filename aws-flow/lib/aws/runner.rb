@@ -117,13 +117,15 @@ module AWS
       #
       # @api private
       def self.spawn_and_start_workers(json_fragment, process_name, worker)
+        reg = true
         workers = []
         num_of_workers = json_fragment['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
         num_of_workers.times do
           workers << fork do
             set_process_name(process_name)
-            worker.start()
+            worker.start(reg)
           end
+          reg = false
         end
         workers
       end
