@@ -13,5 +13,5 @@ Gem::Specification.new do |s|
   s.files       = `git ls-files`.split("\n").reject {|file| file =~ /aws-flow-core/}
   s.require_paths << "lib/aws/"
   s.required_ruby_version = ">= 1.9.1"
-  s.add_dependency "aws-sdk-v1", "~> 1", ">= 1.39.0"
+  s.add_dependency "aws-sdk-v1", "~> 1", ">= 1.60.1"
 end

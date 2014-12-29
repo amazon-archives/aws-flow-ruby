@@ -200,7 +200,7 @@ describe Activities do
             }
           }
         }
-    end
+      end
       def run_activity1
         "My name is Ozymandias - 1"
       end

@@ -359,6 +359,7 @@ module AWS
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
+
         @logger.debug "Before the poll"
 
         GC.disable

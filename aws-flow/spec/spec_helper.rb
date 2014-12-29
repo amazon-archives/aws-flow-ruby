@@ -106,7 +106,8 @@ module Test
       sleep sleep_time until [
         "WorkflowExecutionCompleted",
         "WorkflowExecutionTimedOut",
-        "WorkflowExecutionFailed"
+        "WorkflowExecutionFailed",
+        "WorkflowExecutionContinuedAsNew"
       ].include? execution.events.to_a.last.event_type
     end
 

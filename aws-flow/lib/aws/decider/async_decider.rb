@@ -313,7 +313,7 @@ module AWS
         }
 
         task_list = continue_as_new_options.task_list ? {:task_list => {:name => continue_as_new_options.task_list}} : {}
-        to_add = continue_as_new_options.get_options([:execution_start_to_close_timeout, :task_start_to_close_timeout, :child_policy, :tag_list, :workflow_type_version, :input], task_list)
+        to_add = continue_as_new_options.get_options([:execution_start_to_close_timeout, :task_start_to_close_timeout, :task_priority, :child_policy, :tag_list, :workflow_type_version, :input], task_list)
         result[:continue_as_new_workflow_execution_decision_attributes] = to_add
         CompleteWorkflowStateMachine.new(decision_id, result)
       end

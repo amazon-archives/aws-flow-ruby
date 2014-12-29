@@ -357,6 +357,9 @@ module AWS
       # array (no tags).
       def tag_list; []; end
 
+      # The default task priority.The default value is '0'
+      def default_task_priority; 0; end
+
       def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
@@ -439,6 +442,20 @@ module AWS
     #   value can be used to specify the duration in seconds while `NONE` can be
     #   used to specify unlimited duration.  The default is `30`.
     #
+    # @!attribute task_priority
+    #   The optional task priority if set, specifies the priority for the
+    #   decision tasks for a workflow execution. This overrides the
+    #   defaultTaskPriority specified when registering the WorkflowType. The
+    #   valid values are Integers between Integer.MAX_VALUE to
+    #   Integer.MIN_VALUE, i.e. between 2147483647 and -2147483648 for 32-bit
+    #   integer. An integer value can be used to specify the priority with
+    #   which a workflow must be started.
+    #
+    #   Note: task_priority for a workflow must be specified either as a
+    #   default for the WorkflowType or through this field. If neither this
+    #   field is set nor a default_task_priority is specified at registration
+    #   time then it will be assumed nil.
+    #
     # @!attribute version
     #   A string that represents the version of the workflow. This can be any
     #   alphanumeric string. If you update any of the other options, you must
@@ -461,6 +478,7 @@ module AWS
         :workflow_id,
         :execution_start_to_close_timeout,
         :task_start_to_close_timeout,
+        :task_priority,
         :task_list,
         :execution_method
       )
@@ -490,6 +508,7 @@ module AWS
             :default_task_start_to_close_timeout,
             :default_execution_start_to_close_timeout,
             :default_task_list,
+            :default_task_priority,
             :default_child_policy
           ]
         end
@@ -499,7 +518,8 @@ module AWS
       properties(
         :default_task_start_to_close_timeout,
         :default_execution_start_to_close_timeout,
-        :default_task_list
+        :default_task_list,
+        :default_task_priority
       )
 
       property(:default_child_policy, [lambda(&:to_s), lambda(&:upcase)])
@@ -582,6 +602,17 @@ module AWS
       # `FlowConstants.use_worker_task_list` will be used, which causes the
       # activities to use the task list specified for the activity worker.
       def default_task_list; FlowConstants.use_worker_task_list; end
+
+      # The optional default task priority, specified when registering the activity type,
+      # for tasks of this activity type. This default can be overridden when scheduling
+      # a task through - the ScheduleActivityTask Decision.
+      # The valid values are Integer number(Integer.MAX_VALUE to Integer.MIN_VALUE),
+      # (2147483647 to -2147483648) for 32-bit integer.
+      # An integer value can be used to specify the priority with which an activity must
+      # be executed.
+      def default_task_priority; 0; end
+
+      def default_task_list; FlowConstants.use_worker_task_list; end
     end
 
     # Options to use on an activity or decider. The following options are
@@ -608,6 +639,13 @@ module AWS
     # @!attribute default_task_list
     #   The optional default task list specified for this activity type at
     #   registration. This default task list is used if a task list is not
+    #   provided when a task is scheduled through the `ScheduleActivityTask`
+    #   decision. You can override this default when scheduling a task through
+    #   the `ScheduleActivityTask` decision.
+    #
+    # @!attribute default_task_priority
+    #   The optional default task priority specified for this activity type at
+    #   registration. This default task priority is used if a task priority is not
     #   provided when a task is scheduled through the `ScheduleActivityTask`
     #   decision. You can override this default when scheduling a task through
     #   the `ScheduleActivityTask` decision.
@@ -642,6 +680,7 @@ module AWS
         :schedule_to_close_timeout,
         :schedule_to_start_timeout,
         :start_to_close_timeout,
+        :task_priority,
         :version,
         :input
       )
@@ -714,6 +753,12 @@ module AWS
       #   provided when a task is scheduled through the ScheduleActivityTask
       #   decision.
       #
+      # @option default_options [Array] :task_priority
+      #   The optional default task priority specified for this activity type at
+      #   registration. This default task priority is used if a task priority is not
+      #   provided when a task is scheduled through the ScheduleActivityTask
+      #   decision.
+      #
       #   You can override this default when scheduling a task through the
       #   `ScheduleActivityTask` decision.
       #
@@ -772,7 +817,8 @@ module AWS
             :default_task_schedule_to_close_timeout,
             :default_task_schedule_to_start_timeout,
             :default_task_start_to_close_timeout,
-            :default_task_list
+            :default_task_list,
+            :default_task_priority
           ]
         end
       end
@@ -784,6 +830,7 @@ module AWS
         :default_task_schedule_to_close_timeout,
         :default_task_schedule_to_start_timeout,
         :default_task_start_to_close_timeout,
+        :default_task_priority
       )
 
       default_classes << ActivityRegistrationDefaults.new

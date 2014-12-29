@@ -1343,7 +1343,7 @@ describe "RubyFlowDecider" do
 
         workflow_execution = parent_client.start_execution
         wait_for_execution(workflow_execution)
-        
+
         events = workflow_execution.events.map(&:event_type)
         workflow_execution.events.to_a.last.attributes.result.should_not =~ /secret_access_key/
         events.should include("ChildWorkflowExecutionStarted", "ChildWorkflowExecutionCompleted", "WorkflowExecutionCompleted")

@@ -81,6 +81,7 @@ describe WorkflowWorker do
       workflow_options = {
         default_task_start_to_close_timeout: "30",
         default_child_policy: "TERMINATE",
+        default_task_priority: "0",
         domain: "UnitTestDomain",
         name: "DefaultTasklistTestWorkflow.workflow",
         version: "1.0",
@@ -91,6 +92,7 @@ describe WorkflowWorker do
       workflow2_options = {
         default_task_start_to_close_timeout: "30",
         default_child_policy: "TERMINATE",
+        default_task_priority: "0",
         domain: "UnitTestDomain",
         name: "DefaultTasklistTestWorkflow.workflow2",
         version: "1.0",
@@ -100,6 +102,7 @@ describe WorkflowWorker do
       }
       workflow3_options = {
         default_task_start_to_close_timeout: "30",
+        default_task_priority: "0",
         default_child_policy: "TERMINATE",
         domain: "UnitTestDomain",
         name: "DefaultTasklistTestWorkflow.workflow3",
@@ -207,6 +210,7 @@ describe ActivityWorker do
         default_task_schedule_to_close_timeout: "NONE",
         default_task_schedule_to_start_timeout: "NONE",
         default_task_start_to_close_timeout: "NONE",
+        default_task_priority: "0",
         default_task_list: {
           name: "task_list"
         }
@@ -220,6 +224,7 @@ describe ActivityWorker do
         default_task_schedule_to_close_timeout: "NONE",
         default_task_schedule_to_start_timeout: "NONE",
         default_task_start_to_close_timeout: "NONE",
+        default_task_priority: "0",
         default_task_list: {
           name: "my_own_task_list"
         }
@@ -233,6 +238,7 @@ describe ActivityWorker do
         default_task_schedule_to_close_timeout: "NONE",
         default_task_schedule_to_start_timeout: "NONE",
         default_task_start_to_close_timeout: "NONE",
+        default_task_priority: "0",
         default_task_list: {
           name: "task_list"
         }
