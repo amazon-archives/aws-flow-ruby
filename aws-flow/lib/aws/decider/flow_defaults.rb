@@ -116,15 +116,19 @@ module AWS
 
       def self.defaults
         {
-          domain: "rubyflow_default_workflow_domain",
-          prefix_name: "RubyFlowDefaultWorkflow",
+          domain: "FlowDefault",
+          prefix_name: "FlowDefaultWorkflowRuby",
           execution_method: "start",
           version: "1.0",
-          # max execution seconds for SWF (366 days precisely)
-          execution_start_to_close_timeout: "31622400",
+          # execution timeout (1 hour)
+          execution_start_to_close_timeout: "3600",
           data_converter: self.data_converter,
-          task_list: "rubyflow_default_workflow_tasklist",
-          result_activity_prefix: "RubyFlowDefaultResultActivity",
+          schedule_to_start_timeout: 60,
+          start_to_close_timeout: 60,
+          retry_policy: { maximum_attempts: 3 },
+          task_list: "flow_default_ruby",
+          result_activity_prefix: "FlowDefaultResultActivityRuby",
+          result_activity_version: "1.0",
           result_activity_method: "run"
         }
       end
@@ -179,7 +183,7 @@ module AWS
       # used. S3DataConverter is used when AWS_SWF_BUCKET_NAME environment
       # variable is set.
       def self.data_converter
-        return YAMLDataConverter.new unless ENV['AWS_SWF_BUCKET_NAME']
+        return self.default_data_converter unless ENV['AWS_SWF_BUCKET_NAME']
         S3DataConverter.converter
       end
 

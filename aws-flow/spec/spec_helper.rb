@@ -18,8 +18,6 @@ require 'aws/flow'
 require 'aws/decider'
 require 'replayer'
 require 'runner'
-require 'pry'
-require 'pry-debugger'
 
 include AWS::Flow
 include AWS::Flow::Replayer
@@ -36,14 +34,6 @@ end
 
 module Test
   module Integ
-    def setup_domain(domain_name)
-      swf = AWS::SimpleWorkflow.new
-      domain = swf.domains[domain_name]
-      unless domain.exists?
-        swf.domains.create(domain_name, 10)
-      end
-      domain
-    end
 
     def build_client(from_class)
       domain = get_test_domain
@@ -94,10 +84,9 @@ module Test
       current_date = Time.now.strftime("%d-%m-%Y")
 
       swf = AWS::SimpleWorkflow.new
-      #$rubyflow_decider_domain = domain_name || "rubyflow_#{current_date}-#{last_run}"
       $rubyflow_decider_domain = domain_name || "rubyflow_test_domain"
       puts "Using test domain: #{$rubyflow_decider_domain}"
-      domain = setup_domain $rubyflow_decider_domain
+      domain = AWS::Flow::Utilities.register_domain($rubyflow_decider_domain, 10)
 
       return swf, domain
     end

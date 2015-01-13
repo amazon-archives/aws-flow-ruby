@@ -37,8 +37,8 @@ describe Templates do
 
       it "checks workflow input correctly" do
         expect{obj.start("some_input")}.to raise_error(ArgumentError)
-        expect{obj.start(input: "some_input")}.to raise_error(ArgumentError)
-        expect{obj.start(root: "some_input")}.to raise_error(ArgumentError)
+        expect{obj.start(args: "some_input")}.to raise_error(ArgumentError)
+        expect{obj.start(definition: "some_input")}.to raise_error(ArgumentError)
       end
 
       it "runs template correctly" do
@@ -46,8 +46,8 @@ describe Templates do
         expect(template).to receive(:run).with({input: "some_input"}, an_instance_of(klass))
         expect(template).to receive(:is_a?).and_return(true)
         expect{obj.start(
-          input: {input: "some_input"},
-          root: template
+          args: {input: "some_input"},
+          definition: template
         )}.not_to raise_error
       end
 
@@ -70,7 +70,7 @@ describe Templates do
     it "correctly creates a proxy Activity class" do
       klass = AWS::Flow::Templates.make_activity_class(FooClass)
       klass.should be_kind_of(AWS::Flow::Activities)
-      klass.should == AWS::Flow::Templates::UserActivities.const_get("FooClassProxy")
+      klass.should == AWS::Flow::Templates::ActivityProxies.const_get("FooClassProxy")
       klass.new.instance.should be_kind_of(FooClass)
       activities = klass.activities.map(&:name).map { |x| x.split('.').last.to_sym }
       activities.should include(*FooClass.instance_methods(false))
@@ -81,7 +81,7 @@ describe Templates do
       klass = FooModule.const_set("FooClass1", Class.new(Object))
       klass = AWS::Flow::Templates.make_activity_class(klass)
       klass.should be_kind_of(AWS::Flow::Activities)
-      klass.should == AWS::Flow::Templates::UserActivities.const_get("FooClass1Proxy")
+      klass.should == AWS::Flow::Templates::ActivityProxies.const_get("FooClass1Proxy")
     end
 
     it "correctly converts instance methods to activities and assigns options" do
@@ -113,23 +113,27 @@ describe Templates do
 
   context "#result_activity" do
 
-    let(:klass) { AWS::Flow::Templates.result_activity("Foo")}
+    let(:klass) { AWS::Flow::Templates.result_activity }
 
-    it "correctly creates a Ruby Flow default activity class" do
+    it "correctly returns the FlowDefaultResultActivityRuby class" do
       klass.should be_kind_of(AWS::Flow::Activities)
       klass.activities.size.should == 1
-      klass.name.should == "AWS::Flow::Templates::RubyFlowDefaultResultActivityFoo"
+      klass.name.should == "AWS::Flow::Templates::FlowDefaultResultActivityRuby"
       klass.activities.first.name.should == "#{FlowConstants.defaults[:result_activity_prefix]}"\
         ".#{FlowConstants.defaults[:result_activity_method]}"
       klass.activities.first.version.should == FlowConstants.defaults[:version]
+      klass.instance_methods(false).should include(:result)
     end
 
-    it "doesn't create any activity method because they are defined in the starter" do
-      klass.instance_methods(false).should be_empty
+    it "correctly initializes and sets the result" do
+      inst = klass.new
+      expect(inst.result).to be_kind_of(AWS::Flow::Core::Future)
+      inst.run("foo")
+      inst.result.get.should == "foo"
     end
 
     it "doesn't throw an exception if a default activity class already exists" do
-      expect{AWS::Flow::Templates.result_activity("Foo")}.not_to raise_error
+      expect{AWS::Flow::Templates.result_activity}.not_to raise_error
     end
 
   end

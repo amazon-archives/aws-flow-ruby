@@ -50,7 +50,11 @@ require "aws/decider/implementation"
 require "aws/decider/starter"
 require "aws/decider/version"
 
+# Add the runner files
 require 'aws/runner'
+
+# Add the Workflow Template files
+require 'aws/templates'
 
 # @api private
 def get_const(name)

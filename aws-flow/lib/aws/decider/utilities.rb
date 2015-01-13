@@ -92,9 +92,28 @@ module AWS
         client_options
       end
 
+      # This method is used to register a domain with the Simple Workflow
+      # Service.
+      # @param name Name of the domain
+      # @param retention Workflow execution retention period in days
       # @api private
+      def self.register_domain(name, retention=nil)
+        swf = AWS::SimpleWorkflow.new
+        retention ||= FlowConstants::RETENTION_DEFAULT
+        begin
+          swf.client.register_domain({
+            name: name.to_s,
+            workflow_execution_retention_period_in_days: retention.to_s
+          })
+        rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
+          # possible log an INFO/WARN if the domain already exists.
+        end
+        return AWS::SimpleWorkflow::Domain.new(name.to_s)
+      end
+
       # This method is used to truncate Activity and Workflow exceptions to
       # fit them into responses to the SWF service.
+      # @api private
       def self.check_and_truncate_exception error, converter
 
         # serialize the exception so that we can check the actual size of the

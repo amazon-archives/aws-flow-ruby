@@ -306,7 +306,7 @@ module AWS
       #   [AWS::SimpleWorkflow::ActivityTask](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/ActivityTask.html)
       #   object to process.
       #
-      def process_single_task(task)
+      def process_single_task(task, options=nil)
 
         # We are using the 'build' method to create a new ConnectionPool here to
         # make sure that connection pools are not shared among forked processes.
@@ -319,10 +319,10 @@ module AWS
         # Since we can't change the pool of an already existing NetHttpHandler,
         # we also create a new NetHttpHandler in order to use the new pool.
 
-        options = @service.config.to_h
+        options ||= @service.config.to_h
         options[:connection_pool] = AWS::Core::Http::ConnectionPool.build(options[:http_handler].pool.options)
         options[:http_handler] = AWS::Core::Http::NetHttpHandler.new(options)
-        @service = AWS::SimpleWorkflow.new(options).client
+        @service = @service.with_options(options)
 
         begin
           begin
@@ -380,10 +380,11 @@ module AWS
           return false
         end
         semaphore_needs_release = false
+        options = @service.config.to_h
         if use_forking
-          @executor.execute { process_single_task(task) }
+          @executor.execute { process_single_task(task, options) }
         else
-          process_single_task(task)
+          process_single_task(task, options)
         end
         @logger.info Utilities.activity_task_to_debug_string("Finished executing task", task)
         return true

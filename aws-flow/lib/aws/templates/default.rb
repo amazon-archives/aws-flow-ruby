@@ -2,67 +2,56 @@ module AWS
   module Flow
     module Templates
 
-      module UserActivities; end
+      # Default workflow class for the AWS Flow Framework for Ruby. It
+      # can run workflows defined by WorkflowTemplates.
+      class FlowDefaultWorkflowRuby
+        extend AWS::Flow::Workflows
 
-      # Creates a default workflow for the AWS Flow Framework for Ruby. The
-      # default workflow can run workflows defined by WorkflowTemplates.
-      def self.default_workflow
+        # Create activity client and child workflow client
+        activity_client :act_client
+        child_workflow_client :child_client
 
-        # Get the default workflow name
-        name = FlowConstants.defaults[:prefix_name]
-
-        begin
-          # Check and return if the class already exists in the namespace
-          return AWS::Flow::Templates.const_get(name)
-        rescue NameError => e
-          # pass
+        # Create the workflow type with default options
+        workflow FlowConstants.defaults[:execution_method] do
+          {
+            version: FlowConstants.defaults[:version],
+            prefix_name: FlowConstants.defaults[:prefix_name],
+            default_task_list: FlowConstants.defaults[:task_list],
+            default_execution_start_to_close_timeout: FlowConstants.defaults[:execution_start_to_close_timeout]
+          }
         end
 
-        # Create the workflow class in the AWS::Flow::Templates module
-        workflow_class = AWS::Flow::Templates.const_set(name, Class.new(Object))
+        # Define the workflow method :start. It will take in an input hash
+        # that contains the root template (:definition) and the arguments to the
+        # template (:args).
+        # @param input Hash
+        #   A hash containing the following keys -
+        #     definition: An object of type AWS::Flow::Templates::RootTemplate
+        #     args: Hash of arguments to be passed to the definition
+        #
+        def start(input)
 
-        # Create default activity client, child workflow client and create a
-        # workflow method :start
-        workflow_class.class_exec do
-          extend AWS::Flow::Workflows
-          # Add the activity and child workflow clients to the workflow class
-          activity_client :act_client
-          child_workflow_client :child_client
+          raise ArgumentError, "Workflow input must be a Hash" unless input.is_a?(Hash)
+          raise ArgumentError, "Input hash must contain key :definition" if input[:definition].nil?
+          raise ArgumentError, "Input hash must contain key :args" if input[:args].nil?
 
-          # Create workflow types with default options
-          workflow(FlowConstants.defaults[:execution_method]) do
-            {
-              version: FlowConstants.defaults[:version],
-              prefix_name: FlowConstants.defaults[:prefix_name],
-              default_task_list: FlowConstants.defaults[:task_list],
-              default_execution_start_to_close_timeout: FlowConstants.defaults[:execution_start_to_close_timeout]
-            }
+          definition = input[:definition]
+          args = input[:args]
+
+          unless definition.is_a?(AWS::Flow::Templates::RootTemplate)
+            raise "Workflow Definition must be a AWS::Flow::Templates::RootTemplate"
           end
+          raise "Input must be a Hash" unless args.is_a?(Hash)
 
-          # Define the workflow method :start. It will take in an input hash
-          # that contains the root template (:root) and the input to the
-          # template (:input).
-          define_method(FlowConstants.defaults[:execution_method]) do |input|
-            raise ArgumentError, "Workflow input must be a Hash" unless input.is_a?(Hash)
-            raise ArgumentError, "Input hash must contain key :root" if input[:root].nil?
-            raise ArgumentError, "Input hash must contain key :input" if input[:input].nil?
-
-            root = input[:root]
-            root_input = input[:input]
-
-            unless root.is_a?(AWS::Flow::Templates::RootTemplate)
-              raise "Root must be a AWS::Flow::Templates::RootTemplate"
-            end
-            raise "Input must be a Hash" unless root_input.is_a?(Hash)
-
-            # Run the root workflow template
-            root.run(root_input, self)
-          end
+          # Run the root workflow template
+          definition.run(args, self)
 
         end
-        workflow_class
 
       end
+
+      # Proxy classes for user activities are created in this module
+      module ActivityProxies; end
 
       # Used to convert a regular ruby class into a Ruby Flow Activity class,
       # i.e. extends the AWS::Flow::Activities module. It converts all user
@@ -76,7 +65,7 @@ module AWS
         proxy_name = name + "Proxy"
         # Create a proxy activity class that will define activities for all
         # instance methods of the class.
-        new_klass = self::UserActivities.const_set(proxy_name.to_sym, Class.new(Object))
+        new_klass = self::ActivityProxies.const_set(proxy_name.to_sym, Class.new(Object))
 
         # Extend the AWS::Flow::Activities module and create activities for all
         # instance methods
@@ -95,7 +84,7 @@ module AWS
           @@klass.instance_methods(false).each do |method|
             activity(method) do
               {
-                version: FlowConstants.defaults[:version],
+                version: "1.0",
                 prefix_name: name
               }
             end
@@ -110,34 +99,46 @@ module AWS
         new_klass
       end
 
-      # Creates a default result reporting activity for the Ruby Flow Framework.
-      def self.result_activity(name="")
+      # Default result reporting activity class for the AWS Flow Framework for
+      # Ruby
+      class FlowDefaultResultActivityRuby
+        extend AWS::Flow::Activities
 
-        # Get the activity name
-        name = "#{FlowConstants.defaults[:result_activity_prefix]}#{name}"
-        # Check if the class already exists in the namespace
-        begin
-          return AWS::Flow::Templates.const_get(name)
-        rescue NameError => e
-          # pass
+        attr_reader :result
+
+        # Create the activity type with default options
+        activity FlowConstants.defaults[:result_activity_method] do
+          {
+            version: FlowConstants.defaults[:result_activity_version],
+            prefix_name: FlowConstants.defaults[:result_activity_prefix],
+            default_task_list: FlowConstants.defaults[:task_list],
+            exponential_retry: FlowConstants.defaults[:retry_policy]
+          }
         end
 
-        # Create the activity class in the AWS::Flow::Templates module
-        activity_class = AWS::Flow::Templates.const_set(name, Class.new(Object))
-
-        activity_class.class_exec do
-          extend AWS::Flow::Activities
-          # Create activity type with default options. The activity will be
-          # implemented in the starter.
-          activity(FlowConstants.defaults[:result_activity_method]) do
-            {
-              version: FlowConstants.defaults[:version],
-              prefix_name: FlowConstants.defaults[:result_activity_prefix],
-              default_task_list: FlowConstants.defaults[:task_list]
-            }
-          end
+        # Initialize the future upon instantiation
+        def initialize
+          @result = Future.new
         end
-        activity_class
+
+        # Set the future when the activity is run
+        def run(input)
+          @result.set(input)
+          input
+        end
+
+      end
+
+      # Returns the default result activity class
+      # @api private
+      def self.result_activity
+        return AWS::Flow::Templates.const_get(FlowConstants.defaults[:result_activity_prefix])
+      end
+
+      # Returns the default workflow class
+      # @api private
+      def self.default_workflow
+        return AWS::Flow::Templates.const_get(FlowConstants.defaults[:prefix_name])
       end
 
     end

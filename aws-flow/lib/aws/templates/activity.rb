@@ -7,7 +7,8 @@ module AWS
       class ActivityTemplate < TemplateBase
         attr_reader :name, :options
 
-        def initialize(name, options = {})
+        def initialize(name, opts = {})
+          options = opts.dup
           # Split the name into prefix name and activity method
           prefix_name, @name = name.split(".")
 
@@ -27,9 +28,7 @@ module AWS
             version: FlowConstants.defaults[:version],
             prefix_name: "#{prefix_name}",
             data_converter:  FlowConstants.defaults[:data_converter],
-            exponential_retry: {
-              maximum_attempts: 3
-            }
+            exponential_retry: FlowConstants.defaults[:retry_policy]
           }.merge(options)
 
           @options = options
@@ -54,8 +53,15 @@ module AWS
       # Initializes an activity template
       # @param {String} name
       # @param {Hash} options
-      def activity(name, options = {})
-        ActivityTemplate.new(name, options.dup)
+      def activity(name, opts = {})
+        AWS::Flow::Templates.send(:activity, name, opts)
+      end
+
+      # Initializes an activity template
+      # @param {String} name
+      # @param {Hash} options
+      def self.activity(name, opts = {})
+        ActivityTemplate.new(name, opts)
       end
 
     end

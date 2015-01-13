@@ -198,6 +198,15 @@ describe "Runner" do
       }')
     end
 
+    def default_js_0
+      JSON.parse('{
+        "default_workers":
+          {
+            "number_of_workers": 0
+          }
+      }')
+    end
+
 
     it "makes sure the number of workflow workers is correct" do
       # mock out a few methods to focus on the fact that the workers were created
@@ -324,12 +333,32 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Templates.stub(:register_default_result_activity)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(3).times
 
       # start the workers
       workers = AWS::Flow::Runner.start_default_workers(AWS::SimpleWorkflow.new, "", default_js)
+    end
+
+    it "makes sure the number of default workers is 0 when stated so explicitly" do
+      # mock out a few methods to focus on the fact that the workers were created
+      allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation) do |klass|
+        klass.should be(AWS::Flow::Templates.default_workflow)
+        nil
+      end
+
+      allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
+      AWS::Flow::Runner.stub(:setup_domain)
+      AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Templates.stub(:register_default_result_activity)
+
+      # what we are testing:
+      expect(AWS::Flow::Runner).to receive(:fork).exactly(0).times
+
+      # start the workers
+      workers = AWS::Flow::Runner.start_default_workers(AWS::SimpleWorkflow.new, "", default_js_0)
     end
 
     it "makes sure the number of default workers is correct when stated implicitly" do
@@ -344,6 +373,7 @@ describe "Runner" do
 
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Templates.stub(:register_default_result_activity)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(6).times

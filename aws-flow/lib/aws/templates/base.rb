@@ -67,8 +67,20 @@ module AWS
       #   An optional ActivityTemplate that can be used to report the result
       #   of the 'step'
       def root(step, result_step = nil)
+        AWS::Flow::Templates.send(:root, step, result_step)
+      end
+
+      # Initializes a root template
+      # @param {TemplateBase} step
+      #   An AWS Flow Framework Template class that inherits TemplateBase. It
+      #   contains the actual orchestration of workflow logic inside it.
+      # @param {ActivityTemplate} result_step
+      #   An optional ActivityTemplate that can be used to report the result
+      #   of the 'step'
+      def self.root(step, result_step = nil)
         RootTemplate.new(step, result_step)
       end
+
 
     end
   end

@@ -3,6 +3,44 @@ module AWS
 
     # Utility method used to start a workflow execution with the service.
     #
+    # @param [String or Class (that extends AWS::Flow::Workflows)] workflow
+    #   Represents an AWS Flow Framework workflow class. If not provided,
+    #   details of the workflow must be passed via the opts Hash.
+    #
+    # @param [Hash] input
+    #   Input hash for the workflow execution
+    #
+    # @param [Hash] opts
+    #   Hash of options to configure the workflow execution
+    #
+    # @option opts [String] *Required* :domain
+    #
+    # @option opts [String] *Required* :version
+    #
+    # @option opts [String] *Optional* :prefix_name
+    #   Must be specified if workflow is not passed in as an argument
+    #
+    # @option opts [String] *Optional* :execution_method
+    #   Must be specified if workflow is not passed in as an argument
+    #
+    # @option opts [String] *Optional* :from_class
+    #
+    # @option opts [String] *Optional* :workflow_id
+    #
+    # @option opts [Integer] *Optional* :execution_start_to_close_timeout
+    #
+    # @option opts [Integer] *Optional* :task_start_to_close_timeout
+    #
+    # @option opts [Integer] *Optional* :task_priority
+    #
+    # @option opts [String] *Optional* :task_list
+    #
+    # @option opts [String] *Optional* :child_policy
+    #
+    # @option opts [Array] *Optional* :tag_list
+    #
+    # @option opts *Optional* :data_converter
+    #
     # Usage -
     #
     # 1) Passing a fully qualified workflow <prefix_name>.<execution_method> name -
@@ -52,7 +90,8 @@ module AWS
       raise ArgumentError, "You must provide a :domain in the options hash" if domain.nil?
 
       if options[:from_class]
-        # Do nothing. Use options as they are.
+        # Do nothing. Use options as they are. They will be taken care of in the
+        # workflow client
       elsif workflow.nil?
         # This block is usually executed when #start_workflow is called from
         # #start. All options required to start the workflow must be present
@@ -62,14 +101,12 @@ module AWS
         raise ArgumentError, "You must provide a :prefix_name in the options hash" unless prefix_name
         raise ArgumentError, "You must provide an :execution_method in the options hash" unless options[:execution_method]
         raise ArgumentError, "You must provide a :version in the options hash" unless options[:version]
-        # Merge the prefix name back into the options hash
-        options.merge!(prefix_name: prefix_name)
       else
         # When a workflow class name is given along with some options
-        workflow = "#{workflow}"
+
         # If a fully qualified workflow name is given, split it into prefix_name
         # and execution_method
-        prefix_name, execution_method = workflow.split(".")
+        prefix_name, execution_method = workflow.to_s.split(".")
         # If a fully qualified name is not given, then look for it in the options
         # hash
         execution_method ||= options[:execution_method]
@@ -85,61 +122,80 @@ module AWS
         )
       end
 
-      # Setup the domain where we will start the workflow
-      domain = AWS::Flow::Runner.setup_domain({
-        'domain' => {
-          'name' => domain
-        }
-      })
+      swf = AWS::SimpleWorkflow.new
+      domain = swf.domains[domain]
 
       # Get a workflow client for the domain
       client = workflow_client(domain.client, domain) { options }
 
       # Start the workflow execution
-      begin
-        client.start_execution(input)
-      rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
-        # Register the workflow type if not registered.
-        if options[:from_class]
-          # This is pretty hacky but the quickest way of registering workflows
-          # from a class. We should change it in the future
-          worker = WorkflowWorker.new(domain.client, domain, options[:task_list], const_get(options[:from_class]))
-          worker.register
-        else
-
-          # Get flow defaults
-          reg_options = WorkflowRegistrationOptions.new.get_registration_options
-
-          # Override the flow detaults with RubyFlowDefaultWorkflow defaults
-          reg_options.merge!(
-            name: "#{options[:prefix_name]}.#{options[:execution_method]}",
-            version: "#{options[:version]}",
-              domain: domain.name,
-              default_task_list: {
-                name: FlowConstants.defaults[:task_list]
-              },
-              default_execution_start_to_close_timeout: FlowConstants.defaults[:execution_start_to_close_timeout],
-              description: "Default workflow type registered for the AWS Flow Framework for Ruby."
-          )
-          reg_keys = [
-            :default_execution_start_to_close_timeout,
-            :default_task_start_to_close_timeout,
-            :default_task_list,
-            :domain,
-            :name,
-            :version,
-            :default_child_policy,
-            :description
-          ]
-          reg_options.select!{ |x| reg_keys.include?(x) }
-
-          domain.client.register_workflow_type(reg_options)
-        end
-        client.start_execution(input)
-      end
-
+      client.start_execution(input)
     end
 
+    # Starts an Activity or a Workflow Template execution using the
+    # default workflow class FlowDefaultWorkflowRuby
+    #
+    # @param [String or AWS::Flow::Templates::TemplateBase] name_or_klass
+    #   The Activity or the Workflow Template that needs to be scheduled via
+    #   the default workflow. This argument can either be a string that
+    #   represents a fully qualified activity name - <ActivityClass>.<method_name>
+    #   or it can be an instance of AWS::Flow::Templates::TemplateBase
+    #
+    # @param [Hash] input
+    #   Input hash for the workflow execution
+    #
+    # @param [Hash] opts
+    #   Additional options to configure the workflow or activity execution.
+    #
+    # @option opts [true, false] :wait
+    #   *Optional* This boolean flag can be set to true if the result of the
+    #   task is required. Default value is false.
+    #
+    # @option opts [Integer] :wait_timeout
+    #   *Optional* This sets the timeout value for :wait. Default value is
+    #   nil.
+    #
+    # @option opts [Hash] :exponential_retry
+    #   A hash of {AWS::Flow::ExponentialRetryOptions}. Default value is -
+    #   { maximum_attempts: 3 }
+    #
+    # @option opts [String] *Optional* :domain
+    #   Default value is FlowDefault
+    #
+    # @option opts [Integer] *Optional* :execution_start_to_close_timeout
+    #   Default value is 3600 seconds (1 hour)
+    #
+    # @option opts [String] *Optional* :workflow_id
+    #
+    # @option opts [Integer] *Optional* :task_priority
+    #   Default value is 0
+    #
+    # @option opts [String] *Optional* :tag_list
+    #   By default, the name of the activity task gets added to the workflow's
+    #   tag_list
+    #
+    # @option opts *Optional* :data_converter
+    #   Default value is {AWS::Flow::YAMLDataConverter}. To use the
+    #   {AWS::Flow::S3DataConverter}, set the AWS_SWF_BUCKET_NAME environment
+    #   variable name with a valid AWS S3 bucket name.
+    #
+    # @option opts *Optional* A hash of {AWS::Flow::ActivityOptions}
+    #
+    # Usage -
+    #
+    #    AWS::Flow::start("<ActivityClassName>.<method_name>", <input_hash>,
+    #    <options_hash> )
+    #
+    # Example -
+    #
+    # 1) Start an activity execution -
+    #    AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" })
+    #
+    # 2) Start an activity execution with overriden options -
+    #    AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" }, {
+    #      exponential_retry: { maximum_attempts: 10 } }
+    #    )
+    #
     def self.start(name_or_klass, input, options = {})
       AWS::Flow::Templates.start(name_or_klass, input, options)
     end

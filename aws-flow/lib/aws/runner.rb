@@ -52,7 +52,7 @@ module AWS
       # @api private
       def self.setup_domain(json_config)
 
-        swf = create_service_client(json_config)
+        set_user_agent(json_config)
 
         # If domain is not provided, use the default ruby flow domain
         domain = json_config['domain'] || { 'name' => FlowConstants.defaults[:domain] }
@@ -60,15 +60,8 @@ module AWS
         # If retention period is not provided, default it to 7 days
         retention = domain['retention_in_days'] || FlowConstants::RETENTION_DEFAULT
 
-        begin
-          swf.client.register_domain({
-            name: domain['name'],
-            workflow_execution_retention_period_in_days: retention.to_s
-          })
-        rescue AWS::SimpleWorkflow::Errors::DomainAlreadyExistsFault => e
-          # possible log an INFO/WARN if the domain already exists.
-        end
-        return AWS::SimpleWorkflow::Domain.new( domain['name'] )
+        AWS::Flow::Utilities.register_domain(domain['name'], retention.to_s)
+
       end
 
       # @api private
@@ -147,7 +140,7 @@ module AWS
       #
       # json_config: the content of the config
       #
-      # what: what should loaded. This is a hash expected to contain two keys:
+      # what: what should be loaded. This is a hash expected to contain two keys:
       #
       #     - :default_file : the file to load unless a specific list is provided
       #
@@ -171,12 +164,19 @@ module AWS
       # section of [the runner specification file][], or that are loaded from
       # `require` statements in the `workflows.rb` file.
       #
+      # If the 'activity' classes are regular ruby classes, this method will
+      # create a proxy AWS::Flow::Activities class for each regular ruby class
+      # loaded and add the proxy implementation to the ActivityWorker.
+      #
       # @api private
       def self.start_activity_workers(swf, domain = nil, json_config)
         workers = []
         domain = setup_domain(json_config) if domain.nil?
 
-        # This will be used later to start default workflow workers
+        # This will be used later to start default workflow workers. If the
+        # 'activity_workers' and 'default_workers' keys are not specified in the
+        # json spec, then we don't start any default workers. Hence this value
+        # is defaulted to 0.
         number_of_default_workers = 0
 
         # TODO: logger
@@ -204,6 +204,7 @@ module AWS
               worker.add_implementation(c)
             end
 
+            # We add 1 default worker for each activity worker.
             number_of_default_workers += w['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
 
             # start as many workers as desired in child processes
@@ -212,7 +213,7 @@ module AWS
 
           # Create the config for default workers if it's not passed in the
           # json_config
-          if json_config['default_workers'].nil?
+          if json_config['default_workers'].nil? || json_config['default_workers']['number_of_workers'].nil?
             json_config['default_workers'] = {
               'number_of_workers' => number_of_default_workers
             }
@@ -225,15 +226,25 @@ module AWS
         return workers
       end
 
+      # Starts workflow workers for the default workflow type 'FlowDefaultWorkflowRuby'.
+      # If 'default_workers' key is not set in the json spec, we set the number
+      # of workers equal to the number of activity workers
+      # Default workers are used to for processing workflow templates
+      #
+      # @api private
       def self.start_default_workers(swf, domain = nil, json_config)
         workers = []
         domain = setup_domain(json_config) if domain.nil?
 
         if json_config['default_workers']
+          # Also register the default result activity type in the given domain
+          AWS::Flow::Templates.register_default_result_activity(domain)
+
           klass = AWS::Flow::Templates.default_workflow
           task_list = FlowConstants.defaults[:task_list]
           # Create a worker
           worker = WorkflowWorker.new(swf.client, domain, task_list, klass)
+          # This will take care of both registering and starting the default workers
           workers << spawn_and_start_workers(json_config['default_workers'], "default-worker", worker)
         end
         workers
@@ -273,12 +284,16 @@ module AWS
       end
 
       # @api private
-      def self.create_service_client(json_config)
+      def self.set_user_agent(json_config)
         # set the UserAgent prefix for all clients
         if json_config['user_agent_prefix'] then
           AWS.config(user_agent_prefix: json_config['user_agent_prefix'])
         end
+      end
 
+      # @api private
+      def self.create_service_client(json_config)
+        set_user_agent(json_config)
         swf = AWS::SimpleWorkflow.new
       end
 
@@ -299,6 +314,14 @@ module AWS
         workers.flatten!
       end
 
+      # Loads activity and workflow classes
+      #
+      # config_path: the path where the config file is, to be able to
+      #     resolve relative references
+      #
+      # json_config: the content of the config
+      #
+      # @api private
       def self.load_classes(config_path, json_config)
         # load all classes for the activities
         load_files(config_path, json_config, {config_key: 'activity_paths',
@@ -371,7 +394,12 @@ module AWS
       end
 
 
-      # Usually invoked from code
+      #
+      # Invoked from code. This is a helper method that can be used to start the
+      # runner from code. This is especially helpful for debugging purposes.
+      #
+      # worker_spec: Hash representation of the json worker spec
+      #
       def self.run(worker_spec)
         workers = start_workers(worker_spec)
         setup_signal_handling(workers)

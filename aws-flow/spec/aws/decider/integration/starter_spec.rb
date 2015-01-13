@@ -26,7 +26,7 @@ describe "AWS::Flow" do
         data_converter = FlowConstants.defaults[:data_converter]
         input = data_converter.load(x.events.first.attributes[:input]).first
 
-        root = input[:root]
+        root = input[:definition]
         root.result_step.should be_nil
         root.should be_kind_of(AWS::Flow::Templates::RootTemplate)
 
@@ -41,7 +41,7 @@ describe "AWS::Flow" do
           }
         )
 
-        input[:input].should include(input: "Hello")
+        input[:args].should include(input: "Hello")
         x.terminate
       end
 
@@ -54,7 +54,7 @@ describe "AWS::Flow" do
         task_list: "bar",
         version: "2.0",
         tag_list: ['overriden_test'],
-        wait_for_result: true,
+        wait: true,
         domain: @domain.name
       }
 
@@ -78,7 +78,7 @@ describe "AWS::Flow" do
 
         input = data_converter.load(x.events.first.attributes[:input]).first
 
-        root = input[:root]
+        root = input[:definition]
         root.should be_kind_of(AWS::Flow::Templates::RootTemplate)
         root.result_step.should_not be_nil
         result = root.result_step
@@ -96,7 +96,7 @@ describe "AWS::Flow" do
           }
         )
 
-        input[:input].should include(input: "Hello")
+        input[:args].should include(input: "Hello")
         x.terminate
       end
 
@@ -105,12 +105,27 @@ describe "AWS::Flow" do
   end
 
   context "#start_workflow" do
+    before(:all) do
+      class StartWorkflowTest
+        extend AWS::Flow::Workflows
+        workflow :start do
+          {
+            version: "1.0",
+            default_task_list: "foo",
+            default_execution_start_to_close_timeout: 60
+          }
+        end
+      end
+      AWS::Flow::WorkflowWorker.new(@domain.client, @domain, nil, StartWorkflowTest).register
+
+    end
 
     it "starts a regular workflow correctly" do
       options = {
         version: "1.0",
         domain: @domain.name,
-        execution_start_to_close_timeout: 100
+        execution_start_to_close_timeout: 100,
+        tag_list: ["Test1"]
       }
       AWS::Flow::start_workflow("StartWorkflowTest.start", "some input", options)
 
@@ -118,7 +133,7 @@ describe "AWS::Flow" do
         sleep 2
       end
 
-      @domain.workflow_executions.each do |x|
+      @domain.workflow_executions.tagged("Test1").each do |x|
         x.execution_start_to_close_timeout.should == 100
         x.workflow_type.name.should == "StartWorkflowTest.start"
         x.workflow_type.version.should == "1.0"
@@ -138,7 +153,8 @@ describe "AWS::Flow" do
         prefix_name: "StartWorkflowTest",
         execution_method: "start",
         domain: @domain.name,
-        execution_start_to_close_timeout: 100
+        execution_start_to_close_timeout: 100,
+        tag_list: ["Test2"]
       }
       AWS::Flow::start_workflow(nil, "some input", options)
 
@@ -146,7 +162,7 @@ describe "AWS::Flow" do
         sleep 2
       end
 
-      @domain.workflow_executions.each do |x|
+      @domain.workflow_executions.tagged("Test2").each do |x|
         x.execution_start_to_close_timeout.should == 100
         x.workflow_type.name.should == "StartWorkflowTest.start"
         x.workflow_type.version.should == "1.0"
@@ -161,31 +177,22 @@ describe "AWS::Flow" do
     end
 
     it "starts workflow with from_options option correctly" do
-      class StartWorkflowFromOptionsTest
-        extend AWS::Flow::Workflows
-        workflow :start do
-          {
-            version: "1.0",
-            default_task_list: "foo",
-            execution_start_to_close_timeout: 100
-          }
-        end
-      end
-
       options = {
-        from_class: "StartWorkflowFromOptionsTest",
+        from_class: "StartWorkflowTest",
         domain: @domain.name,
+        tag_list: ["Test3"]
       }
 
       AWS::Flow::start_workflow(nil, "some input", options)
 
       until @domain.workflow_executions.count.count > 0
+
         sleep 2
       end
 
-      @domain.workflow_executions.each do |x|
-        x.execution_start_to_close_timeout.should == 100
-        x.workflow_type.name.should == "StartWorkflowFromOptionsTest.start"
+      @domain.workflow_executions.tagged("Test3").each do |x|
+        x.execution_start_to_close_timeout.should == 60
+        x.workflow_type.name.should == "StartWorkflowTest.start"
         x.workflow_type.version.should == "1.0"
 
         data_converter = FlowConstants.defaults[:data_converter]

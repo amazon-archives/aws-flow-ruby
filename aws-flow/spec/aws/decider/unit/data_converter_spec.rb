@@ -153,24 +153,110 @@ describe S3DataConverter do
 
   context "#cache" do
 
-    it "tests cache read/write" do
-      converter = S3DataConverter.converter
-      list = {
-        input: "asdf",
-        test: "a"*33000
-      }
+    context "#write" do
 
-      allow(obj).to receive(:objects).and_return(obj)
-      allow(obj).to receive(:create)
+      it "ensures basic cache read/write works" do
 
-      s3_link = converter.dump(list)
-      key = YAMLDataConverter.new.load(s3_link)
+        converter = S3DataConverter.converter
+        msg = "a"*33000
 
-      converter.cache[key[:s3_filename]].should_not be_nil
-      converter.cache[key[:s3_filename]].should == YAMLDataConverter.new.dump(list)
+        allow(obj).to receive(:objects).and_return(obj)
+        allow(obj).to receive(:create)
 
-      data = converter.load(s3_link)
-      data.should include(list)
+        s3_link = converter.dump(msg)
+        key = YAMLDataConverter.new.load(s3_link)
+
+        converter.cache[key[:s3_filename]].should_not be_nil
+        converter.cache[key[:s3_filename]].should == YAMLDataConverter.new.dump(msg)
+
+        data = converter.load(s3_link)
+        data.should == msg
+
+      end
+
+      it "ensures eviction" do
+
+        converter = S3DataConverter.converter
+        msg = "a"*33000
+
+        allow(obj).to receive(:objects).and_return(obj)
+        allow(obj).to receive(:create)
+
+        first = YAMLDataConverter.new.load(converter.dump(msg))
+
+        # Add 1000 more entries to evict the first one
+        (1..1000).each { |x| converter.dump(msg) }
+
+        # Ensure cache doesn't contain the first entry
+        converter.cache[first[:s3_filename]].should be_nil
+
+      end
+
+    end
+
+    context "#hit" do
+
+      it "returns the entry and doesn't call S3" do
+
+        converter = S3DataConverter.converter
+        msg = "a"*33000
+
+        allow(obj).to receive(:objects).and_return(obj)
+        allow(obj).to receive(:create)
+
+        s3_link = converter.dump(msg)
+
+        # The following line confirms the file is not read from S3.
+        expect(obj).not_to receive(:read)
+
+        # Ensure the entry is correct
+        converter.load(s3_link).should == msg
+
+      end
+
+      it "ensures lru behavior of cache" do
+
+        converter = S3DataConverter.converter
+        msg = "a"*33000
+
+        allow(obj).to receive(:objects).and_return(obj)
+        allow(obj).to receive(:create)
+
+        first = YAMLDataConverter.new.load(converter.dump(msg))
+
+        (1..999).each { |x| converter.dump(msg) }
+
+        # Use the first entry to bring it at the front of the queue
+        converter.cache[first[:s3_filename]]
+
+        # Add a few more entries to the cache
+        converter.dump(msg)
+        converter.dump(msg)
+
+        # Ensure cache still contains the entry
+        converter.cache[first[:s3_filename]].should_not be_nil
+
+      end
+
+    end
+
+    context "#miss" do
+
+      it "calls S3 to get the object and adds it to the cache" do
+        converter = S3DataConverter.converter
+        s3_link = { s3_filename: "foo" }
+        s3_link = YAMLDataConverter.new.dump(s3_link)
+
+        # This following 2 lines confirm that we call S3 in case of a cache miss
+        allow(obj).to receive(:objects).and_return(obj)
+        expect(obj).to receive(:read).and_return("bar")
+
+        # Expect the cache to get populated with a new entry
+        expect(converter.cache).to receive(:[]=).with("foo", "bar")
+
+        ret = converter.load(s3_link)
+      end
+
     end
 
     it "tests max size" do
