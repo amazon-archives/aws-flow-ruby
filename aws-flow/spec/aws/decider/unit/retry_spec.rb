@@ -19,6 +19,14 @@ end
 
 describe "ExponentialRetry" do
 
+  before(:all) do
+    @bucket = ENV['AWS_SWF_BUCKET_NAME']
+    ENV['AWS_SWF_BUCKET_NAME'] = nil
+  end
+  after(:all) do
+    ENV['AWS_SWF_BUCKET_NAME'] = @bucket
+  end
+
   context "ActivityRetry" do
     # The following tests for github issue # 57
     before(:all) do

@@ -16,8 +16,10 @@
 require 'bundler/setup'
 require 'aws/flow'
 require 'aws/decider'
-require 'aws/replayer'
+require 'replayer'
 require 'runner'
+require 'pry'
+require 'pry-debugger'
 
 include AWS::Flow
 include AWS::Flow::Replayer
@@ -90,13 +92,18 @@ module Test
       last_run += 1
       File.open(file_name, 'w+') {|f| f.write(last_run)}
       current_date = Time.now.strftime("%d-%m-%Y")
+
       swf = AWS::SimpleWorkflow.new
-      $rubyflow_decider_domain = domain_name || "rubyflow_#{current_date}-#{last_run}"
-      domain = setup_domain($rubyflow_decider_domain)
+      #$rubyflow_decider_domain = domain_name || "rubyflow_#{current_date}-#{last_run}"
+      $rubyflow_decider_domain = domain_name || "rubyflow_test_domain"
+      puts "Using test domain: #{$rubyflow_decider_domain}"
+      domain = setup_domain $rubyflow_decider_domain
+
       return swf, domain
     end
 
     def get_test_domain
+      setup_swf unless $rubyflow_decider_domain
       swf = AWS::SimpleWorkflow.new
       domain = swf.domains[$rubyflow_decider_domain]
       return domain
@@ -120,9 +127,11 @@ module Test
     def validate_execution(execution, decision="WorkflowExecutionCompleted")
       execution.events.map(&:event_type).last.should == decision
     end
+
     def validate_execution_failed(execution)
       validate_execution(execution, "WorkflowExecutionFailed")
     end
+
   end
 
   module Unit

@@ -61,7 +61,7 @@ module AWS
         if ! implementation_options.nil?
           @converter = implementation_options.data_converter
         end
-        @converter ||= FlowConstants.default_data_converter
+        @converter ||= FlowConstants.data_converter
 
       end
 

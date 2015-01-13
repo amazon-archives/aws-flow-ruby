@@ -340,7 +340,7 @@ module AWS
     class WorkflowDefaults < Defaults
 
       # The default data converter. By default, this is {YAMLDataConverter}.
-      def data_converter; FlowConstants.default_data_converter; end
+      def data_converter; FlowConstants.data_converter; end
 
     end
 
@@ -554,7 +554,7 @@ module AWS
 
     # Defaults for the {ActivityOptions} class.
     class ActivityDefaults < Defaults
-      def data_converter; FlowConstants.default_data_converter; end
+      def data_converter; FlowConstants.data_converter; end
     end
 
     # Default values for a registered activity type. These values are set by

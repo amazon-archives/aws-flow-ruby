@@ -41,7 +41,6 @@ module AWS
       AWS::Flow.send(:workflow_client, service, domain, &block)
     end
 
-
     # Execute a block with retries within a workflow context.
     #
     # @param options

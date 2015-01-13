@@ -2,8 +2,15 @@ require_relative 'setup'
 
 describe Activities do
   before(:all) do
+    @bucket = ENV['AWS_SWF_BUCKET_NAME']
+    ENV['AWS_SWF_BUCKET_NAME'] = nil
     @swf, @domain = setup_swf
   end
+
+  after(:all) do
+    ENV['AWS_SWF_BUCKET_NAME'] = @bucket
+  end
+
 
   it "ensures that a real activity will get scheduled" do
     task_list = "activity_task_list"
@@ -341,4 +348,3 @@ describe Activities do
     end
   end
 end
-

@@ -41,6 +41,7 @@ module AWS
 
       # Import the necessary gems to run Ruby Flow code.
       require 'aws/decider'
+      require 'aws/templates'
       include AWS::Flow
       require 'json'
       require 'optparse'
@@ -53,7 +54,9 @@ module AWS
 
         swf = create_service_client(json_config)
 
-        domain = json_config['domain']
+        # If domain is not provided, use the default ruby flow domain
+        domain = json_config['domain'] || { 'name' => FlowConstants.defaults[:domain] }
+
         # If retention period is not provided, default it to 7 days
         retention = domain['retention_in_days'] || FlowConstants::RETENTION_DEFAULT
 
@@ -104,15 +107,6 @@ module AWS
         classes
       end
 
-      # Used to add implementations to workers; see [get_classes] for more
-      # information.
-      #
-      # @api private
-      def self.add_implementations(worker, json_fragment, what)
-        classes = get_classes(json_fragment, what)
-        classes.each { |c| worker.add_implementation(c) }
-      end
-
       # Spawns the workers.
       #
       # @api private
@@ -122,7 +116,7 @@ module AWS
         num_of_workers.times do
           workers << fork do
             set_process_name(process_name)
-            worker.start()
+            worker.start
           end
         end
         workers
@@ -178,31 +172,71 @@ module AWS
       # `require` statements in the `workflows.rb` file.
       #
       # @api private
-      def self.start_activity_workers(swf, domain = nil, config_path, json_config)
+      def self.start_activity_workers(swf, domain = nil, json_config)
         workers = []
-        # load all classes for the activities
-        load_files(config_path, json_config, {config_key: 'activity_paths',
-                     default_file: File.join('flow', 'activities.rb')})
         domain = setup_domain(json_config) if domain.nil?
+
+        # This will be used later to start default workflow workers
+        number_of_default_workers = 0
 
         # TODO: logger
         # start the workers for each spec
-        json_config['activity_workers'].each do |w|
-          # If number of forks is not provided, it will automatically default to 20
-          # within the ActivityWorker
-          fork_count = w['number_of_forks_per_worker']
-          task_list = expand_task_list(w['task_list'])
+        if json_config['activity_workers']
+          json_config['activity_workers'].each do |w|
+            # If number of forks is not provided, it will automatically default to 20
+            # within the ActivityWorker
+            fork_count = w['number_of_forks_per_worker']
+            task_list = expand_task_list(w['task_list']) if w['task_list']
 
-          # create a worker
-          worker = ActivityWorker.new(swf.client, domain, task_list, *w['activities']) {{ execution_workers: fork_count }}
-          add_implementations(worker, w, {config_key: 'activity_classes',
-                     clazz: AWS::Flow::Activities})
+            # Get activity classes
+            classes = get_classes(w, {config_key: 'activity_classes',
+                                      clazz: AWS::Flow::Activities})
 
-          # start as many workers as desired in child processes
-          workers << spawn_and_start_workers(w, "activity-worker", worker)
+            # If task_list is not provided, use the name of the first class as the
+            # task_list for this worker
+            task_list ||= "#{classes.first}"
+
+            # Create a worker
+            worker = ActivityWorker.new(swf.client, domain, task_list) {{ execution_workers: fork_count }}
+
+            classes.each do |c|
+              c = AWS::Flow::Templates.make_activity_class(c) unless c.is_a?(AWS::Flow::Activities)
+              worker.add_implementation(c)
+            end
+
+            number_of_default_workers += w['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
+
+            # start as many workers as desired in child processes
+            workers << spawn_and_start_workers(w, "activity-worker", worker)
+          end
+
+          # Create the config for default workers if it's not passed in the
+          # json_config
+          if json_config['default_workers'].nil?
+            json_config['default_workers'] = {
+              'number_of_workers' => number_of_default_workers
+            }
+          end
         end
 
+        # Start the default workflow workers
+        workers << start_default_workers(swf, domain, json_config)
+
         return workers
+      end
+
+      def self.start_default_workers(swf, domain = nil, json_config)
+        workers = []
+        domain = setup_domain(json_config) if domain.nil?
+
+        if json_config['default_workers']
+          klass = AWS::Flow::Templates.default_workflow
+          task_list = FlowConstants.defaults[:task_list]
+          # Create a worker
+          worker = WorkflowWorker.new(swf.client, domain, task_list, klass)
+          workers << spawn_and_start_workers(json_config['default_workers'], "default-worker", worker)
+        end
+        workers
       end
 
       # Starts the workflow workers.
@@ -213,25 +247,26 @@ module AWS
       # `require` statements in the `workflows.rb` file.
       #
       # @api private
-      def self.start_workflow_workers(swf, domain = nil, config_path, json_config)
+      def self.start_workflow_workers(swf, domain = nil, json_config)
         workers = []
-        # load all the classes for the workflows
-        load_files(config_path, json_config, {config_key: 'workflow_paths',
-                     default_file: File.join('flow', 'workflows.rb')})
         domain = setup_domain(json_config) if domain.nil?
 
         # TODO: logger
         # start the workers for each spec
-        json_config['workflow_workers'].each do |w|
-          task_list = expand_task_list(w['task_list'])
+        if json_config['workflow_workers']
+          json_config['workflow_workers'].each do |w|
+            task_list = expand_task_list(w['task_list'])
 
-          # create a worker
-          worker = WorkflowWorker.new(swf.client, domain, task_list, *w['workflows'])
-          add_implementations(worker, w, {config_key: 'workflow_classes',
-                     clazz: AWS::Flow::Workflows})
+            # Get workflow classes
+            classes = get_classes(w, {config_key: 'workflow_classes',
+                                      clazz: AWS::Flow::Workflows})
 
-          # start as many workers as desired in child processes
-          workers << spawn_and_start_workers(w, "workflow-worker", worker)
+            # Create a worker
+            worker = WorkflowWorker.new(swf.client, domain, task_list, *classes)
+
+            # Start as many workers as desired in child processes
+            workers << spawn_and_start_workers(w, "workflow-worker", worker)
+          end
         end
 
         return workers
@@ -251,16 +286,26 @@ module AWS
       # worker processes.
       #
       # @api private
-      def self.start_workers(domain = nil, config_path, json_config)
+      def self.start_workers(domain = nil, json_config)
+
         workers = []
 
         swf = create_service_client(json_config)
 
-        workers << start_activity_workers(swf, domain, config_path, json_config)
-        workers << start_workflow_workers(swf, domain, config_path, json_config)
+        workers << start_activity_workers(swf, domain, json_config)
+        workers << start_workflow_workers(swf, domain, json_config)
 
         # needed to avoid returning nested arrays based on the calls above
         workers.flatten!
+      end
+
+      def self.load_classes(config_path, json_config)
+        # load all classes for the activities
+        load_files(config_path, json_config, {config_key: 'activity_paths',
+                                              default_file: File.join('flow', 'activities.rb')})
+        # load all the classes for the workflows
+        load_files(config_path, json_config, {config_key: 'workflow_paths',
+                                              default_file: File.join('flow', 'workflows.rb')})
       end
 
       # Sets up forwarding of signals to child processes to facilitate and
@@ -325,6 +370,17 @@ module AWS
         return options
       end
 
+
+      # Usually invoked from code
+      def self.run(worker_spec)
+        workers = start_workers(worker_spec)
+        setup_signal_handling(workers)
+
+        # Hang there until killed: this process is used to relay signals to
+        # children to support and facilitate an orderly shutdown.
+        wait_for_child_processes(workers)
+      end
+
       #
       # Invoked from the shell.
       #
@@ -332,16 +388,12 @@ module AWS
       def self.main
         options = parse_command_line
         config_path =  options[:file]
-        config = load_config_json( config_path )
-        add_dir_to_load_path( Pathname.new(config_path).dirname )
-        domain = setup_domain(config)
-        workers = start_workers(domain, config_path, config)
-        setup_signal_handling(workers)
-
-        # Hang there until killed: this process is used to relay signals to
-        # children to support and facilitate an orderly shutdown.
-        wait_for_child_processes(workers)
+        worker_spec = load_config_json(config_path)
+        add_dir_to_load_path(Pathname.new(config_path).dirname)
+        load_classes(config_path, worker_spec)
+        run(worker_spec)
       end
+
     end
   end
 end
@@ -349,5 +401,4 @@ end
 if __FILE__ == $0
   AWS::Flow::Runner.main()
 end
-
 

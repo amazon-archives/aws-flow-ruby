@@ -133,7 +133,7 @@ describe "Runner" do
       # mock the load_files method to avoid having to create default files
       AWS::Flow::Runner.stub(:load_files)
 
-      workers = AWS::Flow::Runner.start_workers("", runner_config)
+      workers = AWS::Flow::Runner.start_workers(runner_config)
 
       sleep 2
       utils  = PingUtils.new

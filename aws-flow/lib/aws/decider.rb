@@ -47,7 +47,10 @@ require "aws/decider/exceptions"
 require "aws/decider/task_poller"
 require "aws/decider/flow_defaults"
 require "aws/decider/implementation"
+require "aws/decider/starter"
 require "aws/decider/version"
+
+require 'aws/runner'
 
 # @api private
 def get_const(name)

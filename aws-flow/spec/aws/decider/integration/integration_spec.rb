@@ -31,7 +31,11 @@ class TestHistoryAttributes
 end
 
 describe "RubyFlowDecider" do
+    
   before(:all) do
+    @bucket = ENV['AWS_SWF_BUCKET_NAME']
+    ENV['AWS_SWF_BUCKET_NAME'] = nil
+
     class MyWorkflow
       extend AWS::Flow::Workflows
       version "1"
@@ -50,6 +54,9 @@ describe "RubyFlowDecider" do
   after(:each) do
     kill_executors
     kill_executors
+  end
+  after(:all) do
+    ENV['AWS_SWF_BUCKET_NAME'] = @bucket
   end
 
   it "runs an empty workflow, making sure base configuration stuff is correct" do
@@ -240,7 +247,7 @@ describe "RubyFlowDecider" do
       history_events.last.should == "WorkflowExecutionFailed"
       workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
-      exception = FlowConstants.default_data_converter.load(details)
+      exception = FlowConstants.data_converter.load(details)
       exception.class.should == AWS::Flow::ActivityTaskFailedException
     end
 
@@ -295,7 +302,7 @@ describe "RubyFlowDecider" do
       last_event = workflow_execution.events.to_a.last
       last_event.event_type.should == "WorkflowExecutionFailed"
       details = workflow_execution.events.to_a.last.attributes.details
-      exception = FlowConstants.default_data_converter.load(details)
+      exception = FlowConstants.data_converter.load(details)
       exception.class.should == RuntimeError
       exception.backtrace.first.should include ("[TRUNCATED]")
     end
@@ -314,7 +321,7 @@ describe "RubyFlowDecider" do
       last_event.event_type.should == "WorkflowExecutionFailed"
       workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
-      exception = FlowConstants.default_data_converter.load(details)
+      exception = FlowConstants.data_converter.load(details)
       exception.class.should == RuntimeError
     end
 
@@ -424,7 +431,7 @@ describe "RubyFlowDecider" do
       last_event.event_type.should == "WorkflowExecutionFailed"
       workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
-      exception = FlowConstants.default_data_converter.load(details)
+      exception = FlowConstants.data_converter.load(details)
       exception.class.should == AWS::Flow::ChildWorkflowFailedException
       exception.cause.class.should == RuntimeError
     end
@@ -469,7 +476,7 @@ describe "RubyFlowDecider" do
       last_event.event_type.should == "WorkflowExecutionFailed"
       workflow_execution.events.to_a.last.attributes.reason.should include("[TRUNCATED]")
       details = workflow_execution.events.to_a.last.attributes.details
-      exception = FlowConstants.default_data_converter.load(details)
+      exception = FlowConstants.data_converter.load(details)
       exception.class.should == AWS::Flow::ChildWorkflowFailedException
       exception.cause.class.should == AWS::Flow::ChildWorkflowFailedException
     end

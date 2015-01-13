@@ -47,11 +47,11 @@ describe AWS::Flow::ActivityRegistrationOptions do
         default_task_start_to_close_timeout: "NONE",
         default_task_priority: "0",
         default_task_list: "USE_WORKER_TASK_LIST",
-        data_converter: FlowConstants.default_data_converter
+        data_converter: FlowConstants.data_converter
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      full_options.delete(:data_converter) == expected.delete(:data_converter)
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -82,11 +82,12 @@ describe AWS::Flow::ActivityRegistrationOptions do
         prefix_name: "FooActivity",
         manual_completion: true,
         heartbeat_timeout: "10",
-        data_converter: FlowConstants.default_data_converter
+        data_converter: FlowConstants.data_converter
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      [:data_converter, :manual_completion].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
+      full_options.delete(:manual_completion).should == expected.delete(:manual_completion)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -139,11 +140,12 @@ describe AWS::Flow::WorkflowRegistrationOptions do
         default_task_list: "USE_WORKER_TASK_LIST",
         default_task_priority: "0",
         tag_list: [],
-        data_converter: FlowConstants.default_data_converter
+        data_converter: FlowConstants.data_converter
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
+      full_options.delete(:tag_list).should == expected.delete(:tag_list)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -167,12 +169,13 @@ describe AWS::Flow::WorkflowRegistrationOptions do
         default_task_priority: "0",
         version: "1.0",
         prefix_name: "FooActivity",
-        data_converter: FlowConstants.default_data_converter,
+        data_converter: FlowConstants.data_converter,
         tag_list: ["tag1", "tag2"]
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
+      full_options.delete(:tag_list).should == expected.delete(:tag_list)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -188,12 +191,9 @@ describe AWS::Flow::ActivityOptions do
     it "should only contain the non registration options" do
       options = AWS::Flow::ActivityOptions.new
       full_options = options.get_full_options
-      expected = {
-        data_converter: FlowConstants.default_data_converter
-      }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      full_options.should == expected
+      full_options[:data_converter].should be_kind_of(FlowConstants.data_converter.class)
     end
 
     it "should return the values passed in" do
@@ -213,11 +213,12 @@ describe AWS::Flow::ActivityOptions do
         manual_completion: true,
         task_priority: "100",
         heartbeat_timeout: "10",
-        data_converter: FlowConstants.default_data_converter,
+        data_converter: FlowConstants.data_converter,
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      [:data_converter, :manual_completion].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
+      full_options.delete(:manual_completion).should == expected.delete(:manual_completion)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -232,12 +233,9 @@ describe AWS::Flow::WorkflowOptions do
     it "should not contain any registration options" do
       options = AWS::Flow::WorkflowOptions.new
       full_options = options.get_full_options
-      expected = {
-        data_converter: FlowConstants.default_data_converter
-      }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      full_options.should == expected
+      full_options[:data_converter].should be_kind_of(FlowConstants.data_converter.class)
     end
 
     it "should return the values passed in" do
@@ -253,11 +251,12 @@ describe AWS::Flow::WorkflowOptions do
         version: "1.0",
         prefix_name: "FooWorkflow",
         tag_list: ["tag1", "tag2"],
-        data_converter: FlowConstants.default_data_converter,
+        data_converter: FlowConstants.data_converter,
       }
       # We first compare and remove the following values because these objects have issues
       # when we sort the values array below
-      [:data_converter, :tag_list].each { |x| full_options.delete(x).should == expected.delete(x) }
+      full_options.delete(:data_converter).should be_kind_of(expected.delete(:data_converter).class)
+      full_options.delete(:tag_list).should == expected.delete(:tag_list)
       full_options.keys.sort.should == expected.keys.sort
       full_options.values.sort.should == expected.values.sort
     end
@@ -272,7 +271,7 @@ describe AWS::Flow::WorkflowRegistrationDefaults do
 
     it "should return the correct default values" do
       defaults = AWS::Flow::WorkflowRegistrationDefaults.new
-      defaults.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
+      defaults.data_converter.should be_kind_of(AWS::Flow::FlowConstants.data_converter.class)
       defaults.default_task_start_to_close_timeout.should == 30
       defaults.default_child_policy.should == "TERMINATE"
       defaults.tag_list.should == []
@@ -290,7 +289,7 @@ describe AWS::Flow::ActivityRegistrationDefaults do
 
     it "should return the correct default values" do
       defaults = AWS::Flow::ActivityRegistrationDefaults.new
-      defaults.data_converter.should == AWS::Flow::FlowConstants.default_data_converter
+      defaults.data_converter.should be_kind_of(AWS::Flow::FlowConstants.data_converter.class)
       defaults.default_task_schedule_to_start_timeout.should == Float::INFINITY
       defaults.default_task_schedule_to_close_timeout.should == Float::INFINITY
       defaults.default_task_start_to_close_timeout.should == Float::INFINITY

@@ -113,6 +113,22 @@ module AWS
       INFINITY = -1
       RETENTION_DEFAULT = 7
       NUM_OF_WORKERS_DEFAULT = 1
+
+      def self.defaults
+        {
+          domain: "rubyflow_default_workflow_domain",
+          prefix_name: "RubyFlowDefaultWorkflow",
+          execution_method: "start",
+          version: "1.0",
+          # max execution seconds for SWF (366 days precisely)
+          execution_start_to_close_timeout: "31622400",
+          data_converter: self.data_converter,
+          task_list: "rubyflow_default_workflow_tasklist",
+          result_activity_prefix: "RubyFlowDefaultResultActivity",
+          result_activity_method: "run"
+        }
+      end
+
       @exponential_retry_maximum_attempts = Float::INFINITY
       @exponential_retry_maximum_retry_interval_seconds = -1
       @exponential_retry_retry_expiration_seconds = -1
@@ -157,6 +173,14 @@ module AWS
         raise ArgumentError.new("max_value should be greater than 0") unless max_value > 0
         random = Random.new(seed.to_i)
         random.rand(max_value)
+      end
+
+      # Selects the data converter to use. By default, YAMLDataConverter is
+      # used. S3DataConverter is used when AWS_SWF_BUCKET_NAME environment
+      # variable is set.
+      def self.data_converter
+        return YAMLDataConverter.new unless ENV['AWS_SWF_BUCKET_NAME']
+        S3DataConverter.converter
       end
 
       @default_data_converter = YAMLDataConverter.new

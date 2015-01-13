@@ -243,16 +243,18 @@ module AWS
     #   Sets or returns the {WorkflowOptions} for this decider.
     #
     module Workflows
-      attr_accessor :version
+      attr_accessor :version, :workflows
       extend Utilities::UpwardLookups
       @precursors ||= []
       def look_upwards(variable)
-        precursors = self.ancestors.dup
-        precursors.delete(self)
-        results = precursors.map { |x| x.send(variable) if x.methods.map(&:to_sym).include? variable }.compact.flatten.uniq
+        unless self.ancestors.nil?
+          precursors = self.ancestors.dup
+          precursors.delete(self)
+          results = precursors.map { |x| x.send(variable) if x.methods.map(&:to_sym).include? variable }.compact.flatten.uniq
+        end
       end
       property(:workflows, [])
-      @workflows = []
+      @workflows ||= []
       def self.extended(base)
         base.send :include, InstanceMethods
       end
@@ -264,11 +266,12 @@ module AWS
         if input
           @entry_point = input
           workflow_type = WorkflowType.new(self.to_s + "." + input.to_s, nil, WorkflowRegistrationOptions.new(:execution_method => input))
-          self.workflows.each { |workflow| workflow.name = self.to_s + "." + input.to_s }
-          self.workflows.each do |workflow|
+          @workflows ||= []
+          @workflows.each { |workflow| workflow.name = self.to_s + "." + input.to_s }
+          @workflows.each do |workflow|
             workflow.options = WorkflowRegistrationOptions.new(:execution_method => input)
           end
-          self.workflows = self.workflows << workflow_type
+          @workflows << workflow_type
         end
         return @entry_point if @entry_point
         raise "You must set an entry point on the workflow definition"
@@ -278,8 +281,9 @@ module AWS
       # @api private
       def version(arg = nil)
         if arg
-          self.workflows.each { |workflow| workflow.version = arg }
-          self.workflows = self.workflows << WorkflowType.new(nil, arg, WorkflowOptions.new)
+          @workflows ||= []
+          @workflows.each { |workflow| workflow.version = arg }
+          @workflows << WorkflowType.new(nil, arg, WorkflowOptions.new)
         end
         return @version
       end
@@ -325,9 +329,18 @@ module AWS
         instance_variable_get(client_name)
       end
 
+      # Convenience method to set the child workflow client
+      def child_workflow_client(name, &block)
+        client_name = "@child_client_#{name}"
+        define_method(name) do
+          return instance_variable_get(client_name) if instance_variable_get(client_name)
+          client = AWS::Flow.send(:workflow_client, nil, nil, &block)
+        end
+        instance_variable_get(client_name)
+      end
 
       # @api private
-      def _options; self.workflows; end
+      def _options; @workflows; end
 
       # Defines a new workflow.
       #
@@ -343,7 +356,8 @@ module AWS
           options.execution_method = workflow_name
           prefix_name = options.prefix_name || self.to_s
           workflow_type = WorkflowType.new(prefix_name.to_s + "." + workflow_name.to_s, options.version, options)
-          self.workflows = self.workflows << workflow_type
+          @workflows ||= []
+          @workflows << workflow_type
         end
       end
 
@@ -368,7 +382,7 @@ module AWS
         data_converter = options[:data_converter]
         signal_name = options[:signal_name]
         signal_name ||= method_name.to_s
-        data_converter ||= FlowConstants.default_data_converter
+        data_converter ||= FlowConstants.data_converter
         @signals ||= {}
         @signals[signal_name] = MethodPair.new(method_name, data_converter)
         @signals
@@ -437,7 +451,6 @@ module AWS
           self.class.send(:define_method, name) { client }  if ! name.nil?
           client
         end
-
 
         # Creates a timer on the workflow that executes the supplied block after a specified delay.
         #

@@ -64,6 +64,9 @@ describe "Runner" do
 
       # just in case so we don't start chid processes
       AWS::Flow::Runner.stub(:fork)
+      allow(AWS::Flow::Runner).to receive(:all_subclasses).and_return(nil)
+
+      AWS::Flow::Runner.stub(:setup_domain)
 
       # make sure the error is thrown
       expect {
@@ -86,6 +89,9 @@ describe "Runner" do
 
       # just in case so we don't start chid processes
       allow(AWS::Flow::Runner).to receive(:fork).and_return(42)
+      allow(AWS::Flow::Runner).to receive(:all_subclasses).and_return(nil)
+
+      AWS::Flow::Runner.stub(:setup_domain)
 
       # make sure the error is thrown
       expect {
@@ -109,6 +115,9 @@ describe "Runner" do
 
       # just in case so we don't start chid processes
       AWS::Flow::Runner.stub(:fork)
+      allow(AWS::Flow::Runner).to receive(:all_subclasses).and_return(nil)
+
+      AWS::Flow::Runner.stub(:setup_domain)
 
       # make sure the error is thrown
       expect {
@@ -131,6 +140,9 @@ describe "Runner" do
 
       # just in case so we don't start chid processes
       allow(AWS::Flow::Runner).to receive(:fork).and_return(42)
+      allow(AWS::Flow::Runner).to receive(:all_subclasses).and_return(nil)
+
+      AWS::Flow::Runner.stub(:setup_domain)
 
       # make sure the error is thrown
       expect {
@@ -143,33 +155,49 @@ describe "Runner" do
 
   describe "Starting workers" do
 
+    before(:all) do
+      class Foo; extend AWS::Flow::Workflows; end
+      class Bar; extend AWS::Flow::Workflows; end
+      class FooActivity; extend AWS::Flow::Activities; end
+      class BarActivity; extend AWS::Flow::Activities; end
+
+    end
+
     def workflow_js
-      document = '{
+      JSON.parse('{
         "workflow_paths": [],
         "workflow_workers": [
           {
             "task_list": "bar",
-            "workflow_classes": [ "Object", "String" ],
+            "workflow_classes": [ "Foo", "Bar" ],
             "number_of_workers": 3
           }
         ]
-      }'
-      JSON.parse(document)
+      }')
     end
 
     def activity_js
-      document = '{
+      JSON.parse('{
         "activity_paths": [],
         "activity_workers": [
           {
             "task_list": "bar",
-            "activity_classes": [ "Object", "String" ],
+            "activity_classes": [ "FooActivity", "BarActivity" ],
             "number_of_workers": 3
           }
         ]
-      }'
-      JSON.parse(document)
+      }')
     end
+
+    def default_js
+      JSON.parse('{
+        "default_workers":
+          {
+            "number_of_workers": 3
+          }
+      }')
+    end
+
 
     it "makes sure the number of workflow workers is correct" do
       # mock out a few methods to focus on the fact that the workers were created
@@ -182,7 +210,7 @@ describe "Runner" do
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(3).times
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, "", workflow_js)
     end
 
@@ -194,11 +222,12 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
+      AWS::Flow::Runner.stub(:start_default_workers)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(3).times
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, "",activity_js)
     end
     
@@ -215,11 +244,11 @@ describe "Runner" do
         implems << arg
       end
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, "",workflow_js)
 
       # validate
-      expect(implems).to include(Object.const_get("Object"), Object.const_get("String"))
+      expect(implems).to include(Object.const_get("Foo"), Object.const_get("Bar"))
     end
 
     it "makes sure the activity implementation classes are added" do
@@ -228,6 +257,8 @@ describe "Runner" do
       AWS::Flow::Runner.stub(:fork)
       AWS::Flow::Runner.stub(:load_files)
       AWS::Flow::Runner.stub(:setup_domain)
+      AWS::Flow::Templates.stub(:make_activity_class).and_return{ |x| x }
+      AWS::Flow::Runner.stub(:start_default_workers)
       
       # stub that we can query later
       implems = []
@@ -235,11 +266,11 @@ describe "Runner" do
         implems << arg
       end
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, "",activity_js)
 
       # validate
-      expect(implems).to include(Object.const_get("Object"), Object.const_get("String"))
+      expect(implems).to include(Object.const_get("FooActivity"), Object.const_get("BarActivity"))
     end
 
     it "makes sure the workflow worker is started" do
@@ -255,7 +286,7 @@ describe "Runner" do
         starts += 1
       end
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, "",workflow_js)
 
       # validate
@@ -268,6 +299,7 @@ describe "Runner" do
       AWS::Flow::Runner.stub(:fork).and_yield
       AWS::Flow::Runner.stub(:load_files)
       AWS::Flow::Runner.stub(:setup_domain)
+      AWS::Flow::Runner.stub(:start_default_workers)
       
       # stub that we can query later
       starts = 0
@@ -275,11 +307,50 @@ describe "Runner" do
         starts += 1
       end
 
-      # start the workers 
+      # start the workers
       workers = AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, "",activity_js)
 
       # validate
       expect(starts).to equal(3)
+    end
+
+    it "makes sure the number of default workers is correct when stated explicitly" do
+      # mock out a few methods to focus on the fact that the workers were created
+      allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation) do |klass|
+        klass.should be(AWS::Flow::Templates.default_workflow)
+        nil
+      end
+
+      allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
+      AWS::Flow::Runner.stub(:setup_domain)
+      AWS::Flow::Runner.stub(:load_files)
+
+      # what we are testing:
+      expect(AWS::Flow::Runner).to receive(:fork).exactly(3).times
+
+      # start the workers
+      workers = AWS::Flow::Runner.start_default_workers(AWS::SimpleWorkflow.new, "", default_js)
+    end
+
+    it "makes sure the number of default workers is correct when stated implicitly" do
+      # mock out a few methods to focus on the fact that the workers were created
+      allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation).and_return(nil)
+      allow_any_instance_of(AWS::Flow::ActivityWorker).to receive(:start).and_return(nil)
+
+      allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation) do |klass|
+        klass.should be(AWS::Flow::Templates.default_workflow)
+        nil
+      end
+
+      AWS::Flow::Runner.stub(:setup_domain)
+      AWS::Flow::Runner.stub(:load_files)
+
+      # what we are testing:
+      expect(AWS::Flow::Runner).to receive(:fork).exactly(6).times
+
+      # start the workers
+      workers = AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, "",activity_js)
+
     end
 
   end
@@ -321,13 +392,20 @@ describe "Runner" do
                                     default_file: relative})
     end
 
-    it "loads the \"flow/activities.rb\" by default for activity worker" do
+    it "loads the \"flow/activities.rb\" and \"flow/workflows.rb\" by default for activity and workflow worker respectively" do
       def activity_js
         document = '{
         "activity_workers": [
           {
             "task_list": "bar",
-            "activity_classes": [ "Object", "String" ],
+            "activity_classes": [ "FooActivity", "BarActivity" ],
+            "number_of_workers": 3
+          }
+        ],
+        "workflow_workers": [
+          {
+            "task_list": "bar",
+            "workflow_classes": [ "Foo", "Bar" ],
             "number_of_workers": 3
           }
         ]
@@ -337,28 +415,9 @@ describe "Runner" do
 
       AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to receive(:require).with(File.join(".", "flow", "activities.rb"))
-
-      AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, ".", activity_js)
-    end
-
-    it "loads the \"flow/workflows.rb\" by default for workflow worker" do
-      def workflow_js
-        document = '{
-        "workflow_workers": [
-          {
-            "task_list": "bar",
-            "workflow_classes": [ "Object", "String" ],
-            "number_of_workers": 3
-          }
-        ]
-      }'
-        JSON.parse(document)
-      end
-
-      AWS::Flow::Runner.stub(:setup_domain)
       expect(AWS::Flow::Runner).to receive(:require).with(File.join(".", "flow", "workflows.rb"))
 
-      AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, ".", workflow_js)
+      AWS::Flow::Runner.load_classes(".", activity_js)
     end
 
     it "takes activity_paths as override to \"flow/activities.rb\"" do
@@ -368,7 +427,7 @@ describe "Runner" do
         "activity_workers": [
           {
             "task_list": "bar",
-            "activity_classes": [ "Object", "String" ],
+            "activity_classes": [ "FooActivity", "BarActivity" ],
             "number_of_workers": 3
           }
         ]
@@ -381,7 +440,7 @@ describe "Runner" do
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("foo"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("bar"))
 
-      AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, ".", activity_js)
+      AWS::Flow::Runner.load_classes(".", activity_js)
     end
 
     it "takes workflow_paths as override to \"flow/workflows.rb\"" do
@@ -391,7 +450,7 @@ describe "Runner" do
         "workflow_workers": [
           {
             "task_list": "bar",
-            "workflow_classes": [ "Object", "String" ],
+            "workflow_classes": [ "Foo", "Bar" ],
             "number_of_workers": 3
           }
         ]
@@ -404,7 +463,7 @@ describe "Runner" do
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("foo"))
       expect(AWS::Flow::Runner).to receive(:require).with(File.join("bar"))
 
-      AWS::Flow::Runner.start_workflow_workers(AWS::SimpleWorkflow.new, ".", workflow_js)
+      AWS::Flow::Runner.load_classes(".", workflow_js)
     end
 
   end
@@ -480,6 +539,7 @@ describe "Runner" do
       AWS::Flow::ActivityWorker.any_instance.stub(:add_implementation) do |impl|
         impls << impl
       end
+      AWS::Flow::Runner.stub(:start_default_workers)
 
       AWS::Flow::Runner.start_activity_workers(AWS::SimpleWorkflow.new, ".", activity_js)
 

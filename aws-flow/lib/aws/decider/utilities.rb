@@ -229,6 +229,25 @@ module AWS
       end
 
       # @api private
+      def self.add_workflow_worker_to_spec(spec, klass, tasklist)
+        add_worker_to_spec(spec, 'workflow', klass, tasklist)
+      end
+
+      # @api private
+      def self.add_activity_worker_to_spec(spec, klass, tasklist)
+        add_worker_to_spec(spec, 'activity', klass, tasklist)
+      end
+
+      # @api private
+      def self.add_worker_to_spec(spec, type, klass, tasklist)
+        spec["#{type}_workers"] << {
+          "#{type}_classes" => ["#{klass}"],
+          "task_list" => "#{tasklist}"
+        }
+        spec
+      end
+
+      # @api private
       module SelfMethods
         # @api private
         def handle_event(event, options)
