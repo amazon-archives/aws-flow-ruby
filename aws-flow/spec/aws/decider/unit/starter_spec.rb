@@ -14,6 +14,11 @@ describe "AWS::Flow" do
 
   context "#start_workflow" do
 
+    it "raises error if options are not passed in correctly" do
+      expect{AWS::Flow::start_workflow(nil, "input", nil)}.to raise_error(ArgumentError)
+      expect{AWS::Flow::start_workflow(nil, "input", "")}.to raise_error(ArgumentError)
+    end
+
     it "raises error if domain is not provided" do
 
       options = { from_class: "FooWorkflow" }

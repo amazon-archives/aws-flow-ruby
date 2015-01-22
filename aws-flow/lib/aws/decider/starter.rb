@@ -82,6 +82,9 @@ module AWS
     #      ...
     #    })
     def self.start_workflow(workflow = nil, input, opts)
+
+      raise ArgumentError, "Please provide an options hash" if opts.nil? || !opts.is_a?(Hash)
+
       options = opts.dup
 
       # Get the domain out of the options hash.

@@ -185,7 +185,7 @@ module AWS
         activity = FlowDefaultResultActivityRuby.new
 
         # Create the activity worker to poll on the result tasklist
-        worker = AWS::Flow::ActivityWorker.new(swf, domain, tasklist, activity) {{ use_forking: false }}
+        worker = AWS::Flow::ActivityWorker.new(domain.client, domain, tasklist, activity) {{ use_forking: false }}
 
         # Keep polling till we get the result or timeout. A 0 or nil timeout
         # will let the loop run to completion.

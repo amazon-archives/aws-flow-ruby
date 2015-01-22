@@ -136,6 +136,7 @@ module AWS
       #
       def initialize(service, domain, task_list, activity_definition_map, executor, options=nil)
         @service = service
+        @service_opts = @service.config.to_h
         @domain = domain
         @task_list = task_list
         @activity_definition_map = activity_definition_map
@@ -306,7 +307,7 @@ module AWS
       #   [AWS::SimpleWorkflow::ActivityTask](http://docs.aws.amazon.com/AWSRubySDK/latest/AWS/SimpleWorkflow/ActivityTask.html)
       #   object to process.
       #
-      def process_single_task(task, options=nil)
+      def process_single_task(task)
 
         # We are using the 'build' method to create a new ConnectionPool here to
         # make sure that connection pools are not shared among forked processes.
@@ -319,10 +320,9 @@ module AWS
         # Since we can't change the pool of an already existing NetHttpHandler,
         # we also create a new NetHttpHandler in order to use the new pool.
 
-        options ||= @service.config.to_h
-        options[:connection_pool] = AWS::Core::Http::ConnectionPool.build(options[:http_handler].pool.options)
-        options[:http_handler] = AWS::Core::Http::NetHttpHandler.new(options)
-        @service = @service.with_options(options)
+        @service_opts[:connection_pool] = AWS::Core::Http::ConnectionPool.build(@service_opts[:http_handler].pool.options)
+        @service_opts[:http_handler] = AWS::Core::Http::NetHttpHandler.new(@service_opts)
+        @service = @service.with_options(@service_opts)
 
         begin
           begin
@@ -380,11 +380,10 @@ module AWS
           return false
         end
         semaphore_needs_release = false
-        options = @service.config.to_h
         if use_forking
-          @executor.execute { process_single_task(task, options) }
+          @executor.execute { process_single_task(task) }
         else
-          process_single_task(task, options)
+          process_single_task(task)
         end
         @logger.info Utilities.activity_task_to_debug_string("Finished executing task", task)
         return true

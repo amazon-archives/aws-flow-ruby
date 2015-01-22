@@ -121,7 +121,7 @@ describe "task_priority" do
           }
         end
         def entry_point
-          continue_as_new
+          continue_as_new { { task_list: "continue_as_new_foo" } }
         end
       end
 
