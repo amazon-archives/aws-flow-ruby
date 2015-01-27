@@ -1,38 +1,40 @@
 # AWS Flow Framework for Ruby
+AWS Flow Framework is a library for creating background jobs and multistep workflows using [Amazon Simple
+Workflow](http://aws.amazon.com/swf/) (Amazon SWF).
 
-Using the AWS Flow Framework for Ruby, you write code in a programming model that is natural for Ruby programmers while
-the framework's pre-built objects and classes handle the details of the [Amazon Simple
-Workflow](http://aws.amazon.com/swf/) (Amazon SWF) API.
+## Basic usage
+To create a simple background job, first implement your logic for processing the job. Each job can be implemented as a method in a class, for example:
 
-The AWS Flow Framework for Ruby makes it easy to build applications that perform work across many machines. The
-framework lets you quickly create tasks, coordinate them, and express how these tasks depend on each other--as you would
-do in a typical program.
+```ruby
+class MyJobs
+  def hello input
+    "Hello #{input[:name]}!"
+  end
+end
+```
 
-For example, you can run a method in an application on a remote computer simply by calling a method in your application
-logic that is hosted on a separate local computer. The AWS Flow Framework takes care of the complex back-and-forth
-communication needed to execute the remote method and returns its result to the local application by using information
-stored by Amazon SWF.
+Then use aws-flow-utils to generate worker configuration. 
 
-The output of any executed method can be used to connect separate parts of your logic that depend on each other. The
-framework lets you use straightforward syntax to express dependencies between methods with a simple "block and wait for
-a callback" approach. The framework also lets you handle a failure on a remote machine as if it were a local error and
-gives you easy ways to define how you'd like to retry important methods in your application if they happen to fail.
+    aws-flow-utils -c local -n MyHelloWorldApp -a <your_ruby_file_name> -A <your_ruby_class_name>
 
-For general information about the AWS Flow Framework for Ruby, including information about installing the Framework,
-prerequisites for use, getting started with the Framework and how to code common scenarios, see the [AWS Flow Framework
+Start your workers.
+
+    aws-flow-ruby -f worker.json
+
+That's it, you can now create background jobs using `AWS::Flow.start` and they will be executed on your workers.
+
+```ruby
+require 'aws/decider'
+AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" })
+```
+
+### Running workers in Amazon EC2
+You can deploy your workers on AWS Elastic Beanstalk with a just a few additional steps. See our [developer guide](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/eb-howto.html) for a step-by-step walkthrough.
+
+## More Information
+
+For additional information, including installation instructions and how to implement multistep workflows, see the [AWS Flow Framework
 for Ruby Developer Guide](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/).
-
-## Install the AWS Flow Framework for Ruby
-
-For a complete guide to installing the framework, see [Installing the AWS Flow Framework for Ruby](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/installing.html) in the developer guide.
-
-If you already have both Ruby (v1.9 or newer) and RubyGems installed, you should be able to install the framework with
-the following terminal command:
-
-    gem install aws-flow
-
-To get started with programming with the framework, see the [Getting Started
-tutorial](http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/helloworld.html) in the developer guide.
 
 ## Links
 
