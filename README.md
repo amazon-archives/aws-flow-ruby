@@ -35,11 +35,7 @@ require 'aws/decider'
 AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" })
 ```
 
-.. justrobert: Change to "Running Workers on AWS Elastic Beanstalk"?
-
-.. justrobert: Should be heading level 2 instead of level 3?
-
-### Running Workers in Amazon EC2
+## Running Workers in Amazon EC2
 
 You can deploy your workers on [AWS Elastic Beanstalk][eb] with just a few
 additional steps. See our developer guide for a [step-by-step
@@ -59,11 +55,10 @@ walkthrough][eb-howto].
 
 [forums]: https://forums.aws.amazon.com/forum.jspa?forumID=133
 
-.. justrobert: Change copyright to 2015?
 
 ## License
 
-Copyright 2013. Amazon Web Services, Inc. All Rights Reserved.
+Copyright 2015, Amazon Web Services, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the
