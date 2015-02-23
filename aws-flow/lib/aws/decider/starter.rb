@@ -150,13 +150,11 @@ module AWS
     # @param [Hash] opts
     #   Additional options to configure the workflow or activity execution.
     #
-    # @option opts [true, false] :wait
-    #   *Optional* This boolean flag can be set to true if the result of the
-    #   task is required. Default value is false.
-    #
-    # @option opts [Integer] :wait_timeout
-    #   *Optional* This sets the timeout value for :wait. Default value is
-    #   nil.
+    # @option opts [true, false] :get_result
+    #   *Optional* This boolean flag can be set to true if the result future
+    #   if required. The future can be waited on by using the
+    #   AWS::Flow::wait_for_all, AWS::Flow::wait_for_any methods or by
+    #   calling the ExternalFuture#get method. Default value is false.
     #
     # @option opts [Hash] :exponential_retry
     #   A hash of {AWS::Flow::ExponentialRetryOptions}. Default value is -
@@ -200,7 +198,7 @@ module AWS
     #    )
     #
     def self.start(name_or_klass, input, options = {})
-      AWS::Flow::Templates.start(name_or_klass, input, options)
+      AWS::Flow::Templates::Starter.start(name_or_klass, input, options)
     end
 
   end

@@ -35,6 +35,15 @@ require 'aws/decider'
 AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" })
 ```
 
+### Results
+You can also get the result of the background job if desired.
+
+``` ruby
+future = AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" }, {result:true})
+# wait till ready
+future.get
+```
+
 ## Running Workers in Amazon EC2
 
 You can deploy your workers on [AWS Elastic Beanstalk][eb] with just a few

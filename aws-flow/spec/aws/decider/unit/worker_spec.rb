@@ -180,6 +180,48 @@ end
 
 describe ActivityWorker do
 
+  context "#initialize" do
+
+    context "windows platform" do
+
+      before(:all) do
+        @platform = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
+        RbConfig::CONFIG['host_os'] = 'mswin'
+      end
+
+      after(:all) do
+        RbConfig::CONFIG['host_os'] = @platform
+      end
+
+      it "turns forking off by default" do
+        ActivityWorker.any_instance.stub(:add_implementation)
+        worker = AWS::Flow::ActivityWorker.new(nil, nil, "task_list")
+        options = worker.instance_variable_get("@options")
+        options.use_forking.should be_false
+        options.execution_workers.should be_zero
+      end
+
+      it "turns forking on if user explicitely specifies execution workers" do
+        ActivityWorker.any_instance.stub(:add_implementation)
+        worker = AWS::Flow::ActivityWorker.new(nil, nil, "task_list") { { execution_workers: 5 }}
+        options = worker.instance_variable_get("@options")
+        options.use_forking.should be_true
+        options.execution_workers.should == 5
+      end
+    end
+
+    # This test is to ensure that the default behavior of forking is overriden
+    # by setting execution_workers to 0. This is added to ensure that forking
+    # can be turned off from the json spec for the runner.
+    it "turns forking on if execution_workers is 0 and use_forking is true" do
+      worker = AWS::Flow::ActivityWorker.new(nil, nil, "task_list") { { execution_workers: 0, use_forking: true }}
+      options = worker.instance_variable_get("@options")
+      options.use_forking.should be_false
+      options.execution_workers.should be_zero
+    end
+
+  end
+
   context "#register" do
     it "ensures that worker uses the right task list to register type" do
       class DefaultTasklistTestActivity

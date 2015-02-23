@@ -1,13 +1,12 @@
 require 'spec_helper'
-include AWS::Flow::Templates
 
-describe ActivityTemplate do
+describe AWS::Flow::Templates::ActivityTemplate do
 
   context "#activity" do
 
     it "creates an ActivityTemplate with correct name and options" do
-      template = activity("ActivityClass.my_activity")
-      template.should be_kind_of(ActivityTemplate)
+      template = AWS::Flow::Templates::activity("ActivityClass.my_activity")
+      template.should be_kind_of(AWS::Flow::Templates::ActivityTemplate)
       template.name.should == "my_activity"
       template.options[:prefix_name].should == "ActivityClass"
     end
@@ -17,7 +16,7 @@ describe ActivityTemplate do
   context "#initialize" do
 
     it "assigns activity name and default options correctly" do
-      template = ActivityTemplate.new("ActivityClass.my_activity")
+      template = AWS::Flow::Templates::ActivityTemplate.new("ActivityClass.my_activity")
       template.name.should == "my_activity"
       template.options[:version].should == "1.0"
       template.options[:prefix_name].should == "ActivityClass"
@@ -25,14 +24,14 @@ describe ActivityTemplate do
     end
 
     it "raises if full activity name is not given" do
-      expect{ActivityTemplate.new("ActivityClass")}.to raise_error
+      expect{AWS::Flow::Templates::ActivityTemplate.new("ActivityClass")}.to raise_error
     end
 
     it "ignores irrelevant activity options" do
       options = {
         foo: "asdf"
       }
-      template = ActivityTemplate.new("ActivityClass.my_activity", options)
+      template = AWS::Flow::Templates::ActivityTemplate.new("ActivityClass.my_activity", options)
       template.name.should == "my_activity"
       template.options.should_not include(:foo)
     end
@@ -45,7 +44,7 @@ describe ActivityTemplate do
         version: "2.0",
         task_list: "foo_tasklist"
       }
-      template = ActivityTemplate.new("ActivityClass.my_activity", options)
+      template = AWS::Flow::Templates::ActivityTemplate.new("ActivityClass.my_activity", options)
       template.name.should == "my_activity"
       template.options[:version].should == "2.0"
       template.options[:task_list].should == "foo_tasklist"
@@ -60,7 +59,7 @@ describe ActivityTemplate do
   context "#run" do
 
     it "ensures run method calls the context" do
-      template = activity("ActivityClass.my_activity")
+      template = AWS::Flow::Templates::activity("ActivityClass.my_activity")
       input = { input: "foo" }
 
       context = double
@@ -71,7 +70,7 @@ describe ActivityTemplate do
     end
 
     it "ensures activity is scheduled on the correct tasklist" do
-      template = activity("ActivityClass.my_activity")
+      template = AWS::Flow::Templates::activity("ActivityClass.my_activity")
       input = { input: "foo", task_list: "bar" }
 
       context = double

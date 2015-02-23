@@ -333,7 +333,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
-      AWS::Flow::Templates.stub(:register_default_result_activity)
+      AWS::Flow::Templates::Utils.stub(:register_default_result_activity)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(3).times
@@ -352,7 +352,7 @@ describe "Runner" do
       allow_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:start).and_return(nil)
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
-      AWS::Flow::Templates.stub(:register_default_result_activity)
+      AWS::Flow::Templates::Utils.stub(:register_default_result_activity)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(0).times
@@ -373,7 +373,7 @@ describe "Runner" do
 
       AWS::Flow::Runner.stub(:setup_domain)
       AWS::Flow::Runner.stub(:load_files)
-      AWS::Flow::Templates.stub(:register_default_result_activity)
+      AWS::Flow::Templates::Utils.stub(:register_default_result_activity)
 
       # what we are testing:
       expect(AWS::Flow::Runner).to receive(:fork).exactly(6).times

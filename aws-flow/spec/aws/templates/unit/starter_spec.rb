@@ -123,147 +123,74 @@ describe "AWS::Flow::Templates" do
 
     end
 
-    it "doesn't initialize result_step when wait is false" do
+    it "doesn't initialize result_step when get_result is false" do
 
       expect(AWS::Flow).to receive(:start_workflow) do |input, options|
         input[:definition].result_step.should be_nil
       end
 
+      expect(AWS::Flow::Templates::ResultWorker).to_not receive(:start)
+      expect(AWS::Flow::Templates::ResultWorker).to_not receive(:get_result_future)
+      expect(AWS::Flow::Templates::Starter).to_not receive(:set_result_activity)
+
       options = {
-        wait: false
+        get_result: false
       }
 
       AWS::Flow::start("HelloWorld.hello", {input: "input"}, options)
 
     end
 
-    it "initializes result_step and calls get_result when wait is true" do
+    it "initializes result_step and calls get_result when get_result is true" do
 
-      expect(AWS::Flow).to receive(:start_workflow) do |input, options|
-        input[:definition].result_step.should_not be_nil
-      end
-
-      expect(AWS::Flow::Templates).to receive(:get_result)
+      expect(AWS::Flow::Templates::ResultWorker).to receive(:start)
+      expect(AWS::Flow::Templates::ResultWorker).to receive(:get_result_future)
+      expect(AWS::Flow::Templates::Starter).to receive(:set_result_activity)
 
       options = {
-        wait: true
+        get_result: true
       }
 
       AWS::Flow::start("HelloWorld.hello", {input: "input"}, options)
 
     end
 
-    it "calls get_result with timeout value when wait & wait_timeout are set" do
-
-      expect(AWS::Flow).to receive(:start_workflow) do |input, options|
-        input[:definition].result_step.should_not be_nil
-      end
-
-      expect(AWS::Flow::Templates).to receive(:get_result) do |tasklist, domain, timeout|
-        timeout.should == 10
-      end
-
-      options = {
-        wait: true,
-        wait_timeout: 10
-      }
-
-      AWS::Flow::start("HelloWorld.hello", {input: "input"}, options)
-
-    end
-
-
   end
 
-  context "#get_result" do
+  context "#set_result_activity" do
 
-    it "starts an activity worker and sets the future" do
+    it "sets the result step correctly and creates a new ExternalFuture" do
+      root = double
 
-      tasklist = "result_tasklist: foo"
-
-      # Get the result activity class
-      klass = AWS::Flow::Templates.result_activity
-      instance = klass.new
-
-      expect(klass).to receive(:new).and_return(instance)
-
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation) do |k|
-        k.class.should == AWS::Flow::Templates.const_get("#{FlowConstants.defaults[:result_activity_prefix]}")
-        k.result.should be_kind_of(AWS::Flow::Core::Future)
+      class AWS::Flow::Templates::ResultWorker
+        class << self
+          alias_method :start_copy, :start
+          def start
+            @results = SynchronizedHash.new
+          end
+        end
       end
 
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:run_once) do
-        # Manually call the activity
-        instance.send(FlowConstants.defaults[:result_activity_method].to_sym, {name: "foo"} )
+      AWS::Flow::Templates::ResultWorker.start
+
+      expect(SecureRandom).to receive(:uuid).and_return("foo")
+
+      expect(root).to receive(:result_step=) do |x|
+        x.is_a?(AWS::Flow::Templates::ResultActivityTemplate)
       end
 
-      # Call get_result and check that the result is set
-      result = AWS::Flow::Templates.get_result(tasklist, "domain")
+      AWS::Flow::Templates::Starter.set_result_activity("task_list", root)
 
-      result.should include(name: "foo")
+      result = AWS::Flow::Templates::ResultWorker.results["result_key: foo"]
+      result.should_not be_nil
+      result.should be_a(AWS::Flow::Core::ExternalFuture)
 
-    end
-
-    it "times out correctly" do
-
-      tasklist = "result_tasklist: foo"
-
-      # Get the result activity class
-      klass = AWS::Flow::Templates.result_activity
-      instance = klass.new
-
-      expect(klass).to receive(:new).and_return(instance)
-
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:run_once) do
-        # Manually call the activity
-        sleep 5
-        instance.send(FlowConstants.defaults[:result_activity_method].to_sym, {name: "foo"} )
+      class AWS::Flow::Templates::ResultWorker
+        class << self
+          alias_method :start_copy, :start
+        end
       end
 
-      # Call get_result and check that the result is set
-      result = AWS::Flow::Templates.get_result(tasklist, "domain", 1)
-      result.should be_nil
-
-    end
-
-
-  end
-
-  context "#register_default_domain" do
-
-    it "registers the default domain" do
-      expect(AWS::Flow::Utilities).to receive(:register_domain) do |name|
-        name.should == FlowConstants.defaults[:domain]
-      end
-      AWS::Flow::Templates.register_default_domain
-    end
-
-  end
-
-  context "#register_default_workflow" do
-
-    it "registers the default workflow" do
-      domain = double
-      allow(domain).to receive(:client).and_return(domain)
-      expect_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:add_implementation) do |k|
-        k.should == AWS::Flow::Templates.const_get("#{FlowConstants.defaults[:prefix_name]}")
-      end
-      expect_any_instance_of(AWS::Flow::WorkflowWorker).to receive(:register)
-      AWS::Flow::Templates.register_default_workflow(domain)
-    end
-
-  end
-
-  context "#register_default_result_activity" do
-
-    it "registers the default result activity" do
-      domain = double
-      allow(domain).to receive(:client).and_return(domain)
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:add_implementation) do |k|
-        k.should == AWS::Flow::Templates.const_get("#{FlowConstants.defaults[:result_activity_prefix]}")
-      end
-      expect_any_instance_of(AWS::Flow::ActivityWorker).to receive(:register)
-      AWS::Flow::Templates.register_default_result_activity(domain)
     end
 
   end

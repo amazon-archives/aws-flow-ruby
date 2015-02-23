@@ -1,18 +1,17 @@
 require 'spec_helper'
-include AWS::Flow::Templates
 
-describe RootTemplate do
+describe AWS::Flow::Templates::RootTemplate do
 
   context "#root" do
 
     it "initializes the RootTemplate with correct step and result_step" do
-      template = root("foo")
-      template.should be_kind_of(RootTemplate)
+      template = AWS::Flow::Templates.root("foo")
+      template.should be_kind_of(AWS::Flow::Templates::RootTemplate)
       template.step.should == "foo"
       template.result_step.should be_nil
 
-      template = root("foo", "bar")
-      template.should be_kind_of(RootTemplate)
+      template = AWS::Flow::Templates.root("foo", "bar")
+      template.should be_kind_of(AWS::Flow::Templates::RootTemplate)
       template.step.should == "foo"
       template.result_step.should == "bar"
     end
@@ -26,7 +25,7 @@ describe RootTemplate do
 
     it "runs the step" do
       expect(step).to receive(:run).with("input", "context")
-      template = root(step)
+      template = AWS::Flow::Templates.root(step)
       template.run("input", "context")
     end
 
@@ -34,7 +33,7 @@ describe RootTemplate do
       expect(step).to receive(:run).with("input", "context").and_return("result")
       expect(result_step).not_to receive(:run)
 
-      template = root(step)
+      template = AWS::Flow::Templates.root(step)
       template.run("input", "context").should == "result"
     end
 
@@ -42,7 +41,7 @@ describe RootTemplate do
       expect(step).to receive(:run).with("input", "context").and_return("result")
       expect(result_step).to receive(:run).with("result", "context")
 
-      template = root(step, result_step)
+      template = AWS::Flow::Templates.root(step, result_step)
       template.run("input", "context").should == "result"
    end
 
@@ -56,7 +55,7 @@ describe RootTemplate do
         context.should == "context"
       end
 
-      expect { root(step, result_step).run("input", "context") }.to raise_error
+      expect { AWS::Flow::Templates.root(step, result_step).run("input", "context") }.to raise_error
     end
 
     it "catches exceptions and doesn't call result_step if result_step is nil" do
@@ -64,7 +63,7 @@ describe RootTemplate do
         raise "test"
       end
       expect(result_step).not_to receive(:run)
-      expect { root(step, result_step).run("input", "context") }.to raise_error
+      expect { AWS::Flow::Templates.root(step, result_step).run("input", "context") }.to raise_error
     end
 
   end

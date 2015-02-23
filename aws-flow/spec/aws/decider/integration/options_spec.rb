@@ -4,6 +4,7 @@ describe "task_priority" do
 
   before(:all) do
     @swf, @domain = setup_swf
+    kill_executors
   end
 
   context "activities and workflows" do
@@ -117,7 +118,8 @@ describe "task_priority" do
           {
             version: "1.0",
             default_task_priority: 50,
-            default_execution_start_to_close_timeout: 60
+            default_execution_start_to_close_timeout: 60,
+            default_tag_list: ["continue_task_priority_test"]
           }
         end
         def entry_point
@@ -140,6 +142,7 @@ describe "task_priority" do
       execution.status.should == :continued_as_new
       events = execution.events.select { |x| x.event_type == "WorkflowExecutionContinuedAsNew" }
       events.first.attributes.task_priority.should == 50
+      @domain.workflow_executions.tagged("continue_task_priority_test").each { |x| x.terminate }
     end
 
 
@@ -162,13 +165,14 @@ describe "task_priority" do
       execution.status.should == :continued_as_new
       events = execution.events.select { |x| x.event_type == "WorkflowExecutionContinuedAsNew" }
       events.first.attributes.task_priority.should == 100
+      @domain.workflow_executions.tagged("continue_task_priority_test").each { |x| x.terminate }
     end
   end
 
   context "child_workflows" do
 
     it "test whether task priority is overridden for child workflow" do
-      class ChildWorkflowsTestChildWorkflow
+      class ChildWorkflowsTaskPriorityTestChildWorkflow
         extend AWS::Flow::Workflows
         workflow :child do
           {
@@ -181,7 +185,7 @@ describe "task_priority" do
         def child; sleep 1; end
       end
 
-      class ChildWorkflowsTestParentWorkflow
+      class ChildWorkflowsTaskPriorityTestParentWorkflow
         extend AWS::Flow::Workflows
         workflow :parent do
           {
@@ -192,15 +196,14 @@ describe "task_priority" do
         end
         def parent
           domain = get_test_domain
-          client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "ChildWorkflowsTestChildWorkflow", task_list: "test2" } }
-          client.send_async(:start_execution)
-          client.send_async(:start_execution)
+          client = AWS::Flow::workflow_client(domain.client, domain) { { from_class: "ChildWorkflowsTaskPriorityTestChildWorkflow", task_list: "test2" } }
+          client.start_execution
         end
       end
 
-      parent_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "ChildWorkflowsTestParentWorkflow" } }
-      @child_worker = WorkflowWorker.new(@domain.client, @domain, "test2", ChildWorkflowsTestChildWorkflow)
-      @parent_worker = WorkflowWorker.new(@domain.client, @domain, "test", ChildWorkflowsTestParentWorkflow)
+      parent_client = AWS::Flow::workflow_client(@domain.client, @domain) { { from_class: "ChildWorkflowsTaskPriorityTestParentWorkflow" } }
+      @child_worker = WorkflowWorker.new(@domain.client, @domain, "test2", ChildWorkflowsTaskPriorityTestChildWorkflow)
+      @parent_worker = WorkflowWorker.new(@domain.client, @domain, "test", ChildWorkflowsTaskPriorityTestParentWorkflow)
       @child_worker.register
       @parent_worker.register
 
@@ -219,6 +222,10 @@ describe "task_priority" do
       @forking_executor.shutdown 0
     end
 
+  end
+
+  after(:all) do
+    Test::Integ.kill_executors
   end
 
 end

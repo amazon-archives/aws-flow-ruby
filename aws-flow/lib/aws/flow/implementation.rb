@@ -124,19 +124,7 @@ module AWS
       #   A list of the set futures, in the order of being set.
       #
       def wait_for_function(function, *futures)
-        conditional = FiberConditionVariable.new
-        futures.flatten!
-        return nil if futures.empty?
-        result = futures.select(&:set?)
-        return futures.find(&:set?)if function.call(result, futures)
-        futures.each do |f|
-          f.on_set do |set_one|
-            result << set_one
-            conditional.broadcast if function.call(result, futures)
-          end
-        end
-        conditional.wait
-        result
+        wait_for_function_helper(nil, function, *futures)
       end
 
       # Blocks until *any* of the arguments are set.
@@ -162,6 +150,89 @@ module AWS
       def wait_for_all(*futures)
         wait_for_function(lambda {|result, future_list| result.size == future_list.size}, futures)
       end
+
+      # Blocks until *any* of the arguments are set.
+      #
+      # @param [Array<Future>] futures
+      #   A list of futures to wait for. The function will return when at least one of these is set.
+      #
+      # @param [Integer] timeout
+      #   The timeout value after which it will raise a Timeout::Error
+      #
+      # @return [Array<Future>]
+      #   A list of the set futures, in the order of being set.
+      #
+      def timed_wait_for_any(timeout, *futures)
+        timed_wait_for_function(timeout, lambda {|result, future_list| result.length >= 1 }, futures)
+      end
+
+      # Blocks until *all* of the arguments are set or until timeout expires
+      #
+      # @param [Array<Future>] futures
+      #   A list of futures to wait for. The function will return only when all of them are set.
+      #
+      # @param [Integer] timeout
+      #   The timeout value after which it will raise a Timeout::Error
+      #
+      # @return [Array<Future>]
+      #   A list of the set futures, in the order of being set.
+      #
+      def timed_wait_for_all(timeout, *futures)
+        timed_wait_for_function(timeout, lambda {|result, future_list| result.size == future_list.size}, futures)
+      end
+
+      # Waits for the passed-in function to complete, setting values for the provided futures when it does.
+      #
+      # @param function
+      #   The function to wait for.
+      #
+      # @param [Array<Future>] futures
+      #   A list of futures to provide values for when the function completes.
+      #
+      # @param [Integer] timeout
+      #   The timeout value after which it will raise a Timeout::Error
+      #
+      # @return [Array<Future>]
+      #   A list of the set futures, in the order of being set.
+      #
+      def timed_wait_for_function(timeout, function, *futures)
+        wait_for_function_helper(timeout, function, *futures)
+      end
+
+      # Helper method to refactor away the common implementation of
+      # wait_for_function and timed_wait_for_function.
+      def wait_for_function_helper(timeout, function, *futures)
+        futures.flatten!
+
+        f = futures.select { |x| x.is_a?(ExternalFuture) }
+
+        if f.size > 0 && f.size != futures.size
+          raise ArgumentError, "The futures array must contain either all "\
+            "objects of Future or all objects of ExternalFuture"
+        end
+
+        conditional = f.size == 0 ? FiberConditionVariable.new :
+          ExternalConditionVariable.new
+
+        return nil if futures.empty?
+        result = futures.select(&:set?)
+        return futures.find(&:set?)if function.call(result, futures)
+        futures.each do |f|
+          f.on_set do |set_one|
+            result << set_one
+            conditional.broadcast if function.call(result, futures)
+          end
+        end
+
+        if conditional.is_a?(FiberConditionVariable)
+          conditional.wait
+        else
+          conditional.wait(timeout)
+          raise Timeout::Error.new unless function.call(result, futures)
+        end
+        result
+      end
+
     end
   end
 end

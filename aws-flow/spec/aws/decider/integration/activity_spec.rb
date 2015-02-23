@@ -5,6 +5,7 @@ describe Activities do
     @bucket = ENV['AWS_SWF_BUCKET_NAME']
     ENV['AWS_SWF_BUCKET_NAME'] = nil
     @swf, @domain = setup_swf
+    kill_executors
   end
 
   after(:all) do

@@ -64,6 +64,47 @@ module AWS
         ActivityTemplate.new(name, opts)
       end
 
+      # This template represents a Result Activity in SWF.
+      class ResultActivityTemplate < ActivityTemplate
+        attr_reader :key
+
+        def initialize(key, opts = {})
+          @key = key
+
+          # Get the name of the result activity
+          name = "#{FlowConstants.defaults[:result_activity_prefix]}."\
+            "#{FlowConstants.defaults[:result_activity_method]}"
+
+          super(name, opts)
+        end
+
+        # Wraps the input into a result hash and calls the ActivityTemplate#run
+        # method to report the result
+        def run(input, context)
+          result = {}
+          result[:key] = @key
+          result[:result] = input
+          super(result, context)
+        end
+      end
+
+      # Initializes a result activity template
+      # @param {String} key
+      #   A unique key that identifies the result of an activity execution
+      # @param {Hash} options
+      def result(key, opts = {})
+        AWS::Flow::Templates.send(:result, key, opts)
+      end
+
+      # Initializes a result activity template
+      # @param {String} key
+      #   A unique key that identifies the result of an activity execution
+      # @param {Hash} options
+      def self.result(key, opts = {})
+        ResultActivityTemplate.new(key, opts)
+      end
+
+
     end
   end
 end

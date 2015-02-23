@@ -4,6 +4,7 @@ Gem::Specification.new do |s|
   s.name        = 'aws-flow'
   s.version     = AWS::Flow::version
   s.date        = Time.now
+  s.license     = "Apache-2.0"
   s.summary     = "AWS Flow Framework for Ruby"
   s.description = "Library to provide the AWS Flow Framework for Ruby"
   s.authors     = "Michael Steger, Paritosh Mohan, Jacques Thomas"

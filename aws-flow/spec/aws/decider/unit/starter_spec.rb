@@ -4,9 +4,9 @@ describe "AWS::Flow" do
 
   context "#start" do
 
-    it "calls AWS::Flow::Templates#start" do
+    it "calls AWS::Flow::Templates::Starter#start" do
       AWS::Flow::stub(:start_workflow)
-      expect(AWS::Flow::Templates).to receive(:start)
+      expect(AWS::Flow::Templates::Starter).to receive(:start)
       AWS::Flow::start("HelloWorld.hello", { foo: "foo" })
     end
 

@@ -17,6 +17,12 @@ require 'tmpdir'
 
 module AWS
   module Flow
+
+    def self.on_windows?
+      require 'rbconfig'
+      (RbConfig::CONFIG['host_os'] =~ /mswin|mingw/).nil? == false
+    end
+
     # Utilities for the AWS Flow Framework for Ruby.
     module Utilities
       # @api private

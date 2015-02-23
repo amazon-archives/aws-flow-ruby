@@ -15,7 +15,6 @@
 
 require 'aws/flow'
 include AWS::Flow::Core
-
 require 'aws-sdk-v1'
 require 'securerandom'
 

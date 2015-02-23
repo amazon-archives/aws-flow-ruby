@@ -54,20 +54,17 @@ describe "AWS::Flow" do
         task_list: "bar",
         version: "2.0",
         tag_list: ['overriden_test'],
-        wait: true,
+        get_result: true,
         domain: @domain.name
       }
 
-      executor = ForkingExecutor.new
-      executor.execute { AWS::Flow::start("StarterTestActivity.foo", {input: "Hello"}, options) }
-
-      executor.shutdown(1)
+      future = AWS::Flow::start("StarterTestActivity.foo", {input: "Hello"}, options)
 
       until @domain.workflow_executions.count.count > 0
         sleep 2
       end
 
-      @domain.workflow_executions.each do |x|
+      @domain.workflow_executions.tagged("overriden_test").each do |x|
         x.execution_start_to_close_timeout.should == 100
         x.workflow_type.name.should == "#{FlowConstants.defaults[:prefix_name]}.#{FlowConstants.defaults[:execution_method]}"
         x.workflow_type.version.should == "#{FlowConstants.defaults[:version]}"
@@ -82,7 +79,7 @@ describe "AWS::Flow" do
         root.should be_kind_of(AWS::Flow::Templates::RootTemplate)
         root.result_step.should_not be_nil
         result = root.result_step
-        result.should be_kind_of(AWS::Flow::Templates::ActivityTemplate)
+        result.should be_kind_of(AWS::Flow::Templates::ResultActivityTemplate)
 
         activity = root.step
         activity.should be_kind_of(AWS::Flow::Templates::ActivityTemplate)
@@ -99,6 +96,8 @@ describe "AWS::Flow" do
         input[:args].should include(input: "Hello")
         x.terminate
       end
+
+      Test::Integ.kill_executors
 
     end
 

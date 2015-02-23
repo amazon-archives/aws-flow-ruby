@@ -104,8 +104,6 @@ module AWS
       class FlowDefaultResultActivityRuby
         extend AWS::Flow::Activities
 
-        attr_reader :result
-
         # Create the activity type with default options
         activity FlowConstants.defaults[:result_activity_method] do
           {
@@ -116,15 +114,20 @@ module AWS
           }
         end
 
-        # Initialize the future upon instantiation
-        def initialize
-          @result = Future.new
+        # @param writer IO
+        #   An optional IO file descripter to write the result to.
+        #
+        def initialize(writer=nil)
+          @writer = writer
         end
 
-        # Set the future when the activity is run
+        # Serialize the input and write it to an IO writer if provided
         def run(input)
-          @result.set(input)
-          input
+          unless input.is_a?(Hash) && input.include?(:key) && input.include?(:result)
+            raise ArgumentError, "Incorrect input format for "\
+              "FlowDefaultResultActivityRuby.run"
+          end
+          @writer.puts Marshal.dump(input) if @writer
         end
 
       end

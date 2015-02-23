@@ -122,14 +122,31 @@ describe Templates do
       klass.activities.first.name.should == "#{FlowConstants.defaults[:result_activity_prefix]}"\
         ".#{FlowConstants.defaults[:result_activity_method]}"
       klass.activities.first.version.should == FlowConstants.defaults[:version]
-      klass.instance_methods(false).should include(:result)
+      klass.instance_methods(false).should include(:run)
     end
 
-    it "correctly initializes and sets the result" do
-      inst = klass.new
-      expect(inst.result).to be_kind_of(AWS::Flow::Core::Future)
-      inst.run("foo")
-      inst.result.get.should == "foo"
+    context "#run" do
+      let(:inst) { klass.new }
+      let(:result) { { key: "123", result: "asdf" } }
+
+      it "raises if key or result is not present" do
+        expect{inst.run("adsf")}.to raise_error(ArgumentError)
+      end
+
+      it "passes if key and result are present" do
+        expect{inst.run(result)}.not_to raise_error
+      end
+
+      it "uses the writer to send marshalled result" do
+        writer = double
+
+        expect(writer).to receive(:puts) do |x|
+          Marshal.load(x).should == result
+        end
+
+        inst = klass.new(writer)
+        inst.run(result)
+      end
     end
 
     it "doesn't throw an exception if a default activity class already exists" do

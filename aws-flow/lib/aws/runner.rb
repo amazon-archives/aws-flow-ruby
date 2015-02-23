@@ -240,7 +240,7 @@ module AWS
 
         if json_config['default_workers']
           # Also register the default result activity type in the given domain
-          AWS::Flow::Templates.register_default_result_activity(domain)
+          AWS::Flow::Templates::Utils.register_default_result_activity(domain)
 
           klass = AWS::Flow::Templates.default_workflow
           task_list = FlowConstants.defaults[:task_list]

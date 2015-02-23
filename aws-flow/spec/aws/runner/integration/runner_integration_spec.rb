@@ -6,6 +6,7 @@ include Test::Integ
 describe "Runner" do
   before(:all) do
     @swf, @domain = setup_swf
+    kill_executors
   end
 
   class PingUtils

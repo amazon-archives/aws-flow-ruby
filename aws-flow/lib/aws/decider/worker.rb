@@ -290,14 +290,20 @@ module AWS
         if @options
           @logger = @options.logger || Utilities::LogFactory.make_logger(self)
           @options.logger ||= @logger
+          # Set the number of execution workers to 0 if it's not already set and
+          # if the platform is Windows
+          @options.execution_workers ||= 0 if AWS::Flow.on_windows?
           max_workers = @options.execution_workers
+          # If max_workers is set to 0, then turn forking off
           @options.use_forking = false if (max_workers && max_workers.zero?)
         end
         max_workers = 20 if (max_workers.nil?)
+
         @executor = ForkingExecutor.new(
           :max_workers => max_workers,
           :logger => @logger
         )
+
         @shutdown_first_time_function = lambda do
           @executor.shutdown Float::INFINITY
           Kernel.exit
