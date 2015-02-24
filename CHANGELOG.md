@@ -15,19 +15,18 @@
   The future can be waited on till it is ready.
   ```ruby
   # block till the future is ready
-  `future.get`
+  future.get
   # block till the future is ready or till the timeout expires
-  `future.get(10)`
+  future.get(10)
 
-  ```ruby
   # Wait on multiple futures at once
-  `AWS::Flow.wait_for_all(future_a, future_b)`
+  AWS::Flow.wait_for_all(future_a, future_b)
 
   # specify timeout in seconds
-  `AWS::Flow.timed_wait_for_all(10, future_a, future_b)`
-
-  # Similarly AWS::Flow.wait_for_any and AWS::Flow.timed_wait_for_any
+  AWS::Flow.timed_wait_for_all(10, future_a, future_b)
   ```
+
+  Similarly AWS::Flow.wait_for_any and AWS::Flow.timed_wait_for_any
 
 * Feature - Starting Background Jobs will now start one result background
   worker per process instead of one per thread.
