@@ -6,7 +6,7 @@ workflows using [Amazon Simple Workflow][swf] (Amazon SWF).
 [swf]: http://aws.amazon.com/swf/
 
 
-## Basic usage
+## Basic Usage
 
 To create a simple background job, first implement your logic for processing the
 job. Each job can be implemented as a method in a class. For example:
@@ -35,7 +35,7 @@ require 'aws/decider'
 AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" })
 ```
 
-### Running workers in Amazon EC2
+## Running Workers in Amazon EC2
 
 You can deploy your workers on [AWS Elastic Beanstalk][eb] with just a few
 additional steps. See our developer guide for a [step-by-step
@@ -58,7 +58,7 @@ walkthrough][eb-howto].
 
 ## License
 
-Copyright 2013. Amazon Web Services, Inc. All Rights Reserved.
+Copyright 2015, Amazon Web Services, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 this file except in compliance with the License. You may obtain a copy of the
