@@ -18,7 +18,7 @@ module AWS
     # Serializes/deserializes Ruby objects using {http://yaml.org/ YAML} format.
     # *This is the default data converter for the AWS Flow Framework for Ruby*.
     #
-    # @note There is a 32,768 (32K) character limit on activity/workflow input
+    # @note There is a 32K (32,768) character limit on activity/workflow input
     #     and output. If the amount of data that you need to pass exceeds this
     #     limit, use {S3DataConverter} instead.
     #
@@ -62,7 +62,7 @@ module AWS
 
     # S3DataConverter serializes/deserializes Ruby objects using
     # {YAMLDataConverter}, storing the serialized data on Amazon S3. This data
-    # can exceed 32K characters in size.
+    # can exceed 32K (32,768) characters in size.
     #
     # To activate it, set the `AWS_SWF_BUCKET_NAME` environment variable to the
     # name of an Amazon S3 bucket to use to store workflow/activity data. The
@@ -70,9 +70,9 @@ module AWS
     #
     # S3DataConverter caches data less than 32K characters in size on the local
     # system; it behaves like {YAMLDataConverter} for files that fit within the
-    # [input/output limit](limits) for workflows and activities.
+    # [input/output limit][limits] for workflows and activities.
     #
-    # limits: http://docs.aws.amazon.com/amazonswf/latest/developerguide/swf-dg-limits.html
+    # [limits]: http://docs.aws.amazon.com/amazonswf/latest/developerguide/swf-dg-limits.html
     #
     # For larger data, S3DataConverter serializes it using {YAMLDataConverter}
     # and stores it in the Amazon S3 bucket specified by `AWS_SWF_BUCKET_NAME`,
@@ -80,12 +80,11 @@ module AWS
     # itself. The data in the S3 bucket is read when the object is deserialized.
     #
     # @note The AWS Flow Framework for Ruby doesn't delete files from S3 to
-    #     prevent loss of data. It is recommended that you use [Object Lifecycle
-    #     Management](olm) in Amazon S3 to automatically delete files after a
-    #     certain period.
+    #     prevent loss of data. It is recommended that you use
+    #     [Object Lifecycle Management][olm] in Amazon S3 to automatically
+    #     delete files after a certain period.
     #
-    # olm: http://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html
-    #
+    #     [olm]: http://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html
     #
     class S3DataConverter
 
@@ -162,7 +161,7 @@ module AWS
       # returned instead. The filename is generated at random in the following
       # format:
       #
-      #     rubyflow_data_<UUID>.
+      #     rubyflow_data_<UUID>
       #
       # The format of the returned hash is:
       #
@@ -183,7 +182,7 @@ module AWS
       end
 
       # Deserializes a string into a Ruby object. If the deserialized
-      # string is a Ruby hash of the format: *{ s3_filename: <filename> }*, then
+      # string is a Ruby hash of the format: *{ s3_filename: <filename\> }*, then
       # it will first look for the file in a local cache. In case of a cache
       # miss, it will try to download the file from Amazon S3, deserialize the
       # contents of the file and return the new object.
