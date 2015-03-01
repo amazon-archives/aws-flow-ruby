@@ -141,19 +141,24 @@ module AWS
       # Represents the result of an asynchronous computation. Methods are
       # provided to:
       #
-      # * retrieve the result of the computation, once it is complete ({ExternalFuture#get}).
-      # * check if the computation is complete ({ExternalFuture#set?})
-      # * execute a block when computation is complete ({ExternalFuture#on_set})
+      # * retrieve the result of the computation, once it is complete
+      #   ({AWS::Flow::Core::ExternalFuture#get}).
+      #
+      # * check if the computation is complete
+      #   ({AWS::Flow::Core::ExternalFuture#set?})
+      #
+      # * execute a block when computation is complete
+      #   ({AWS::Flow::Core::ExternalFuture#on_set})
       #
       # The result of a Future can only be retrieved when the computation has
-      # completed.  {ExternalFuture#get} blocks execution, if necessary, until the
-      # ExternalFuture is ready.
+      # completed. {AWS::Flow::Core::ExternalFuture#get} blocks execution, if
+      # necessary, until the `ExternalFuture` is ready.
       #
-      # Unlike {Future}, {ExternalFuture#get} doesn't block Fibers. Instead it
-      # blocks the current thread by waiting on a ruby {ConditionVariable}. The
-      # condition variable is signalled when the future is set, which allows the
-      # thread to continue execution when the result is ready. This lets us use
-      # the future outside of an {AsyncScope}
+      # Unlike {Future}, {AWS::Flow::Core::ExternalFuture#get} doesn't block
+      # Fibers. Instead it blocks the current thread by waiting on a Ruby
+      # `ConditionVariable`. The condition variable is signalled when the future
+      # is set, which allows the thread to continue execution when the result is
+      # ready. This lets us use the future outside of an {AsyncScope}
       #
       class ExternalFuture < Future
 
@@ -189,10 +194,10 @@ module AWS
 
       end
 
-      # Wrapper around a ruby {Mutex} and {ConditionVariable} to avoid
+      # Wrapper around a Ruby `Mutex` and `ConditionVariable` to avoid
       # writing the synchronization lines repeatedly.
       # {ExternalConditionVariable#wait} will block the thread until
-      # {ConditionVariable} @cond is signalled
+      # `ConditionVariable`  @cond is signalled
       #
       class ExternalConditionVariable
 
@@ -208,7 +213,7 @@ module AWS
           @mutex.synchronize { @cond.wait(@mutex, timeout) }
         end
 
-        # Pass all messages to the encapsulated {ConditionVariable}
+        # Pass all messages to the encapsulated `ConditionVariable`
         def method_missing(method, *args)
           @cond.send(method, *args)
         end

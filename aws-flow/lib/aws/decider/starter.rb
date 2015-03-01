@@ -39,7 +39,7 @@ module AWS
     #
     # @option opts [Array] *Optional* :tag_list
     #
-    # @option opts *Optional* :data_converter
+    # @option opts [] *Optional* :data_converter
     #
     # Usage -
     #
@@ -138,7 +138,7 @@ module AWS
     # Starts an Activity or a Workflow Template execution using the
     # default workflow class FlowDefaultWorkflowRuby
     #
-    # @param [String or AWS::Flow::Templates::TemplateBase] name_or_klass
+    # @param [String, AWS::Flow::Templates::TemplateBase] name_or_klass
     #   The Activity or the Workflow Template that needs to be scheduled via
     #   the default workflow. This argument can either be a string that
     #   represents a fully qualified activity name - <ActivityClass>.<method_name>
@@ -147,55 +147,57 @@ module AWS
     # @param [Hash] input
     #   Input hash for the workflow execution
     #
-    # @param [Hash] opts
+    # @param [Hash] options
     #   Additional options to configure the workflow or activity execution.
     #
-    # @option opts [true, false] :get_result
+    # @option options [true, false] :get_result
     #   *Optional* This boolean flag can be set to true if the result future
     #   if required. The future can be waited on by using the
     #   AWS::Flow::wait_for_all, AWS::Flow::wait_for_any methods or by
     #   calling the ExternalFuture#get method. Default value is false.
     #
-    # @option opts [Hash] :exponential_retry
+    # @option options [Hash] :exponential_retry
     #   A hash of {AWS::Flow::ExponentialRetryOptions}. Default value is -
     #   { maximum_attempts: 3 }
     #
-    # @option opts [String] *Optional* :domain
+    # @option options [String] *Optional* :domain
     #   Default value is FlowDefault
     #
-    # @option opts [Integer] *Optional* :execution_start_to_close_timeout
+    # @option options [Integer] *Optional* :execution_start_to_close_timeout
     #   Default value is 3600 seconds (1 hour)
     #
-    # @option opts [String] *Optional* :workflow_id
+    # @option options [String] *Optional* :workflow_id
     #
-    # @option opts [Integer] *Optional* :task_priority
+    # @option options [Integer] *Optional* :task_priority
     #   Default value is 0
     #
-    # @option opts [String] *Optional* :tag_list
+    # @option options [String] *Optional* :tag_list
     #   By default, the name of the activity task gets added to the workflow's
     #   tag_list
     #
-    # @option opts *Optional* :data_converter
-    #   Default value is {AWS::Flow::YAMLDataConverter}. To use the
-    #   {AWS::Flow::S3DataConverter}, set the AWS_SWF_BUCKET_NAME environment
-    #   variable name with a valid AWS S3 bucket name.
+    # @option options [YAMLDataConverter, S3DataConverter] *Optional* :data_converter
+    #   The default value is {AWS::Flow::YAMLDataConverter}.
     #
-    # @option opts *Optional* A hash of {AWS::Flow::ActivityOptions}
+    #   To use {AWS::Flow::S3DataConverter}, set the environment variable
+    #   `AWS_SWF_BUCKET_NAME` with a valid Amazon S3 bucket name.
     #
-    # Usage -
+    # @option options [Hash] *Optional* A hash of {AWS::Flow::ActivityOptions}
     #
-    #    AWS::Flow::start("<ActivityClassName>.<method_name>", <input_hash>,
-    #    <options_hash> )
+    # Usage:
     #
-    # Example -
+    #     AWS::Flow::start("<ActivityClassName>.<method_name>", <input_hash>,
+    #         <options_hash> )
     #
-    # 1) Start an activity execution -
-    #    AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" })
+    # Examples:
     #
-    # 2) Start an activity execution with overriden options -
-    #    AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" }, {
-    #      exponential_retry: { maximum_attempts: 10 } }
-    #    )
+    # * Start an activity execution:
+    #
+    #         AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" })
+    #
+    # * Start an activity execution with overridden options:
+    #
+    #         AWS::Flow::start("HelloWorldActivity.say_hello", { name: "World" },
+    #             { exponential_retry: { maximum_attempts: 10 } } )
     #
     def self.start(name_or_klass, input, options = {})
       AWS::Flow::Templates::Starter.start(name_or_klass, input, options)
