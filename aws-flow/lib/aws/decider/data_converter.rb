@@ -62,27 +62,27 @@ module AWS
 
     # S3DataConverter serializes/deserializes Ruby objects using
     # {YAMLDataConverter}, storing the serialized data on Amazon S3. This data
-    # can exceed 32K (32,768) characters in size.
+    # can exceed 32K (32,768) characters in size, providing a way to work past
+    # Amazon SWF's [input/output data limit][limits].
+    #
+    # [limits]: http://docs.aws.amazon.com/amazonswf/latest/developerguide/swf-dg-limits.html
     #
     # To activate it, set the `AWS_SWF_BUCKET_NAME` environment variable to the
     # name of an Amazon S3 bucket to use to store workflow/activity data. The
     # bucket will be created if necessary.
     #
-    # S3DataConverter caches data less than 32K characters in size on the local
-    # system; it behaves like {YAMLDataConverter} for files that fit within the
-    # [input/output limit][limits] for workflows and activities.
+    # S3DataConverter caches data on the local system. The cached version of the
+    # file's data is used if it is found. Otherwise, the file is downloaded from
+    # Amazon S3 and then deserialized to a Ruby object.
     #
-    # [limits]: http://docs.aws.amazon.com/amazonswf/latest/developerguide/swf-dg-limits.html
-    #
-    # For larger data, S3DataConverter serializes it using {YAMLDataConverter}
-    # and stores it in the Amazon S3 bucket specified by `AWS_SWF_BUCKET_NAME`,
-    # passing the workflow/activity a link to the S3 bucket instead of the data
-    # itself. The data in the S3 bucket is read when the object is deserialized.
+    # `S3DataConverter` serializes Ruby objects using {YAMLDataConverter} and
+    # stores them in the Amazon S3 bucket specified by `AWS_SWF_BUCKET_NAME`,
+    # using a randomly-generated filename to identify the object's data.
     #
     # @note The AWS Flow Framework for Ruby doesn't delete files from S3 to
-    #     prevent loss of data. It is recommended that you use
-    #     [Object Lifecycle Management][olm] in Amazon S3 to automatically
-    #     delete files after a certain period.
+    #      prevent loss of data. It is recommended that you use [Object
+    #      Lifecycle Management][olm] in Amazon S3 to automatically delete files
+    #      after a certain period.
     #
     #     [olm]: http://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html
     #
@@ -141,8 +141,8 @@ module AWS
       # will be created if it doesn't already exist.
       #
       # @note The default data converter specified by
-      #     {FlowConstants.default_data_converter} will be used to serialize and
-      #     deserialize the data. Ordinarily, this is {YAMLDataConverter}.
+      #     {FlowConstants.default_data_converter} will be used to serialize
+      #     and deserialize the data. Ordinarily, this is {YAMLDataConverter}.
       #
       # @param bucket [String]
       #     The Amazon S3 bucket name to use for serialized data storage.
@@ -155,21 +155,29 @@ module AWS
         @converter = FlowConstants.default_data_converter
       end
 
-      # Serializes a Ruby object into a string. If the size of the converted
-      # string is greater than 32,768 characters, the serialized string is
-      # uploaded to an Amazon S3 file and a hash containing the filename is
-      # returned instead. The filename is generated at random in the following
-      # format:
+      # Serializes a Ruby object into a string (by default, YAML). The resulting
+      # data, if > 32,768 (32K) characters, is uploaded to the bucket specified
+      # when the `S3DataConverter` was initialized and is copied to the local
+      # cache.
       #
-      #     rubyflow_data_<UUID>
+      # @param [Object] object
+      #     The object to be serialized into a string. By default, the framework
+      #     serializes the object into a YAML string using {YAMLDataConverter}.
       #
-      # The format of the returned hash is:
+      # @return [String]
+      #     The file's serialized data if the resulting data is < 32,768 (32K)
+      #     characters.
       #
-      #     { s3_filename: <filename> }
+      #     If the resulting data is > 32K, then the file is uploaded to S3 and
+      #     a YAML string is returned that represents a hash of the following
+      #     form:
       #
-      # @param object
-      #   The object to be serialized into a string. By default, the framework
-      #   serializes the object into a YAML string using {YAMLDataConverter}.
+      #         { s3_filename: <filename> }
+      #
+      #     The returned *filename* is randomly-generated, and follows the form:
+      #
+      #         rubyflow_data_<UUID>
+      #
       #
       def dump(object)
         string = @converter.dump(object)
@@ -181,16 +189,19 @@ module AWS
         ret
       end
 
-      # Deserializes a string into a Ruby object. If the deserialized
-      # string is a Ruby hash of the format: *{ s3_filename: <filename\> }*, then
-      # it will first look for the file in a local cache. In case of a cache
-      # miss, it will try to download the file from Amazon S3, deserialize the
-      # contents of the file and return the new object.
+      # Deserializes a string into a Ruby object. If the deserialized string is
+      # a Ruby hash of the format: *{ s3_filename: <filename\> }*, then the
+      # local cache is searched for the file's data. If the file is not cached,
+      # then the file is downloaded from Amazon S3, deserialized, and its data
+      # is copied to the cache.
       #
-      # @param source
-      #   The source that needs to be deserialized into a Ruby object. By
-      #   default it expects the source to be a YAML string that was serialized
-      #   using {#dump}.
+      # @param [String] source
+      #     The source string that needs to be deserialized into a Ruby object.
+      #     By default it expects the source to be a YAML string that was
+      #     serialized using {#dump}.
+      #
+      # @return [Object] A Ruby object created by deserializing the YAML source
+      #     string.
       #
       def load(source)
         object = @converter.load(source)
@@ -201,11 +212,15 @@ module AWS
         ret
       end
 
-      # Helper method to write a string to an Amazon S3 file. A random filename
-      # is generated of the format: *rubyflow_data_<UUID>*.
+      # Helper method to write a string to an Amazon S3 file.
       #
-      # @param string
-      #   The string to be uploaded to Amazon S3
+      # @param [String] string
+      #   The string to be uploaded to Amazon S3. The file's data is uploaded to
+      #   the bucket specified when the `S3DataConverter` was initialized, and
+      #   is also copied into the cache.
+      #
+      # @return [String]
+      #   The randomly-generated filename of the form: *rubyflow_data_<UUID>*.
       #
       # @api private
       def put_to_s3(string)
@@ -216,10 +231,15 @@ module AWS
         return filename
       end
 
-      # Helper method to read an Amazon S3 file
+      # Helper method to read an Amazon S3 file.
       #
       # @param s3_filename
-      #   The file name on Amazon S3 to be deleted
+      #   The file name on Amazon S3 to be read. If the file's data exists in
+      #   the cache, the cached version is returned. Otherwise, the file is
+      #   retrieved from the S3 bucket that was specified when `S3DataConverter`
+      #   was initialized, and the file's data is added to the cache.
+      #
+      # @return the data in the file.
       #
       # @api private
       def get_from_s3(s3_filename)
