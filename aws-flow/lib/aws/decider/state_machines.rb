@@ -142,6 +142,7 @@ module AWS
        [:decision_sent, :handle_initiation_failed_event, :completed],
        [:initiated, :cancel, :cancelled_after_initiated],
        [:initiated, :handle_completion_event, :completed],
+       [:initiated, :handle_initiation_failed_event, :completed],
        [:started, :handle_decision_task_started_event, :started],
                       ]
       self_transitions(:handle_decision_task_started_event)
@@ -367,6 +368,7 @@ module AWS
                        [:cancellation_decision_sent, :handle_cancellation_failure_event, :started],
                        [:started, :cancel, :cancelled_after_started],
                        [:started, :handle_completion_event, :completed],
+                       [:started, :handle_cancellation_event, :completed],
                        [:cancelled_after_started, :handle_completion_event, :completed],
                       ]
     end
