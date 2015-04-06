@@ -210,7 +210,7 @@ module AWS
 
         # Helper method to write a string to a file
         def self.write_to_file(name, string)
-          File.open(name, 'w') { |f| f.write(string) }
+          File.open(name, 'wb') { |f| f.write(string) }
         end
 
         # Validates various options
