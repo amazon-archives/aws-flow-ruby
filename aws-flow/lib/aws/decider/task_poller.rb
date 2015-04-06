@@ -290,7 +290,7 @@ module AWS
             # possibly because of large custom exceptions we should fail the
             # activity task with some minimal details
             respond_activity_task_failed_with_retry(
-              task.task_token,
+              task_token,
               Utilities.validation_error_string("Activity"),
               "AWS::SimpleWorkflow::Errors::ValidationException"
             )
