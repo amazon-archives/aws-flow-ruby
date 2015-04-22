@@ -39,6 +39,7 @@ describe AWS::Flow::Templates::ResultWorker do
       sleep 1
       Thread.list.count.should == 2
       AWS::Flow::Templates::ResultWorker.stop
+      sleep 1 if Thread.list.count == 2
       Thread.list.count.should == 1
       AWS::Flow::Templates::ResultWorker.instance_variable_get("@executor").should be_nil
     end

@@ -20,39 +20,54 @@ describe ExternalConditionVariable do
 
   it "blocks a thread and wakes it up on signal" do
     t = Thread.new { condition.wait }
-    sleep 1
+    Test::Unit::wait("run", t)
     t.status.should == "sleep"
     condition.signal
+    Test::Unit::wait("run", t)
     t.status.should == false
   end
 
   it "blocks multiple threads and wakes one up on signal" do
     t1 = Thread.new { condition.wait }
     t2 = Thread.new { condition.wait }
-    sleep 1
+
+    Test::Unit::wait("run", t1, t2)
     t1.status.should == "sleep"
     t2.status.should == "sleep"
     condition.signal
+
+    Test::Unit::wait("run", t1, t2)
     (t1.status == false && t2.status == false).should == false
     condition.signal
+
+    Test::Unit::wait("run", t1, t2)
     (t1.status == false && t2.status == false).should == true
   end
 
   it "blocks a thread and wakes it up on broadcast" do
     t = Thread.new { condition.wait }
-    sleep 1
+
+    Test::Unit::wait("run", t)
+    sleep 1 if t.status == "run"
     t.status.should == "sleep"
     condition.broadcast
+
+    Test::Unit::wait("run", t)
+    sleep 1 if t.status == "run"
     t.status.should == false
   end
 
   it "blocks multiple threads and wakes them up on broadcast" do
     t1 = Thread.new { condition.wait }
     t2 = Thread.new { condition.wait }
-    sleep 1
+
+    Test::Unit::wait("run", t1, t2)
     t1.status.should == "sleep"
     t2.status.should == "sleep"
     condition.broadcast
+
+    Test::Unit::wait("run", t1, t2)
+    sleep 1 if t1.status == "run" || t2.status == "run"
     (t1.status == false && t2.status == false).should == true
   end
 
