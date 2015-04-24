@@ -16,6 +16,7 @@
 require 'bundler/setup'
 require 'aws/flow'
 require 'aws/decider'
+require 'aws/utils'
 require 'replayer'
 require 'runner'
 
@@ -125,11 +126,19 @@ module Test
 
   module Unit
 
+    def self.wait(status, timeout, *t)
+      until t.select { |x| x.status == status }.empty? && timeout
+        sleep 1
+        timeout -= 1
+      end
+    end
+
     class FakeConfig
       def to_h
 
       end
     end
+
     class FakeServiceClient
       attr_accessor :trace
 

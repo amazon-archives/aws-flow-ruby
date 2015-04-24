@@ -233,10 +233,10 @@ describe ExternalFuture do
       future = ExternalFuture.new
 
       t1 = Thread.new { future.get }
-      Test::Unit::wait("run", t1)
+      Test::Unit::wait("run", 1, t1)
       t1.status.should == "sleep"
       future.set
-      Test::Unit::wait("run", t1)
+      Test::Unit::wait("run", 1, t1)
       t1.status.should == false
     end
 
@@ -254,7 +254,7 @@ describe ExternalFuture do
       t2 = Thread.new { future.get }
       t3 = Thread.new { future.get }
 
-      Test::Unit::wait("run", t1, t2, t3)
+      Test::Unit::wait("run", 1, t1, t2, t3)
 
       t1.status.should == "sleep"
       t2.status.should == "sleep"
@@ -262,7 +262,7 @@ describe ExternalFuture do
 
       future.set
 
-      Test::Unit::wait("run", t1, t2, t3)
+      Test::Unit::wait("run", 1, t1, t2, t3)
 
       t1.status.should == false
       t2.status.should == false
@@ -286,10 +286,10 @@ describe ExternalFuture do
       it "nil timeout will block until the future is set" do
         future = ExternalFuture.new
         t = Thread.new { future.get(nil) }
-        Test::Unit::wait("run", t)
+        Test::Unit::wait("run", 1, t)
         t.status.should == "sleep"
         future.set
-        Test::Unit::wait("run", t)
+        Test::Unit::wait("run", 1, t)
         t.status.should == false
       end
 
