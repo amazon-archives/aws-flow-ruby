@@ -7,7 +7,9 @@ describe YAMLDataConverter do
   %w{syck psych}.each do |engine|
     describe "ensures that x == load(dump(x)) is true using #{engine}" do
       before :all do
-        YAML::ENGINE.yamler = engine
+        if YAML.const_defined?(:ENGINE)
+          YAML::ENGINE.yamler = engine
+        end
       end
 
       {

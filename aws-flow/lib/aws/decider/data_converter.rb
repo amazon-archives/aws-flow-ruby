@@ -41,7 +41,7 @@ module AWS
         output = YAML.load source
         if output.is_a? Exception
           documents = YAML.load_stream(source)
-          if YAML::ENGINE.yamler == 'syck'
+          if YAML.const_defined?(:ENGINE) && YAML::ENGINE.yamler == 'syck'
             documents = documents.documents
           end
           backtrace = documents.find {|x| ! x.is_a? Exception}
