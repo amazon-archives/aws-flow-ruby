@@ -72,10 +72,10 @@ module AWS
 
     module GenericTypeModule
       def hash
-        [@name.to_sym, @version].hash
+        [@name, @version].hash
       end
       def eql?(other)
-        @name.to_sym == other.name.to_sym && @version == other.version
+        @name.eql?(other.name) && @version.eql?(other.version)
       end
     end
 

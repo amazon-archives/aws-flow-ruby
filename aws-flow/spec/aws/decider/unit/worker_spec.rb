@@ -371,3 +371,84 @@ describe ActivityWorker do
 
 end
 
+describe GenericType do
+
+  let(:type) { GenericType.new("name", "version", {}) }
+  let(:another_type) { GenericType.new("name", "version", {}) }
+
+  context "#hash" do
+
+    it "produces correct hash value" do
+      type.hash.should == another_type.hash
+    end
+
+  end
+
+  context "#eql?" do
+
+    it "correctly checks equality" do
+      type.should eql(another_type)
+    end
+
+  end
+
+  it "ensures the type can be retrieved from a hash" do
+    hash = { type => "foo_type" }
+    hash[another_type].should == "foo_type"
+  end
+
+  [:ActivityType, :WorkflowType].each do |type|
+    describe "#{type}" do
+      let(:swf_klass) { AWS::SimpleWorkflow.const_get(type) }
+      let(:flow_klass) { AWS::Flow::const_get(type) }
+
+      describe "with same name and version" do
+        let(:swf_type) { swf_klass.new("domain", "name", "version") }
+        let(:flow_type) { flow_klass.new("name", "version") }
+
+        context "#hash" do
+          it "produces same hash value" do
+            swf_type.hash.should == flow_type.hash
+          end
+        end
+
+        context "#eql?" do
+          it "ensures the two types are logically equivalent" do
+            swf_type.should eql(flow_type)
+          end
+        end
+
+        it "can be looked up in a hash" do
+          hash = { flow_type => "flow_type" }
+          hash[swf_type].should == "flow_type"
+        end
+
+      end
+
+      describe "with different name and version" do
+        let(:swf_type) { swf_klass.new("domain", "name", "version") }
+        let(:flow_type) { flow_klass.new("diff_name", "diff_version") }
+
+        context "#hash" do
+          it "produces different hash value" do
+            swf_type.hash.should_not == flow_type.hash
+          end
+        end
+
+        context "#eql?" do
+          it "ensures the two types are not logically equivalent" do
+            swf_type.should_not eql(flow_type)
+          end
+        end
+
+        it "cannot be looked up in a hash" do
+          hash = { flow_type => "flow_type" }
+          hash[swf_type].should be_nil
+        end
+
+      end
+    end
+  end
+
+end
+

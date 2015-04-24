@@ -1,3 +1,10 @@
+3.1.0 (2015-04-24)
+----------------------
+* Fix - State machine bug fixes
+* Fix - NoContextException bug fix. [Issue#90](issues/90)
+* Fix - File encoding issue in aws-flow-utils. [Issue#89](issues/89)
+* Fix - Incompatibility issue introduced by Symbol GC in ruby 2.2.0. [Issue#88](issues/88)
+
 3.0.0 (2015-02-20)
 ----------------------
 
