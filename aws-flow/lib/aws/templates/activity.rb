@@ -51,15 +51,15 @@ module AWS
       end
 
       # Initializes an activity template
-      # @param {String} name
-      # @param {Hash} options
+      # @param [String] name
+      # @param [Hash] opts
       def activity(name, opts = {})
         AWS::Flow::Templates.send(:activity, name, opts)
       end
 
       # Initializes an activity template
-      # @param {String} name
-      # @param {Hash} options
+      # @param [String] name
+      # @param [Hash] opts
       def self.activity(name, opts = {})
         ActivityTemplate.new(name, opts)
       end
@@ -89,17 +89,17 @@ module AWS
       end
 
       # Initializes a result activity template
-      # @param {String} key
+      # @param [String] key
       #   A unique key that identifies the result of an activity execution
-      # @param {Hash} options
+      # @param [Hash] opts
       def result(key, opts = {})
         AWS::Flow::Templates.send(:result, key, opts)
       end
 
       # Initializes a result activity template
-      # @param {String} key
+      # @param [String] key
       #   A unique key that identifies the result of an activity execution
-      # @param {Hash} options
+      # @param [Hash] opts
       def self.result(key, opts = {})
         ResultActivityTemplate.new(key, opts)
       end

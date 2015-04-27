@@ -81,22 +81,27 @@ module AWS
     class CompleteWorkflowStateMachine
       extend DecisionStateMachineDFA
       attr_reader :id
+
+      # @api private
       def consume(symbol)
         return @decision = nil if symbol == :handle_initiation_failed_event
         return if symbol == :handle_decision_task_started_event
         raise "UnsupportedOperation"
       end
+
+      # @api private
+      def done?
+        ! @decision.nil?
+      end
+
       # Creates a new `CompleteWorkflowStateMachine`.
       #
       # @param id
       #   The decider ID.
       #
-      # @param attributes
+      # @param decision
       #
-
-      def done?
-        ! @decision.nil?
-      end
+      # @api private
       def initialize(id, decision)
         @id = id
         @decision = decision
@@ -104,6 +109,7 @@ module AWS
       end
       init(:created)
 
+      # @api private
       def get_decision
         return @decision
       end
@@ -115,12 +121,13 @@ module AWS
       extend DecisionStateMachineDFA
       attr_reader :id
 
+      # @api private
       def initialize(id)
         @id = id
         @current_state = :created
       end
 
-
+      # @api private
       def handle_started_event(event)
         @state_history << :handle_started_event
       end
@@ -147,6 +154,7 @@ module AWS
                       ]
       self_transitions(:handle_decision_task_started_event)
 
+      # @api private
       def done?
         @current_state == :completed || @current_state == :completed_after_cancellation_decision_sent
       end
@@ -163,6 +171,7 @@ module AWS
       #
       # @param attributes
       #
+      # @api private
       def initialize(decision_id, attributes)
         @attributes = attributes
         super(decision_id)
@@ -172,6 +181,8 @@ module AWS
        [:cancelled_after_initiated, :handle_decision_task_started_event, :cancellation_decision_sent],
        [:cancellation_decision_sent, :handle_cancellation_failure_event, :initiated]
       ]
+
+      # @api private
       def get_decision
         case @current_state
         when :created
@@ -181,6 +192,7 @@ module AWS
         end
       end
 
+      # @api private
       def create_schedule_activity_task_decision
         options = @attributes[:options]
         attribute_type = :schedule_activity_task_decision_attributes
@@ -201,6 +213,7 @@ module AWS
         result
       end
 
+      # @api private
       def create_request_cancel_activity_task_decision
         { :decision_type => "RequestCancelActivityTask",
           :request_cancel_activity_task_decision_attributes => {:activity_id => @attributes[:decision_id]} }
@@ -216,6 +229,7 @@ module AWS
         super(decision_id)
       end
 
+      # @api private
       def create_start_timer_decision
         {
           :decision_type => "StartTimer",
@@ -228,6 +242,7 @@ module AWS
         }
       end
 
+      # @api private
       def create_cancel_timer_decision
         {
           :decision_type => "CancelTimer",
@@ -237,6 +252,7 @@ module AWS
         }
       end
 
+      # @api private
       def get_decision
         case @current_state
         when :created
@@ -246,6 +262,7 @@ module AWS
         end
       end
 
+      # @api private
       def done?
         @current_state == :completed || @cancelled
       end
@@ -265,6 +282,7 @@ module AWS
         super(decision_id)
       end
 
+      # @api private
       def get_decision
         case @current_state
         when :created
@@ -272,6 +290,7 @@ module AWS
         end
       end
 
+      # @api private
       def create_signal_external_workflow_execution_decison
         extra_options = {}
         [:input, :control, :run_id].each do |type|
@@ -309,11 +328,14 @@ module AWS
     # @api private
     class ChildWorkflowDecisionStateMachine < DecisionStateMachineBase
       attr_accessor :run_id, :attributes
+
+      # @api private
       def initialize(decision_id, attributes)
         @attributes = attributes
         super(decision_id)
       end
 
+      # @api private
       def create_start_child_workflow_execution_decision
         options = @attributes[:options]
         workflow_name = options.workflow_name || options.prefix_name
@@ -342,6 +364,7 @@ module AWS
         result
       end
 
+      # @api private
       def create_request_cancel_external_workflow_execution_decision
         result = {
           :decision_type => "RequestCancelExternalWorkflowExecution",
@@ -352,6 +375,7 @@ module AWS
         }
       end
 
+      # @api private
       def get_decision
         case @current_state
         when :created

@@ -8,7 +8,7 @@ module AWS
       # or actual results themselves back to the user
       class ResultWorker
 
-        # Wrapper around a ruby {Hash} to provide synchronization around making
+        # Wrapper around a ruby hash to provide synchronization around making
         # changes to the encapsulated hash.
         class SynchronizedHash
           attr_reader :hash
