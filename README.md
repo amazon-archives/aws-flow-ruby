@@ -39,7 +39,7 @@ AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" })
 You can also get the result of the background job if desired.
 
 ``` ruby
-future = AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" }, {result:true})
+future = AWS::Flow::start("MyJobs.hello", { name: "AWS Flow Framework" }, {get_result:true})
 # wait till ready
 future.get
 ```
