@@ -152,6 +152,7 @@ module AWS
             if failure.nil?
               output.set(result)
             else
+              raise failure if retry_options.return_on_start
               output.set(nil)
             end
           end
