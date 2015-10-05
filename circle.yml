@@ -1,2 +1,9 @@
 general:
   build_dir: aws-flow
+test:
+  override:
+    - bundle exec rspec:
+        parallel: true
+        timeout: 1200
+        files:
+          - spec/aws/*/integration/*.rb
