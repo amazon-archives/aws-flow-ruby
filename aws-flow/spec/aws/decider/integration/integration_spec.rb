@@ -1280,7 +1280,7 @@ describe "RubyFlowDecider" do
     workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
   end
 
-  it "makes sure that exponential_retry fails if we retry and still get failures", focus: true do
+  it "makes sure that exponential_retry fails if we retry and still get failures" do
     general_test(:task_list => "exponential_retry_fails_correctly", :class_name => "ExponentialRetryFailsCorrectly")
     @activity_class.class_eval do
       def run_activity1
