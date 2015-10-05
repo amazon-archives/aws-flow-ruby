@@ -1279,4 +1279,29 @@ describe "RubyFlowDecider" do
     wait_for_execution(workflow_execution)
     workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
   end
+
+  it "makes sure that exponential_retry fails if we retry and still get failures", focus: true do
+    general_test(:task_list => "exponential_retry_fails_correctly", :class_name => "ExponentialRetryFailsCorrectly")
+    @activity_class.class_eval do
+      def run_activity1
+        raise "This is an error!"
+      end
+    end
+    @workflow_class.class_eval do
+      def entry_point
+        activity.reconfigure(:run_activity1) {  {:exponential_retry => {:maximum_attempts => 2}} }
+        futures = []
+        futures << activity.send_async(:run_activity1)
+        wait_for_all(futures)
+      end
+    end
+    workflow_execution = @my_workflow_client.start_execution
+    forking_executor = ForkingExecutor.new(:max_workers => 2)
+    forking_executor.execute { @worker.start }
+    forking_executor.execute { @activity_worker.start }
+
+    wait_for_execution(workflow_execution)
+    events = workflow_execution.events.map(&:event_type)
+    events.count("WorkflowExecutionFailed").should == 1
+  end
 end
