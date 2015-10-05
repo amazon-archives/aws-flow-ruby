@@ -369,6 +369,9 @@ module AWS
           if task
             @logger.info Utilities.activity_task_to_debug_string("Got activity task", task)
           end
+        rescue Interrupt
+          @poll_semaphore.release
+          raise Interrupt
         rescue Exception => e
           @logger.error "Error in the poller, #{e.inspect}"
           @poll_semaphore.release

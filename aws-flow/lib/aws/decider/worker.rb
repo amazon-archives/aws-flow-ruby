@@ -43,16 +43,12 @@ module AWS
         if args
           args.each { |klass_or_instance| add_implementation(klass_or_instance) }
         end
+        @aws_flow_signals = []
         @shutting_down = false
         %w{ TERM INT }.each do |signal|
           Signal.trap(signal) do
-            if @shutting_down
-              @executor.shutdown(0) if @executor
-              Kernel.exit! 1
-            else
-              @shutting_down = true
-              @shutdown_first_time_function.call if @shutdown_first_time_function
-            end
+            @aws_flow_signals << signal
+            raise Interrupt
           end
         end
       end
@@ -391,7 +387,22 @@ module AWS
         end
       end
 
-
+      def handle_signals
+        # This function itself needs to be able to handle interrupts, in case we get them in close succession
+        begin
+          return if @aws_flow_signals.empty?
+          if @shutting_down
+            @executor.shutdown(0) if @executor
+            Kernel.exit! 1
+          else
+            @shutting_down = true
+            @shutdown_first_time_function.call if @shutdown_first_time_function
+          end
+        rescue Interrupt
+          @executor.shutdown(0) if @executor
+          Kernel.exit! 1
+        end
+      end
       # Starts the activity that was added to the `ActivityWorker`.
       #
       # @param [true, false] should_register
@@ -412,7 +423,12 @@ module AWS
 
         @logger.debug "Starting an infinite loop to poll and process activity tasks."
         loop do
-          run_once(false, poller)
+          begin
+            run_once(false, poller)
+          rescue Interrupt
+            handle_signals
+          end
+
         end
       end
 
