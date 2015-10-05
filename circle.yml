@@ -6,4 +6,4 @@ test:
         parallel: true
         timeout: 1200
         files:
-          - spec/aws/*/integration/*.rb
+          - spec/aws/*/unit/*.rb
