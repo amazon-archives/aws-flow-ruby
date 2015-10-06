@@ -39,6 +39,9 @@ class TestActivityWorker < ActivityWorker
 end
 
 class FakeTaskPoller < WorkflowTaskPoller
+  def poll_and_process_single_task(opts={})
+    dumb_fib(5000)
+  end
   def get_decision_task
     nil
   end
@@ -134,15 +137,14 @@ describe WorkflowWorker do
     workflow_worker = WorkflowWorker.new(service, domain, task_list)
     workflow_worker.add_workflow_implementation(TestWorkflow)
     pid = fork do
-      loop do
-        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
-      end
+      workflow_worker.start(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
     end
+    sleep 1
     # Send an interrupt to the child process
     Process.kill("INT", pid)
     # Adding a sleep to let things get setup correctly (not ideal but going with
     # this for now)
-    sleep 5
+    sleep 2
     return_pid, status = Process.wait2(pid, Process::WNOHANG)
     Process.kill("KILL", pid) if return_pid.nil?
     return_pid.should_not be nil
@@ -306,6 +308,7 @@ describe ActivityWorker do
       sleep 30
     end
   end
+
   it "will test whether the ActivityWorker shuts down cleanly when an interrupt is received" do
 
     task_list = "TestWorkflow_tasklist"
@@ -319,20 +322,17 @@ describe ActivityWorker do
     # handler to the process. When the process exits, the handler checks whether
     # the executor's internal is_shutdown variable is set correctly or not.
     pid = fork do
-      at_exit {
-        activity_worker.executor.is_shutdown.should == true
-      }
       activity_worker.start true
     end
     # Send an interrupt to the child process
+    sleep 1
     Process.kill("INT", pid)
     # Adding a sleep to let things get setup correctly (not ideal but going with
     # this for now)
-    sleep 5
+    sleep 2
     return_pid, status = Process.wait2(pid, Process::WNOHANG)
     Process.kill("KILL", pid) if return_pid.nil?
     return_pid.should_not be nil
-
     status.success?.should be_true
   end
 
@@ -354,7 +354,11 @@ describe ActivityWorker do
     # create a child process to run that task. The task (dumb_fib) is
     # purposefully designed to be long running so that we can test our shutdown
     # scenario.
+
     pid = fork do
+      at_exit {
+        activity_worker.executor.is_shutdown.should == true
+      }
       activity_worker.executor.execute {
         dumb_fib(1000)
       }
@@ -362,7 +366,7 @@ describe ActivityWorker do
     end
     # Adding a sleep to let things get setup correctly (not idea but going with
     # this for now)
-    sleep 3
+    sleep 2
     # Send 2 interrupts to the child process
     2.times { Process.kill("INT", pid); sleep 3 }
     status = Process.waitall
