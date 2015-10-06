@@ -1279,29 +1279,19 @@ describe "RubyFlowDecider" do
     wait_for_execution(workflow_execution)
     workflow_execution.events.map(&:event_type).last.should == "WorkflowExecutionCompleted"
   end
-  it "makes sure that exponential_retry allows you to capture the error with configure", focus: true do
-    general_test(:task_list => "exponential_retry_test_result", :class_name => "ExponentialRetryTestResult")
+  it "makes sure that exponential_retry fails if we retry and still get failures", focus: true do
+    general_test(:task_list => "exponential_retry_fails_correctly", :class_name => "ExponentialRetryFailsCorrectly")
     @activity_class.class_eval do
       def run_activity1
         raise "This is an error!"
       end
-      def run_activity2
-        return 1
-      end
     end
     @workflow_class.class_eval do
       def entry_point
-        activity.reconfigure(:run_activity1) {  {:exponential_retry => {:maximum_attempts => 1}} }
+        activity.reconfigure(:run_activity1) {  {:exponential_retry => {:maximum_attempts => 2}} }
         futures = []
-        begin
-          futures << activity.send_async(:run_activity2)
-          futures << activity.send_async(:run_activity2)
-          futures << activity.send_async(:run_activity1)
-          wait_for_all(futures)
-        rescue Exception => e
-        ensure
-        end
-        return futures.map(&:get)
+        futures << activity.send_async(:run_activity1)
+        wait_for_all(futures)
       end
     end
     workflow_execution = @my_workflow_client.start_execution
@@ -1311,7 +1301,6 @@ describe "RubyFlowDecider" do
 
     wait_for_execution(workflow_execution)
     events = workflow_execution.events.map(&:event_type)
-    events.count("WorkflowExecutionCompleted").should == 1
-    YAML.load(workflow_execution.events.to_a.last.attributes.result).should == [1, 1, nil]
+    events.count("WorkflowExecutionFailed").should == 1
   end
 end
