@@ -151,33 +151,6 @@ describe WorkflowWorker do
     status.success?.should be_true
   end
 
-  it "will test whether WorkflowWorker dies cleanly when two interrupts are received" do
-    class FakeTaskPoller
-      def poll_and_process_single_task
-        dumb_fib(5000)
-      end
-    end
-    task_list = "TestWorkflow_tasklist"
-    service = FakeServiceClient.new
-    workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )
-    domain = FakeDomain.new(workflow_type_object)
-    workflow_worker = WorkflowWorker.new(service, domain, task_list)
-    workflow_worker.add_workflow_implementation(TestWorkflow)
-    pid = fork do
-      loop do
-        workflow_worker.run_once(true, FakeTaskPoller.new(service, domain, nil, task_list, nil))
-      end
-    end
-    # Send an interrupt to the child process
-    sleep 3
-    2.times { Process.kill("INT", pid); sleep 2 }
-    return_pid, status = Process.wait2(pid, Process::WNOHANG)
-
-    Process.kill("KILL", pid) if return_pid.nil?
-    return_pid.should_not be nil
-    status.success?.should be_false
-  end
-
 end
 
 describe ActivityWorker do
