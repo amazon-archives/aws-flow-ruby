@@ -53,6 +53,30 @@ module AWS
         end
       end
 
+      def run_once(should_register = false, poller = nil)
+        register if should_register
+        poller ||= generate_poller
+        Kernel.exit if @shutting_down
+        poller.poll_and_process_single_task(@options)
+      end
+
+      def handle_signals
+        # This function itself needs to be able to handle interrupts, in case we get them in close succession
+        begin
+          return if @aws_flow_signals.empty?
+          if @shutting_down
+            @executor.shutdown(0) if @executor
+            Kernel.exit! 1
+          else
+            @shutting_down = true
+            @shutdown_first_time_function.call if @shutdown_first_time_function
+          end
+        rescue Interrupt
+          @executor.shutdown(0) if @executor
+          Kernel.exit! 1
+        end
+      end
+
       # @api private
       def camel_case_to_snake_case(camel_case)
         camel_case.
@@ -203,7 +227,7 @@ module AWS
       #   first. If {#register} was already called
       #   for this workflow worker, specify `false`.
       #
-      def start(should_register = true)
+      def start(should_register = true, poller = nil)
         # TODO check to make sure that the correct properties are set
         # TODO Register the domain if not already registered
         # TODO register types to poll
@@ -211,7 +235,7 @@ module AWS
         # TODO Set up a timeout on the throttler correctly,
         # TODO Make this a generic poller, go to the right kind correctly
 
-        poller = WorkflowTaskPoller.new(
+        poller ||= WorkflowTaskPoller.new(
           @service,
           @domain,
           DecisionTaskHandler.new(@workflow_definition_map, @options),
@@ -222,10 +246,24 @@ module AWS
         register if should_register
         @logger.debug "Starting an infinite loop to poll and process workflow tasks."
         loop do
-          run_once(false, poller)
+          begin
+            run_once(false, poller)
+          rescue Interrupt
+            handle_signals
+          end
         end
       end
 
+
+      def generate_poller
+        WorkflowTaskPoller.new(
+          @service,
+          @domain,
+          DecisionTaskHandler.new(@workflow_definition_map, @options),
+          @task_list,
+          @options
+        )
+      end
       # Starts the workflow and runs it once, with an optional
       # {WorkflowTaskPoller}.
       #
@@ -235,18 +273,7 @@ module AWS
       #   An optional {WorkflowTaskPoller} to use.
       #
       def run_once(should_register = false, poller = nil)
-        register if should_register
-
-        poller = WorkflowTaskPoller.new(
-          @service,
-          @domain,
-          DecisionTaskHandler.new(@workflow_definition_map, @options),
-          @task_list,
-          @options
-        ) if poller.nil?
-
-        Kernel.exit if @shutting_down
-        poller.poll_and_process_single_task
+        super
       end
     end
 
@@ -387,22 +414,6 @@ module AWS
         end
       end
 
-      def handle_signals
-        # This function itself needs to be able to handle interrupts, in case we get them in close succession
-        begin
-          return if @aws_flow_signals.empty?
-          if @shutting_down
-            @executor.shutdown(0) if @executor
-            Kernel.exit! 1
-          else
-            @shutting_down = true
-            @shutdown_first_time_function.call if @shutdown_first_time_function
-          end
-        rescue Interrupt
-          @executor.shutdown(0) if @executor
-          Kernel.exit! 1
-        end
-      end
       # Starts the activity that was added to the `ActivityWorker`.
       #
       # @param [true, false] should_register
@@ -432,6 +443,17 @@ module AWS
         end
       end
 
+      def generate_poller
+        ActivityTaskPoller.new(
+          @service,
+          @domain,
+          @task_list,
+          @activity_definition_map,
+          @executor,
+          @options
+        )
+      end
+
       # Starts the activity that was added to the `ActivityWorker` and,
       # optionally, sets the {ActivityTaskPoller}.
       #
@@ -444,18 +466,7 @@ module AWS
       #   {ActivityTaskPoller} will be created.
       #
       def run_once(should_register = true, poller = nil)
-        register if should_register
-        poller = ActivityTaskPoller.new(
-          @service,
-          @domain,
-          @task_list,
-          @activity_definition_map,
-          @executor,
-          @options
-        ) if poller.nil?
-
-        Kernel.exit if @shutting_down
-        poller.poll_and_process_single_task(@options.use_forking)
+        super
       end
     end
 

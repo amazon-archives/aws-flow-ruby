@@ -52,7 +52,7 @@ module AWS
         @domain.decision_tasks.poll_for_single_task(@task_list)
       end
 
-      def poll_and_process_single_task
+      def poll_and_process_single_task(opts={})
         # TODO waitIfSuspended
         begin
           @logger.debug "Polling for a new decision task of type #{@handler.workflow_definition_map.keys.map{ |x| "#{x.name} #{x.version}"} } on task_list: #{@task_list}"
@@ -96,6 +96,9 @@ module AWS
           @logger.info Utilities.workflow_task_to_debug_string("Finished executing task", task, @task_list)
         rescue AWS::SimpleWorkflow::Errors::UnknownResourceFault => e
           @logger.error "Error in the poller, #{e.inspect}"
+        rescue Interrupt => e
+          @logger.error "Error in the poller, #{e.inspect}"
+          raise Interrupt
         rescue Exception => e
           @logger.error "Error in the poller, #{e.inspect}"
         end
@@ -356,7 +359,8 @@ module AWS
       #   *Optional*. Whether to use forking to execute the task. On Windows,
       #   you should set this to `false`.
       #
-      def poll_and_process_single_task(use_forking = true)
+      def poll_and_process_single_task(opts = {})
+        use_forking = opts[:use_forking] || true
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
@@ -369,8 +373,9 @@ module AWS
           if task
             @logger.info Utilities.activity_task_to_debug_string("Got activity task", task)
           end
-        rescue Interrupt
+        rescue Interrupt => e
           @poll_semaphore.release
+          @logger.error "Error in the poller, #{e.inspect}"
           raise Interrupt
         rescue Exception => e
           @logger.error "Error in the poller, #{e.inspect}"
