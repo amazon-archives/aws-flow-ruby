@@ -360,7 +360,12 @@ module AWS
       #   you should set this to `false`.
       #
       def poll_and_process_single_task(opts = {})
-        use_forking = opts[:use_forking] || true
+        # Support older style where the argument passed was a boolean
+        use_forking = if [true, false].include? opts
+                        opts
+                      else
+                        opts[:use_forking] || true
+                      end
         @poll_semaphore ||= SuspendableSemaphore.new
         @poll_semaphore.acquire
         semaphore_needs_release = true
