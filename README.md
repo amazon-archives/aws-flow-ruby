@@ -1,6 +1,4 @@
 # AWS Flow Framework for Ruby
-[![Circle CI](https://circleci.com/gh/mjsteger/aws-flow-ruby/tree/master.png?circle-token=:circle-token&style=shield)](https://circleci.com/gh/mjsteger/aws-flow-ruby)
-
 
 The *AWS Flow Framework* is a library for creating background jobs and multistep
 workflows using [Amazon Simple Workflow][swf] (Amazon SWF).
