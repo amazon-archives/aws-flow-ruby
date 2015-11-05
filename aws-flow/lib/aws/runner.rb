@@ -215,10 +215,11 @@ module AWS
 
           # Create the config for default workers if it's not passed in the
           # json_config
-          if json_config['default_workers'].nil? || json_config['default_workers']['number_of_workers'].nil?
-            json_config['default_workers'] = {
-              'number_of_workers' => number_of_default_workers
-            }
+          if json_config['default_workers'].nil?
+            json_config['default_workers'] = {}
+          end
+          if json_config['default_workers']['number_of_workers'].nil?
+            json_config['default_workers']['number_of_workers'] = number_of_default_workers
           end
         end
 
@@ -243,7 +244,9 @@ module AWS
           AWS::Flow::Templates::Utils.register_default_result_activity(domain)
 
           klass = AWS::Flow::Templates.default_workflow
-          task_list = FlowConstants.defaults[:task_list]
+          task_list = json_config['default_workers']['task_list'] if json_config['default_workers']['task_list']
+          task_list ||= FlowConstants.defaults[:task_list]
+
           # Create a worker
           worker = WorkflowWorker.new(swf.client, domain, task_list, klass)
           # This will take care of both registering and starting the default workers
