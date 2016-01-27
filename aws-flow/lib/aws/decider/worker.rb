@@ -201,16 +201,9 @@ module AWS
 
 
       # Starts the workflow with a {WorkflowTaskPoller}.
-      #
-      # @param [true,false] should_register
-      #   Indicates whether the workflow needs to be registered with Amazon SWF
-      #   first. If {#register} was already called
-      #   for this workflow worker, specify `false`.
-      #
-      def start(should_register = true)
+      def start
         # TODO check to make sure that the correct properties are set
         # TODO Register the domain if not already registered
-        # TODO register types to poll
         # TODO Set up throttler
         # TODO Set up a timeout on the throttler correctly,
         # TODO Make this a generic poller, go to the right kind correctly
@@ -223,7 +216,6 @@ module AWS
           @options
         )
 
-        register if should_register
         @logger.debug "Starting an infinite loop to poll and process workflow tasks."
         loop do
           run_once(false, poller)
