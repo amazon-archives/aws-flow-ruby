@@ -403,12 +403,43 @@ module AWS
       # worker_spec: Hash representation of the json worker spec
       #
       def self.run(worker_spec)
+        call_hook(worker_spec['before_worker_start']) \
+          if worker_spec['before_worker_start']
+
         workers = start_workers(worker_spec)
         setup_signal_handling(workers)
+
+        call_hook(worker_spec['after_worker_start'], workers) \
+          if worker_spec['after_worker_start']
 
         # Hang there until killed: this process is used to relay signals to
         # children to support and facilitate an orderly shutdown.
         wait_for_child_processes(workers)
+      end
+
+      #
+      # Call a Ruby class or module method from a string.
+      #
+      # hook_callbacks: Array of callback method strings
+      # *args: Arguments to be used when calling callback methods
+      #
+      def self.call_hook(hook_callbacks, *args)
+        hook_callbacks.each do |callback|
+          klass_name, method = callback.split('.')
+          begin
+            klass = Kernel.const_get(klass_name)
+          rescue NameError => e
+            puts "Callback failure: unable to determine class for #{callback}: #{e.message}"
+            next
+          end
+
+          unless klass.respond_to?(method)
+            puts "Callback failure: #{klass} does not respond to #{method} for #{callback}"
+            next
+          end
+
+          klass.send(method, *args)
+        end
       end
 
       #
