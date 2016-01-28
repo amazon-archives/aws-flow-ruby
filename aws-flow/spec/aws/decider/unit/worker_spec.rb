@@ -340,7 +340,7 @@ describe ActivityWorker do
   # scenarios
 
 
-  it "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
+  xit "will test whether the ActivityWorker shuts down immediately if two or more interrupts are received" do
     task_list = "TestWorkflow_tasklist"
     service = FakeServiceClient.new
     workflow_type_object = double("workflow_type", :name => "TestWorkflow.start", :start_execution => "" )

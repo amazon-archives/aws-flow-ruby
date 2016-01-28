@@ -141,7 +141,7 @@ describe "AWS::Flow::Templates" do
 
     end
 
-    it "initializes result_step and calls get_result when get_result is true" do
+    xit "initializes result_step and calls get_result when get_result is true" do
 
       expect(AWS::Flow::Templates::ResultWorker).to receive(:start)
       expect(AWS::Flow::Templates::ResultWorker).to receive(:get_result_future)
