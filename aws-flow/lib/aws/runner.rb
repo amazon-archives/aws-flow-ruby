@@ -106,13 +106,11 @@ module AWS
       def self.spawn_and_start_workers(json_fragment, process_name, worker)
         workers = []
         num_of_workers = json_fragment['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
-        should_register = true
         num_of_workers.times do
           workers << fork do
             set_process_name(process_name)
-            worker.start(should_register)
+            worker.start
           end
-          should_register = false
         end
         workers
       end
@@ -206,6 +204,10 @@ module AWS
               worker.add_implementation(c)
             end
 
+            # Register activities so failures result in termination of the
+            # runner.
+            worker.register
+
             # We add 1 default worker for each activity worker.
             number_of_default_workers += w['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
 
@@ -279,6 +281,10 @@ module AWS
 
             # Create a worker
             worker = WorkflowWorker.new(swf.client, domain, task_list, *classes)
+
+            # Register workflows so failures result in termination of the
+            # runner.
+            worker.register
 
             # Start as many workers as desired in child processes
             workers << spawn_and_start_workers(w, "workflow-worker", worker)
