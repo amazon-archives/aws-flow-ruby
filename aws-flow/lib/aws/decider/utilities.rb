@@ -30,13 +30,20 @@ module AWS
         def self.make_logger(klass)
           make_logger_with_level(klass, Logger::INFO)
         end
+        
         def self.make_logger_with_level(klass, level)
           logname = "#{Dir.tmpdir}/#{klass.class.to_s}"
           logname.gsub!(/::/, '-')
-          log = Logger.new(logname)
-          log.level = level
+          create_logger_from_configuration_hash({:path => logname, :level => level})
+        end
+
+        def self.create_logger_from_configuration_hash(options)
+          raise "Logger option should be a hash" unless options.is_a? Hash
+          log = Logger.new(options[:path])
+          log.level = options[:level]
           log
         end
+
       end
 
       def self.workflow_task_to_debug_string(message, task, task_list)

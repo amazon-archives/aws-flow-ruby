@@ -181,7 +181,6 @@ module AWS
         # is defaulted to 0.
         number_of_default_workers = 0
 
-        # TODO: logger
         # start the workers for each spec
         if json_config['activity_workers']
           json_config['activity_workers'].each do |w|
@@ -198,8 +197,17 @@ module AWS
             # task_list for this worker
             task_list ||= "#{classes.first}"
 
+            #worker options
+            options = { execution_workers: fork_count }
+            
+            #init logger if needed
+            if w['logger']
+              logger = Utilities::LogFactory.create_logger_from_configuration_hash(w['logger'])
+              options[:logger] = logger
+            end
+
             # Create a worker
-            worker = ActivityWorker.new(swf.client, domain, task_list) {{ execution_workers: fork_count }}
+            worker = ActivityWorker.new(swf.client, domain, task_list) {options}
 
             classes.each do |c|
               c = AWS::Flow::Templates.make_activity_class(c) unless c.is_a?(AWS::Flow::Activities)
@@ -264,7 +272,6 @@ module AWS
         workers = []
         domain = setup_domain(json_config) if domain.nil?
 
-        # TODO: logger
         # start the workers for each spec
         if json_config['workflow_workers']
           json_config['workflow_workers'].each do |w|
@@ -274,8 +281,17 @@ module AWS
             classes = get_classes(w, {config_key: 'workflow_classes',
                                       clazz: AWS::Flow::Workflows})
 
+            #worker options
+            options = {}
+
+            #init logger if needed
+            if w['logger']
+              logger = Utilities::LogFactory.create_logger_from_configuration_hash(w['logger'])
+              options[:logger] = logger
+            end
+           
             # Create a worker
-            worker = WorkflowWorker.new(swf.client, domain, task_list, *classes)
+            worker = WorkflowWorker.new(swf.client, domain, task_list, *classes) { options }
 
             # Start as many workers as desired in child processes
             workers << spawn_and_start_workers(w, "workflow-worker", worker)
