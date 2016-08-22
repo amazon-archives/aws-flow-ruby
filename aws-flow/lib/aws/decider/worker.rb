@@ -51,7 +51,6 @@ module AWS
               Kernel.exit! 1
             else
               @shutting_down = true
-              @shutdown_first_time_function.call if @shutdown_first_time_function
             end
           end
         end
@@ -304,10 +303,6 @@ module AWS
           :logger => @logger
         )
 
-        @shutdown_first_time_function = lambda do
-          @executor.shutdown Float::INFINITY
-          Kernel.exit
-        end
         super(service, domain, task_list, *args)
       end
 
@@ -438,7 +433,11 @@ module AWS
           @options
         ) if poller.nil?
 
-        Kernel.exit if @shutting_down
+        if @shutting_down
+          @executor.shutdown Float::INFINITY
+          Kernel.exit
+        end
+
         poller.poll_and_process_single_task(@options.use_forking)
       end
     end
