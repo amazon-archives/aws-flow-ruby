@@ -385,14 +385,7 @@ module AWS
 
 
       # Starts the activity that was added to the `ActivityWorker`.
-      #
-      # @param [true, false] should_register
-      #   Set to `false` if the activity should not register itself (it is
-      #   already registered).
-      #
-      def start(should_register = true)
-
-        register if should_register
+      def start
         poller = ActivityTaskPoller.new(
           @service,
           @domain,

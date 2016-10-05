@@ -251,6 +251,11 @@ module AWS
 
           # Create a worker
           worker = WorkflowWorker.new(swf.client, domain, task_list, klass)
+
+          # Register default workflow so failure results in termination of the
+          # runner.
+          worker.register
+
           # This will take care of both registering and starting the default workers
           workers << spawn_and_start_workers(json_config['default_workers'], "default-worker", worker)
         end
