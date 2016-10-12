@@ -338,7 +338,15 @@ module AWS
       #
       # @api private
       def self.setup_signal_handling(workers)
-        Signal.trap("INT") { workers.each { |w| Process.kill("INT", w) }  }
+        Signal.trap("INT") do 
+          workers.each do |w|
+            begin
+              Process.kill("INT", w)
+            rescue Errno::ESRCH
+              next
+            end
+          end
+        end
       end
 
       # Waits until all the child workers are finished.
