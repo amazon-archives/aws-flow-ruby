@@ -106,13 +106,11 @@ module AWS
       def self.spawn_and_start_workers(json_fragment, process_name, worker)
         workers = []
         num_of_workers = json_fragment['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
-        should_register = true
         num_of_workers.times do
           workers << fork do
             set_process_name(process_name)
-            worker.start(should_register)
+            worker.start
           end
-          should_register = false
         end
         workers
       end
@@ -206,6 +204,10 @@ module AWS
               worker.add_implementation(c)
             end
 
+            # Register activities so failures result in termination of the
+            # runner.
+            worker.register
+
             # We add 1 default worker for each activity worker.
             number_of_default_workers += w['number_of_workers'] || FlowConstants::NUM_OF_WORKERS_DEFAULT
 
@@ -215,10 +217,11 @@ module AWS
 
           # Create the config for default workers if it's not passed in the
           # json_config
-          if json_config['default_workers'].nil? || json_config['default_workers']['number_of_workers'].nil?
-            json_config['default_workers'] = {
-              'number_of_workers' => number_of_default_workers
-            }
+          if json_config['default_workers'].nil?
+            json_config['default_workers'] = {}
+          end
+          if json_config['default_workers']['number_of_workers'].nil?
+            json_config['default_workers']['number_of_workers'] = number_of_default_workers
           end
         end
 
@@ -243,9 +246,16 @@ module AWS
           AWS::Flow::Templates::Utils.register_default_result_activity(domain)
 
           klass = AWS::Flow::Templates.default_workflow
-          task_list = FlowConstants.defaults[:task_list]
+          task_list = json_config['default_workers']['task_list'] if json_config['default_workers']['task_list']
+          task_list ||= FlowConstants.defaults[:task_list]
+
           # Create a worker
           worker = WorkflowWorker.new(swf.client, domain, task_list, klass)
+
+          # Register default workflow so failure results in termination of the
+          # runner.
+          worker.register
+
           # This will take care of both registering and starting the default workers
           workers << spawn_and_start_workers(json_config['default_workers'], "default-worker", worker)
         end
@@ -276,6 +286,10 @@ module AWS
 
             # Create a worker
             worker = WorkflowWorker.new(swf.client, domain, task_list, *classes)
+
+            # Register workflows so failures result in termination of the
+            # runner.
+            worker.register
 
             # Start as many workers as desired in child processes
             workers << spawn_and_start_workers(w, "workflow-worker", worker)
@@ -338,7 +352,15 @@ module AWS
       #
       # @api private
       def self.setup_signal_handling(workers)
-        Signal.trap("INT") { workers.each { |w| Process.kill("INT", w) }  }
+        Signal.trap("INT") do 
+          workers.each do |w|
+            begin
+              Process.kill("INT", w)
+            rescue Errno::ESRCH
+              next
+            end
+          end
+        end
       end
 
       # Waits until all the child workers are finished.
@@ -403,12 +425,43 @@ module AWS
       # worker_spec: Hash representation of the json worker spec
       #
       def self.run(worker_spec)
+        call_hook(worker_spec['before_worker_start']) \
+          if worker_spec['before_worker_start']
+
         workers = start_workers(worker_spec)
         setup_signal_handling(workers)
+
+        call_hook(worker_spec['after_worker_start'], workers) \
+          if worker_spec['after_worker_start']
 
         # Hang there until killed: this process is used to relay signals to
         # children to support and facilitate an orderly shutdown.
         wait_for_child_processes(workers)
+      end
+
+      #
+      # Call a Ruby class or module method from a string.
+      #
+      # hook_callbacks: Array of callback method strings
+      # *args: Arguments to be used when calling callback methods
+      #
+      def self.call_hook(hook_callbacks, *args)
+        hook_callbacks.each do |callback|
+          klass_name, method = callback.split('.')
+          begin
+            klass = Kernel.const_get(klass_name)
+          rescue NameError => e
+            puts "Callback failure: unable to determine class for #{callback}: #{e.message}"
+            next
+          end
+
+          unless klass.respond_to?(method)
+            puts "Callback failure: #{klass} does not respond to #{method} for #{callback}"
+            next
+          end
+
+          klass.send(method, *args)
+        end
       end
 
       #

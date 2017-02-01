@@ -1,0 +1,7 @@
+language: ruby
+rvm:
+- 2.2
+before_install:
+- cd aws-flow
+script:
+- bundle exec rake unit_tests

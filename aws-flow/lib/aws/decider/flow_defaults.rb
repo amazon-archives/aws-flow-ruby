@@ -94,6 +94,7 @@ module AWS
 
       class << self
         attr_reader :exponential_retry_maximum_retry_interval_seconds, :exponential_retry_retry_expiration_seconds, :exponential_retry_backoff_coefficient, :exponential_retry_maximum_attempts, :exponential_retry_function, :default_data_converter, :exponential_retry_exceptions_to_include, :exponential_retry_exceptions_to_exclude, :jitter_function, :should_jitter, :exponential_retry_initial_retry_interval, :use_worker_task_list
+        attr_accessor :defaults
       end
 
       # Sizes taken from
@@ -113,25 +114,6 @@ module AWS
       INFINITY = -1
       RETENTION_DEFAULT = 7
       NUM_OF_WORKERS_DEFAULT = 1
-
-      def self.defaults
-        {
-          domain: "FlowDefault",
-          prefix_name: "FlowDefaultWorkflowRuby",
-          execution_method: "start",
-          version: "1.0",
-          # execution timeout (1 hour)
-          execution_start_to_close_timeout: "3600",
-          data_converter: self.data_converter,
-          schedule_to_start_timeout: 60,
-          start_to_close_timeout: 60,
-          retry_policy: { maximum_attempts: 3 },
-          task_list: "flow_default_ruby",
-          result_activity_prefix: "FlowDefaultResultActivityRuby",
-          result_activity_version: "1.0",
-          result_activity_method: "run"
-        }
-      end
 
       @exponential_retry_maximum_attempts = Float::INFINITY
       @exponential_retry_maximum_retry_interval_seconds = -1
@@ -187,6 +169,22 @@ module AWS
         S3DataConverter.converter
       end
 
+      @defaults = {
+        domain: "FlowDefault",
+        prefix_name: "FlowDefaultWorkflowRuby",
+        execution_method: "start",
+        version: "1.0",
+        # execution timeout (1 hour)
+        execution_start_to_close_timeout: "3600",
+        data_converter: data_converter,
+        schedule_to_start_timeout: 60,
+        start_to_close_timeout: 60,
+        retry_policy: { maximum_attempts: 3 },
+        task_list: "flow_default_ruby",
+        result_activity_prefix: "FlowDefaultResultActivityRuby",
+        result_activity_version: "1.0",
+        result_activity_method: "run"
+      }
       @default_data_converter = YAMLDataConverter.new
       @use_worker_task_list = "USE_WORKER_TASK_LIST"
     end
