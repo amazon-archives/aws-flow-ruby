@@ -82,6 +82,10 @@ module AWS
         end
         @log.debug "Created a new child process: parent=#{Process.pid}, child_pid=#{child_pid}"
         @pids << child_pid
+      rescue => e
+        # Failing to rescue exceptions here results in some worker processes
+        # exiting, leaving the service in an inconsistent state.
+        @log.error "Error creating a new child process: parent=#{Process.pid}, error=#{e}"
       end
 
       def shutdown(timeout_seconds)
