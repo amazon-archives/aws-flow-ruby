@@ -281,7 +281,7 @@ module AWS
 
             # Create a worker
             worker = WorkflowWorker.new(swf.client, domain, task_list, *classes) {
-              logger: Logger.new(STDOUT)
+              { logger: Logger.new(STDOUT) }
             }
 
             # Start as many workers as desired in child processes
