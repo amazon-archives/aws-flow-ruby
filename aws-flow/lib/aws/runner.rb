@@ -46,6 +46,7 @@ module AWS
       require 'json'
       require 'optparse'
       require 'socket'
+      require 'remote_syslog_logger'
 
       # Registers the domain if it is not already registered.
       #
