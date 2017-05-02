@@ -73,7 +73,7 @@ module AWS
         attributes[:timer_id] = timer_id
         attributes[:start_to_fire_timeout] = delay_seconds.to_s
         open_request = OpenRequestInfo.new
-        open_request.blocking_promise = Future.new
+        open_request.blocking_promise = AWS::Flow::Core::Future.new
         if block
           open_request.result = task do
             open_request.blocking_promise.get

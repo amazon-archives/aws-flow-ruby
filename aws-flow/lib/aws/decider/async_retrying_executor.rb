@@ -69,8 +69,8 @@ module AWS
       # @api private
       def invoke(command, attempts, first_attempt_time)
         failure_to_retry = nil
-        should_retry = Future.new
-        return_value = Future.new
+        should_retry = AWS::Flow::Core::Future.new
+        return_value = AWS::Flow::Core::Future.new
         output = Utilities::AddressableFuture.new
         error_handler do |t|
           t.begin { return_value.set(command.call) }

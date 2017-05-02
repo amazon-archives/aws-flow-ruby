@@ -91,7 +91,7 @@ module AWS
       #
       def initialize(workflow_execution)
         @_workflow_execution = workflow_execution.dup
-        @return_value = Future.new
+        @return_value = AWS::Flow::Core::Future.new
       end
 
       # Determines whether the object is a flow future. The contract is that flow futures must have a `get` method.
@@ -272,7 +272,7 @@ module AWS
         client_options = Utilities::client_options_from_method_name(method_name, @options)
         options = Utilities::merge_all_options(client_options, options)
 
-        workflow_id_future, run_id_future = Future.new, Future.new
+        workflow_id_future, run_id_future = AWS::Flow::Core::Future.new, AWS::Flow::Core::Future.new
         minimal_domain = MinimalDomain.new(@domain.name.to_s)
         output = WorkflowFuture.new(AWS::Flow::MinimalWorkflowExecution.new(minimal_domain, workflow_id_future, run_id_future))
         new_options = StartWorkflowOptions.new(options)

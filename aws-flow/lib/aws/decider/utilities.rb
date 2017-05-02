@@ -225,7 +225,7 @@ module AWS
         attr_accessor :return_value, :_metadata
         def initialize(initial_metadata = nil)
           @_metadata = initial_metadata
-          @return_value = Future.new
+          @return_value = AWS::Flow::Core::Future.new
         end
 
         # Determines whether the object is a flow future. The contract is that
