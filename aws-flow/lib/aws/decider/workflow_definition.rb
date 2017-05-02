@@ -36,8 +36,8 @@ module AWS
 
       def execute(input = nil)
         #TODO Set up all the converter stuff
-        result = Future.new
-        method_output = Future.new
+        result = AWS::Flow::Core::Future.new
+        method_output = AWS::Flow::Core::Future.new
         error_handler do |t|
           t.begin do
             if input.nil?
