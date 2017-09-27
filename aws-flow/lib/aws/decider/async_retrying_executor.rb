@@ -125,21 +125,23 @@ module AWS
       #   otherwise.
       #
       def isRetryable(failure)
+        return true if @exceptions_to_exclude.empty? && @exceptions_to_include.empty?
+
         if failure.respond_to?(:cause) && !failure.cause.nil?
           failure_class = failure.cause.class
         else
           failure_class = failure.class
         end
 
-        return true if @exceptions_to_exclude.empty? && @exceptions_to_include.empty?
-        raise "#{failure} appears in both exceptions_to_include and exceptions_to_exclude" if @exceptions_to_exclude.include?(failure_class) && @exceptions_to_include.include?(failure_class)
-        # In short, default to false.
-        # The second part of the statement does an intersection of the 2 arrays
-        # to see if any of the ancestors of failure exists in
-        # @exceptions_to_include
-        return (!@exceptions_to_exclude.include?(failure_class) && !(@exceptions_to_include & failure_class.ancestors).empty?)
+        return (!excluded?(failure_class) && included?(failure_class))
+      end
 
-         #return (!@exceptions_to_exclude.include?(failure) && @exceptions_to_include.include?(failure))
+      def excluded?(failure_class)
+        !(@exceptions_to_exclude & failure_class.ancestors).empty?
+      end
+
+      def included?(failure_class)
+        !(@exceptions_to_include & failure_class.ancestors).empty?
       end
 
       # Schedules a new retry attempt with an initial delay.
